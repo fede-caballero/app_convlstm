@@ -1,0 +1,19 @@
+# Entorno Virtual de Python
+venv/
+
+# Archivos de caché y compilados de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Archivos de caché y dependencias del editor
+.vscode/
+.idea/
+
+# Dependencias de Frontend (si usas Node.js en el futuro)
+node_modules/
+
+*.deb
+
+

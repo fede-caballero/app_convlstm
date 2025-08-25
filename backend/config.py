@@ -37,3 +37,6 @@ DATA_CONFIG = {
 
 # --- Parámetros de Inferencia ---
 Z_BATCH_SIZE = 2 # Lotes de niveles de altura para no saturar la VRAM
+
+# --- Archivo de Estado ---
+STATUS_FILE_PATH = "/app/status.json"

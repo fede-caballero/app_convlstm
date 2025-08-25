@@ -1,15 +1,10 @@
-# backend/predict.py
 import torch
 import torch.nn as nn
-import logging
-from config import MODEL_CONFIG, DEVICE, Z_BATCH_SIZE
 
-# ==================================================================
-# COPIA Y PEGA AQUÍ LAS CLASES DE TU MODELO EXACTAMENTE COMO LAS TIENES
-# ConvLSTMCell, ConvLSTM2DLayer, ConvLSTM3D_Enhanced
-# ... (por brevedad, no las pego aquí, pero deben ir en este archivo)
-# ==================================================================
 class ConvLSTMCell(nn.Module):
+    """
+    Célula básica de ConvLSTM.
+    """
     def __init__(self, input_dim, hidden_dim, kernel_size, bias=True):
         super(ConvLSTMCell, self).__init__()
         self.input_dim = input_dim
@@ -28,7 +23,10 @@ class ConvLSTMCell(nn.Module):
         combined = torch.cat([input_tensor, h_cur], dim=1)
         combined_conv = self.conv(combined)
         cc_i, cc_f, cc_o, cc_g = torch.split(combined_conv, self.hidden_dim, dim=1)
-        i = torch.sigmoid(cc_i); f = torch.sigmoid(cc_f); o = torch.sigmoid(cc_o); g = torch.tanh(cc_g)
+        i = torch.sigmoid(cc_i)
+        f = torch.sigmoid(cc_f)
+        o = torch.sigmoid(cc_o)
+        g = torch.tanh(cc_g)
         c_next = f * c_cur + i * g
         h_next = o * torch.tanh(c_next)
         return h_next, c_next
@@ -39,6 +37,9 @@ class ConvLSTMCell(nn.Module):
                 torch.zeros(batch_size, self.hidden_dim, height, width, device=device))
 
 class ConvLSTM2DLayer(nn.Module):
+    """
+    Capa que apila una secuencia de células ConvLSTM.
+    """
     def __init__(self, input_dim, hidden_dim, kernel_size, use_layer_norm=True, img_size=(500,500), bias=True, return_all_layers=False):
         super(ConvLSTM2DLayer, self).__init__()
         self.use_layer_norm = use_layer_norm
@@ -70,6 +71,9 @@ class ConvLSTM2DLayer(nn.Module):
         return layer_output, (h_cur, c_cur)
 
 class ConvLSTM3D_Enhanced(nn.Module):
+    """
+    La arquitectura completa del modelo que apila múltiples capas de ConvLSTM2DLayer.
+    """
     def __init__(self, input_dim, hidden_dims, kernel_sizes, num_layers, pred_steps, use_layer_norm, img_height, img_width):
         super(ConvLSTM3D_Enhanced, self).__init__()
         self.input_dim = input_dim
@@ -102,46 +106,3 @@ class ConvLSTM3D_Enhanced(nn.Module):
         prediction_features = raw_conv_output.squeeze(2)
         predictions_norm = self.sigmoid(prediction_features.view(b, self.pred_steps, self.input_dim, h, w))
         return predictions_norm
-
-
-class ModelPredictor:
-    def __init__(self, model_path):
-        self.model = self._load_model(model_path)
-
-    def _load_model(self, model_path):
-        logging.info(f"Cargando modelo desde: {model_path}")
-        try:
-            model = ConvLSTM3D_Enhanced(**MODEL_CONFIG)
-            checkpoint = torch.load(model_path, map_location=DEVICE, weights_only=True)
-            model.load_state_dict(checkpoint['model_state_dict'])
-            model.to(DEVICE)
-            model.eval()
-            logging.info("Modelo cargado exitosamente.")
-            return model
-        except Exception as e:
-            logging.error(f"Error fatal al cargar el modelo: {e}", exc_info=True)
-            raise
-
-    def predict(self, input_volume: torch.Tensor) -> torch.Tensor:
-        x_to_model_full = input_volume.permute(0, 1, 4, 2, 3).to(DEVICE)
-        
-        num_z_levels = x_to_model_full.shape[0]
-        all_predictions_chunks = []
-
-        logging.info(f"Iniciando predicción en {num_z_levels} niveles de altura...")
-        for z_start in range(0, num_z_levels, Z_BATCH_SIZE):
-            z_end = min(z_start + Z_BATCH_SIZE, num_z_levels)
-            x_chunk = x_to_model_full[z_start:z_end, ...]
-            
-            with torch.no_grad(), torch.amp.autocast(device_type="cuda"):
-                prediction_chunk = self.model(x_chunk)
-            
-            all_predictions_chunks.append(prediction_chunk.cpu())
-        
-        prediction_norm = torch.cat(all_predictions_chunks, dim=0)
-        logging.info("Predicción completada.")
-        
-        del x_to_model_full, all_predictions_chunks
-        torch.cuda.empty_cache()
-
-        return prediction_norm

@@ -11,7 +11,7 @@ RUN apt-get install -y ./${DEB_FILE}
 # =================================================================
 # ETAPA 2: "EL PRODUCTO FINAL" - La imagen limpia y optimizada
 # =================================================================
-FROM nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
 # Instalamos las dependencias de EJECUCIÓN, incluyendo la que faltaba.
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -33,5 +33,8 @@ COPY backend/requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
 COPY ./backend .
 
+# Nos aseguramos que el script es ejecutable
+RUN chmod +x /app/run.sh
+
 # Configuramos el punto de entrada
-CMD ["python3", "pipeline_worker.py"]
+CMD ["/app/run.sh"]

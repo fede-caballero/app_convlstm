@@ -1,0 +1,29 @@
+// ==================================================================
+// Parámetros PLANTILLA para NcGeneric2Mdv (VERSIÓN FINAL Y COMPLETA)
+// Basado en la configuración funcional del usuario.
+// ==================================================================
+
+// Modo ARCHIVE para escanear un directorio completo
+mode = ARCHIVE;
+
+// El script de automatización reemplazará esta línea
+input_dir = "%%INPUT_DIR%%";
+
+// El script de automatización reemplazará esta línea
+output_url = "%%OUTPUT_DIR%%";
+
+// --- Manejo del Tiempo ---
+netcdf_var_base_time = "none";
+netcdf_var_time_offset = "time";
+
+// --- Proyección de ENTRADA ---
+input_projection = PROJ_FLAT;
+input_proj_origin_lat = -34.6479988;
+input_proj_origin_lon = -68.0169982;
+
+// --- Codificación de SALIDA ---
+output_encoding_type = ENCODING_INT8;
+
+// --- Depuración ---
+// Se deja en OFF para la automatización, pero se puede cambiar a DEBUG_VERBOSE si se necesita
+debug = DEBUG_NORM;

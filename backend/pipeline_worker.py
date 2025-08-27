@@ -1,20 +1,21 @@
-# backend/pipeline_worker.py
-
 import os
 import time
 import logging
 import shutil
 import json
+import subprocess
 from datetime import datetime, timedelta, timezone
 import numpy as np
 import torch
 import xarray as xr
 from netCDF4 import Dataset as NCDataset
 import pyproj
+import glob
 
 # Importamos desde nuestros módulos
-from config import (INPUT_DIR, OUTPUT_DIR, ARCHIVE_DIR, SECUENCE_LENGHT, 
-                    POLL_INTERVAL_SECONDS, MODEL_PATH, DATA_CONFIG, STATUS_FILE_PATH)
+from config import (MDV_INBOX_DIR, MDV_ARCHIVE_DIR, INPUT_DIR, OUTPUT_DIR, ARCHIVE_DIR, 
+                    SECUENCE_LENGHT, POLL_INTERVAL_SECONDS, MODEL_PATH, 
+                    DATA_CONFIG, STATUS_FILE_PATH, MDV_OUTPUT_DIR)
 from model.predict import ModelPredictor
 
 # --- Configuración del Logging ---
@@ -97,50 +98,180 @@ def save_prediction_as_netcdf(output_subdir: str, pred_sequence_cleaned: np.ndar
             dbz_v[0, :, :, :] = dbz_final_to_write
         logging.info(f"  -> Predicción guardada en: {os.path.basename(output_filename)}")
 
+def convert_mdv_to_nc(mdv_filepath: str, output_dir: str):
+    """ Usa la herramienta mdv2netcdf para convertir archivos MDV a NetCDF. """
+    mdv_filename = os.path.basename(mdv_filepath)
+    output_nc_path = os.path.join(output_dir, mdv_filename.replace('.mdv', '.nc'))
+
+    command = [
+        "Mdv2NetCDF",
+        "-in", mdv_filepath,
+        "-out", output_nc_path,
+        "-instance"
+    ]
+
+    logging.info(f"Convirtiendo {mdv_filename} a NetCDF...")
+    try:
+        result = subprocess.run(command, check=True, capture_output=True, text=True)
+        logging.info(f"Conversión exitosa. Salida de LROSE: {result.stdout}")
+        return True
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Falló la conversión de {mdv_filename}.")
+        logging.error(f"Comando: {' '.join(command)}")
+        logging.error(f"Error de LROSE: {e.stderr}")
+        return False
+    except FileNotFoundError:
+        logging.error("Error crítico: El comando 'Mdv2NetCDF' no se encontró. Asegúrate de que LROSE esté instalado y en el PATH.")
+
+
+def convert_predictions_to_mdv(nc_input_dir: str, mdv_output_dir: str, params_template_path: str):
+    """
+    Replicando la lógica del script post_process.sh:
+    1. Configura el entorno para la escritura de MDV.
+    2. Crea un archivo de parámetros temporal con las rutas correctas.
+    3. Ejecuta NcGeneric2Mdv.
+    4. Renombra los archivos de salida.
+    """
+    logging.info(f"Iniciando conversión masiva de NetCDF en '{nc_input_dir}' a MDV en '{mdv_output_dir}'")
+
+    # --- 1. Configurar el entorno para la escritura de MDV ---
+    # Creamos una copia del entorno actual y añadimos la variable necesaria
+    mdv_env = os.environ.copy()
+    mdv_env["MDV_WRITE_FORMAT"] = "FORMAT_MDV"
+
+    # --- 2. Preparar el archivo de parámetros ---
+    # Leemos la plantilla y reemplazamos los placeholders por las rutas reales
+    try:
+        with open(params_template_path, 'r') as f:
+            template_content = f.read()
+        
+        # Usamos rutas absolutas dentro del contenedor
+        abs_nc_input_dir = os.path.abspath(nc_input_dir)
+        abs_mdv_output_dir = os.path.abspath(mdv_output_dir)
+        
+        final_params_content = template_content.replace("%%INPUT_DIR%%", abs_nc_input_dir)
+        final_params_content = final_params_content.replace("%%OUTPUT_DIR%%", abs_mdv_output_dir)
+        
+        # Escribimos el archivo de parámetros final que usará el comando
+        temp_params_path = "/app/lrose_params/temp.params.final"
+        with open(temp_params_path, 'w') as f:
+            f.write(final_params_content)
+
+    except Exception as e:
+        logging.error(f"No se pudo preparar el archivo de parámetros: {e}")
+        return False
+
+    # --- 3. Ejecutar NcGeneric2Mdv ---
+    command = [
+        "NcGeneric2Mdv",
+        "-params", temp_params_path,
+        "-start", "2005 01 01 00 00 00", # Rango de tiempo amplio como en tu script
+        "-end", "2030 12 31 23 59 59"
+    ]
+    
+    try:
+        # Pasamos el entorno modificado al subprocess
+        result = subprocess.run(command, check=True, capture_output=True, text=True, env=mdv_env)
+        logging.info("NcGeneric2Mdv ejecutado exitosamente.")
+
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Falló la ejecución de NcGeneric2Mdv. Error: {e.stderr}")
+        return False
+
+    # --- 4. Renombrar Archivos de Salida ---
+    # NcGeneric2Mdv crea una estructura de directorios, ej: /mdv_output/20250827/
+    logging.info("Renombrando archivos MDV de salida...")
+    try:
+        # Buscamos todos los archivos .mdv generados
+        generated_files = glob.glob(os.path.join(abs_mdv_output_dir, "**", "*.mdv"), recursive=True)
+        for old_filepath in generated_files:
+            # Tu lógica de renombrado: quitar el prefijo "mdv_"
+            filename = os.path.basename(old_filepath)
+            if filename.startswith("mdv_"):
+                new_filename = filename.replace("mdv_", "", 1)
+                new_filepath = os.path.join(os.path.dirname(old_filepath), new_filename)
+                logging.info(f"  Renombrando '{filename}' -> '{new_filename}'")
+                os.rename(old_filepath, new_filepath)
+        return True
+    except Exception as e:
+        logging.error(f"Ocurrió un error durante el renombrado de archivos: {e}")
+        return False
 
 def main():
-    """Función principal que vigila la carpeta de entrada y procesa secuencias."""
-    logging.info("====== INICIO DEL WORKER DEL PIPELINE ======")
-    os.makedirs(INPUT_DIR, exist_ok=True); os.makedirs(OUTPUT_DIR, exist_ok=True); os.makedirs(ARCHIVE_DIR, exist_ok=True)
+    """Bucle principal que convierte MDV, predice y convierte resultados a MDV."""
+    logging.info("====== INICIO DEL WORKER DEL PIPELINE (v5 - final) ======")
+    # Crear todos los directorios necesarios al inicio
+    for path in [MDV_INBOX_DIR, MDV_ARCHIVE_DIR, INPUT_DIR, OUTPUT_DIR, ARCHIVE_DIR, MDV_OUTPUT_DIR]:
+        os.makedirs(path, exist_ok=True)
     
     predictor = ModelPredictor(MODEL_PATH)
     
     while True:
         try:
+            # --- TAREA 1: CONVERTIR NUEVOS ARCHIVOS MDV ---
+            mdv_files = sorted([f for f in os.listdir(MDV_INBOX_DIR) if f.endswith('.mdv')])
+            if mdv_files:
+                logging.info(f"Se encontraron {len(mdv_files)} nuevos archivos MDV para convertir.")
+                for mdv_file in mdv_files:
+                    mdv_path = os.path.join(MDV_INBOX_DIR, mdv_file)
+                    success = convert_mdv_to_nc(mdv_path, INPUT_DIR)
+                    shutil.move(mdv_path, os.path.join(MDV_ARCHIVE_DIR, mdv_file))
+                    if success:
+                        logging.info(f"{mdv_file} archivado y convertido exitosamente.")
+                    else:
+                        logging.warning(f"{mdv_file} archivado pero falló la conversión.")
+            
+            # --- TAREA 2: BUSCAR SECUENCIAS NC PARA PREDECIR ---
             input_files = sorted([f for f in os.listdir(INPUT_DIR) if f.endswith('.nc')])
-            update_status("IDLE - Waiting for files", len(input_files), SECUENCE_LENGHT)
+            update_status("IDLE - Esperando archivos NC", len(input_files), SECUENCE_LENGHT)
             
             if len(input_files) >= SECUENCE_LENGHT:
                 files_to_process = input_files[:SECUENCE_LENGHT]
                 full_paths = [os.path.join(INPUT_DIR, f) for f in files_to_process]
                 
                 seq_id = os.path.splitext(files_to_process[-1])[0]
-                update_status(f"PROCESSING - Running model on sequence {seq_id}", len(files_to_process), SECUENCE_LENGHT)
+                update_status(f"Procesando secuencia {seq_id}", len(files_to_process), SECUENCE_LENGHT)
                 
+                # Pasos de predicción
                 input_tensor = load_and_preprocess_input_sequence(full_paths)
                 prediction_tensor = predictor.predict(input_tensor)
                 prediction_cleaned = postprocess_prediction(prediction_tensor)
                 
+                # Obtener timestamp y crear subdirectorio de salida
                 try:
                     last_input_dt_utc = datetime.strptime(seq_id, '%Y%m%d%H%M%S')
                 except ValueError:
                     last_input_dt_utc = datetime.now(timezone.utc)
                 
-                # Crear subdirectorio único para esta predicción
                 output_subdir_name = last_input_dt_utc.strftime('%Y%m%d-%H%M%S')
                 output_subdir_path = os.path.join(OUTPUT_DIR, output_subdir_name)
                 os.makedirs(output_subdir_path, exist_ok=True)
 
+                # Guardar las predicciones en formato NetCDF
                 save_prediction_as_netcdf(output_subdir_path, prediction_cleaned, last_input_dt_utc)
                 
-                logging.info(f"Archivando {len(full_paths)} archivos procesados...")
+                # --- PASO 5: CONVERSIÓN DE RESULTADOS A MDV (Refactorizado) ---
+                # Se llama a la función una sola vez, pasándole los directorios.
+                # Ella se encarga de todo el lote de predicciones.
+                params_template_path = "/app/lrose_params/params.nc2mdv.final" # Asegúrate que el nombre sea correcto
+                convert_predictions_to_mdv(
+                    nc_input_dir=output_subdir_path,
+                    mdv_output_dir=MDV_OUTPUT_DIR,
+                    params_template_path=params_template_path
+                )
+                
+                # --- PASO 6: Archivar los archivos .nc de entrada ya procesados ---
+                logging.info(f"Archivando {len(full_paths)} archivos de entrada procesados...")
                 for path in full_paths:
                     shutil.move(path, os.path.join(ARCHIVE_DIR, os.path.basename(path)))
-            else:
-                time.sleep(POLL_INTERVAL_SECONDS)
+                
+                logging.info(f"Ciclo de predicción para la secuencia {seq_id} completado.")
+
+            # Esperar antes del siguiente ciclo
+            time.sleep(POLL_INTERVAL_SECONDS)
         
         except Exception as e:
-            update_status(f"ERROR - Check logs for details", -1, -1)
+            update_status(f"ERROR - ver logs para detalles", -1, -1)
             logging.error(f"Ocurrió un error en el bucle principal: {e}", exc_info=True)
             time.sleep(POLL_INTERVAL_SECONDS * 2)
 

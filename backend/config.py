@@ -40,3 +40,9 @@ Z_BATCH_SIZE = 2 # Lotes de niveles de altura para no saturar la VRAM
 
 # --- Archivo de Estado ---
 STATUS_FILE_PATH = "/app/status.json"
+
+# --- Rutas del pipeline ---
+MDV_INBOX_DIR = "/app/mdv_inbox/"
+MDV_ARCHIVE_DIR = "/app/mdv_archive/"
+MODEL_PATH = "/app/model/best_convlstm_model.pth"
+MDV_OUTPUT_DIR = "/app/mdv_predictions/"

@@ -7,7 +7,7 @@ export PYTHONUNBUFFERED=1  # Para que la salida de Python no se almacene en búf
 
 # Inicia el worker del pipeline en segundo plano
 echo "Iniciando Pipeline Worker en segundo plano..."
-python3 /app/pipeline/worker.py &
+python3 /app/pipeline_worker.py &
 
 # Inicia el servidor de la API de Flask en primer plano
 # Este proceso se quedará corriendo y mantendrá el contenedor activo

@@ -101,7 +101,8 @@ def save_prediction_as_netcdf(output_subdir: str, pred_sequence_cleaned: np.ndar
 def convert_mdv_to_nc(mdv_filepath: str, output_dir: str):
     """ Usa la herramienta mdv2netcdf para convertir archivos MDV a NetCDF. """
     mdv_filename = os.path.basename(mdv_filepath)
-    output_nc_path = os.path.join(output_dir, mdv_filename.replace('.mdv', '.nc'))
+    output_filename = mdv_filename.replace('.mdv', '.nc')
+    output_nc_path = os.path.join(output_dir, output_filename)
 
     command = [
         "Mdv2NetCDF",
@@ -122,37 +123,32 @@ def convert_mdv_to_nc(mdv_filepath: str, output_dir: str):
         return False
     except FileNotFoundError:
         logging.error("Error crítico: El comando 'Mdv2NetCDF' no se encontró. Asegúrate de que LROSE esté instalado y en el PATH.")
-
+        return False
 
 def convert_predictions_to_mdv(nc_input_dir: str, mdv_output_dir: str, params_template_path: str):
     """
-    Replicando la lógica del script post_process.sh:
-    1. Configura el entorno para la escritura de MDV.
-    2. Crea un archivo de parámetros temporal con las rutas correctas.
+    Replica la lógica del script post_process.sh:
+    1. Configura el entorno.
+    2. Crea un archivo de parámetros temporal.
     3. Ejecuta NcGeneric2Mdv.
-    4. Renombra los archivos de salida.
+    4. Renombra los archivos de salida al formato HHMMSS.mdv.
     """
-    logging.info(f"Iniciando conversión masiva de NetCDF en '{nc_input_dir}' a MDV en '{mdv_output_dir}'")
+    logging.info(f"Iniciando conversión de NetCDF en '{nc_input_dir}' a MDV en '{mdv_output_dir}'")
 
-    # --- 1. Configurar el entorno para la escritura de MDV ---
-    # Creamos una copia del entorno actual y añadimos la variable necesaria
+    # --- Pasos 1, 2 y 3 se mantienen igual ---
     mdv_env = os.environ.copy()
     mdv_env["MDV_WRITE_FORMAT"] = "FORMAT_MDV"
 
-    # --- 2. Preparar el archivo de parámetros ---
-    # Leemos la plantilla y reemplazamos los placeholders por las rutas reales
     try:
         with open(params_template_path, 'r') as f:
             template_content = f.read()
         
-        # Usamos rutas absolutas dentro del contenedor
         abs_nc_input_dir = os.path.abspath(nc_input_dir)
         abs_mdv_output_dir = os.path.abspath(mdv_output_dir)
         
         final_params_content = template_content.replace("%%INPUT_DIR%%", abs_nc_input_dir)
         final_params_content = final_params_content.replace("%%OUTPUT_DIR%%", abs_mdv_output_dir)
         
-        # Escribimos el archivo de parámetros final que usará el comando
         temp_params_path = "/app/lrose_params/temp.params.final"
         with open(temp_params_path, 'w') as f:
             f.write(final_params_content)
@@ -161,16 +157,9 @@ def convert_predictions_to_mdv(nc_input_dir: str, mdv_output_dir: str, params_te
         logging.error(f"No se pudo preparar el archivo de parámetros: {e}")
         return False
 
-    # --- 3. Ejecutar NcGeneric2Mdv ---
-    command = [
-        "NcGeneric2Mdv",
-        "-params", temp_params_path,
-        "-start", "2005 01 01 00 00 00", # Rango de tiempo amplio como en tu script
-        "-end", "2030 12 31 23 59 59"
-    ]
+    command = ["NcGeneric2Mdv", "-params", temp_params_path, "-start", "2005 01 01 00 00 00", "-end", "2030 12 31 23 59 59"]
     
     try:
-        # Pasamos el entorno modificado al subprocess
         result = subprocess.run(command, check=True, capture_output=True, text=True, env=mdv_env)
         logging.info("NcGeneric2Mdv ejecutado exitosamente.")
 
@@ -178,18 +167,26 @@ def convert_predictions_to_mdv(nc_input_dir: str, mdv_output_dir: str, params_te
         logging.error(f"Falló la ejecución de NcGeneric2Mdv. Error: {e.stderr}")
         return False
 
-    # --- 4. Renombrar Archivos de Salida ---
-    # NcGeneric2Mdv crea una estructura de directorios, ej: /mdv_output/20250827/
+    # --- 4. Renombrado de Archivos de Salida (LÓGICA CORREGIDA) ---
     logging.info("Renombrando archivos MDV de salida...")
     try:
-        # Buscamos todos los archivos .mdv generados
+        # NcGeneric2Mdv crea una estructura de subdirectorios con la fecha (ej: YYYYMMDD/)
+        # por lo que buscamos recursivamente.
         generated_files = glob.glob(os.path.join(abs_mdv_output_dir, "**", "*.mdv"), recursive=True)
+        
+        if not generated_files:
+            logging.warning("NcGeneric2Mdv se ejecutó pero no se encontraron archivos .mdv en la salida.")
+            return True # No es un error fatal, puede que no hubiera nada que convertir.
+
         for old_filepath in generated_files:
-            # Tu lógica de renombrado: quitar el prefijo "mdv_"
             filename = os.path.basename(old_filepath)
-            if filename.startswith("mdv_"):
-                new_filename = filename.replace("mdv_", "", 1)
+            
+            # Replicamos la lógica de tu script: quitar el prefijo de fecha.
+            if "_" in filename:
+                # Particiona el string en el primer '_' y toma la segunda parte.
+                new_filename = filename.split('_', 1)[1]
                 new_filepath = os.path.join(os.path.dirname(old_filepath), new_filename)
+                
                 logging.info(f"  Renombrando '{filename}' -> '{new_filename}'")
                 os.rename(old_filepath, new_filepath)
         return True

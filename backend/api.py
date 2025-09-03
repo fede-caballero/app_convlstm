@@ -8,7 +8,7 @@ from config import STATUS_FILE_PATH, OUTPUT_DIR
 
 
 app = Flask(__name__)
-logging.basicConfig(level=logging.INFO), format='%(asctime)s - %(levelname)s - %(message)s'
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Endpoints de la API
 @app.route("/api/status")

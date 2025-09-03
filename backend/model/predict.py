@@ -24,7 +24,7 @@ class ModelPredictor:
 
             # 2. Cargar los pesos entrenados
             # weights_only=True
-            checkpoint = torch.load(model_path, map_location=DEVICE, weights_only=True)
+            checkpoint = torch.load(model_path, map_location=DEVICE, weights_only=False)
             model.load_state_dict(checkpoint['model_state_dict'])
 
             # 3. Mover el modelo al dispositivo adecuado

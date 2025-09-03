@@ -1,0 +1,65 @@
+Iniciando Pipeline Worker en segundo plano...
+Iniciando API Server en el puerto 8080...
+2025-09-03 14:08:42,142 - INFO - Iniciando servidor Flask API en modo de desarrollo...
+ * Serving Flask app 'api'
+ * Debug mode: on
+2025-09-03 14:08:42,147 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://172.17.0.2:8080
+2025-09-03 14:08:42,147 - INFO - [33mPress CTRL+C to quit[0m
+2025-09-03 14:08:42,147 - INFO -  * Restarting with stat
+2025-09-03 14:08:42 - INFO - ====== INICIO DEL WORKER DEL PIPELINE (v5 - final) ======
+2025-09-03 14:08:42 - INFO - Cargando modelo desde /app/model/best_convlstm_model.pth...
+2025-09-03 14:08:43,418 - INFO - Iniciando servidor Flask API en modo de desarrollo...
+2025-09-03 14:08:43,422 - WARNING -  * Debugger is active!
+2025-09-03 14:08:43,422 - INFO -  * Debugger PIN: 133-370-794
+2025-09-03 14:08:43 - INFO - Modelo cargado y listo para predicciones.
+2025-09-03 14:08:43 - INFO - VERIFICANDO BUFFER: Se encontraron 0 archivos NC en /app/input_scans/
+2025-09-03 14:08:43 - INFO - Estado actualizado: IDLE - Esperando archivos NC
+2025-09-03 14:08:53 - INFO - VERIFICANDO BUFFER: Se encontraron 0 archivos NC en /app/input_scans/
+2025-09-03 14:08:53 - INFO - Estado actualizado: IDLE - Esperando archivos NC
+2025-09-03 14:09:04 - INFO - Se encontraron 5 nuevos archivos MDV para convertir.
+2025-09-03 14:09:04 - INFO - Convirtiendo 000022.mdv a NetCDF en /app/input_scans/000022.nc...
+2025-09-03 14:09:04 - INFO - Conversión exitosa.
+2025-09-03 14:09:04 - INFO - 000022.mdv archivado y convertido exitosamente.
+2025-09-03 14:09:04 - INFO - Convirtiendo 000437.mdv a NetCDF en /app/input_scans/000437.nc...
+2025-09-03 14:09:04 - INFO - Conversión exitosa.
+2025-09-03 14:09:04 - INFO - 000437.mdv archivado y convertido exitosamente.
+2025-09-03 14:09:04 - INFO - Convirtiendo 000853.mdv a NetCDF en /app/input_scans/000853.nc...
+2025-09-03 14:09:04 - INFO - Conversión exitosa.
+2025-09-03 14:09:04 - INFO - 000853.mdv archivado y convertido exitosamente.
+2025-09-03 14:09:04 - INFO - Convirtiendo 001307.mdv a NetCDF en /app/input_scans/001307.nc...
+2025-09-03 14:09:04 - INFO - Conversión exitosa.
+2025-09-03 14:09:04 - INFO - 001307.mdv archivado y convertido exitosamente.
+2025-09-03 14:09:04 - INFO - Convirtiendo 001722.mdv a NetCDF en /app/input_scans/001722.nc...
+2025-09-03 14:09:04 - INFO - Conversión exitosa.
+2025-09-03 14:09:04 - INFO - 001722.mdv archivado y convertido exitosamente.
+2025-09-03 14:09:04 - INFO - VERIFICANDO BUFFER: Se encontraron 0 archivos NC en /app/input_scans/
+2025-09-03 14:09:04 - INFO - Estado actualizado: IDLE - Esperando archivos NC
+2025-09-03 14:09:14 - INFO - Se encontraron 7 nuevos archivos MDV para convertir.
+2025-09-03 14:09:14 - INFO - Convirtiendo 002136.mdv a NetCDF en /app/input_scans/002136.nc...
+2025-09-03 14:09:15 - INFO - Conversión exitosa.
+2025-09-03 14:09:15 - INFO - 002136.mdv archivado y convertido exitosamente.
+2025-09-03 14:09:15 - INFO - Convirtiendo 002551.mdv a NetCDF en /app/input_scans/002551.nc...
+2025-09-03 14:09:15 - INFO - Conversión exitosa.
+2025-09-03 14:09:15 - INFO - 002551.mdv archivado y convertido exitosamente.
+2025-09-03 14:09:15 - INFO - Convirtiendo 003007.mdv a NetCDF en /app/input_scans/003007.nc...
+2025-09-03 14:09:15 - INFO - Conversión exitosa.
+2025-09-03 14:09:15 - INFO - 003007.mdv archivado y convertido exitosamente.
+2025-09-03 14:09:15 - INFO - Convirtiendo 003422.mdv a NetCDF en /app/input_scans/003422.nc...
+2025-09-03 14:09:15 - INFO - Conversión exitosa.
+2025-09-03 14:09:15 - INFO - 003422.mdv archivado y convertido exitosamente.
+2025-09-03 14:09:15 - INFO - Convirtiendo 003836.mdv a NetCDF en /app/input_scans/003836.nc...
+2025-09-03 14:09:15 - INFO - Conversión exitosa.
+2025-09-03 14:09:15 - INFO - 003836.mdv archivado y convertido exitosamente.
+2025-09-03 14:09:15 - INFO - Convirtiendo 004251.mdv a NetCDF en /app/input_scans/004251.nc...
+2025-09-03 14:09:16 - INFO - Conversión exitosa.
+2025-09-03 14:09:16 - INFO - 004251.mdv archivado y convertido exitosamente.
+2025-09-03 14:09:16 - INFO - Convirtiendo 004706.mdv a NetCDF en /app/input_scans/004706.nc...
+2025-09-03 14:09:16 - INFO - Conversión exitosa.
+2025-09-03 14:09:16 - INFO - 004706.mdv archivado y convertido exitosamente.
+2025-09-03 14:09:16 - INFO - VERIFICANDO BUFFER: Se encontraron 0 archivos NC en /app/input_scans/
+2025-09-03 14:09:16 - INFO - Estado actualizado: IDLE - Esperando archivos NC
+2025-09-03 14:09:26 - INFO - VERIFICANDO BUFFER: Se encontraron 0 archivos NC en /app/input_scans/
+2025-09-03 14:09:26 - INFO - Estado actualizado: IDLE - Esperando archivos NC

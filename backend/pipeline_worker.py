@@ -99,22 +99,23 @@ def save_prediction_as_netcdf(output_subdir: str, pred_sequence_cleaned: np.ndar
         logging.info(f"  -> Predicción guardada en: {os.path.basename(output_filename)}")
 
 def convert_mdv_to_nc(mdv_filepath: str, output_dir: str):
-    """ Usa la herramienta mdv2netcdf para convertir archivos MDV a NetCDF. """
+    """Usa la herramienta Mdv2NetCDF de LROSE para convertir un archivo."""
     mdv_filename = os.path.basename(mdv_filepath)
+    # Esta lógica asegura que la ruta de salida se construya correctamente
     output_filename = mdv_filename.replace('.mdv', '.nc')
     output_nc_path = os.path.join(output_dir, output_filename)
-
+    
     command = [
         "Mdv2NetCDF",
         "-in", mdv_filepath,
         "-out", output_nc_path,
         "-instance"
     ]
-
-    logging.info(f"Convirtiendo {mdv_filename} a NetCDF...")
+    
+    logging.info(f"Convirtiendo {mdv_filename} a NetCDF en {output_nc_path}...")
     try:
         result = subprocess.run(command, check=True, capture_output=True, text=True)
-        logging.info(f"Conversión exitosa. Salida de LROSE: {result.stdout}")
+        logging.info(f"Conversión exitosa.")
         return True
     except subprocess.CalledProcessError as e:
         logging.error(f"Falló la conversión de {mdv_filename}.")
@@ -122,7 +123,7 @@ def convert_mdv_to_nc(mdv_filepath: str, output_dir: str):
         logging.error(f"Error de LROSE: {e.stderr}")
         return False
     except FileNotFoundError:
-        logging.error("Error crítico: El comando 'Mdv2NetCDF' no se encontró. Asegúrate de que LROSE esté instalado y en el PATH.")
+        logging.error("Error crítico: 'Mdv2NetCDF' no se encontró. ¿Está LROSE en el PATH?")
         return False
 
 def convert_predictions_to_mdv(nc_input_dir: str, mdv_output_dir: str, params_template_path: str):

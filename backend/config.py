@@ -34,6 +34,11 @@ DATA_CONFIG = {
     'sensor_latitude': -34.64799880981445,
     'sensor_longitude': -68.01699829101562,
     'earth_radius_m': 6378137.0,
+
+    # Parámetros para empaquetar la salida como byte, igual que el archivo de entrada
+    'output_nc_scale_factor': 0.5,
+    'output_nc_add_offset': 33.5,
+    'output_nc_fill_value': -128, # _FillValue para el tipo byte
 }
 
 # --- Parámetros de Inferencia ---

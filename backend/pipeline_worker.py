@@ -66,38 +66,85 @@ def postprocess_prediction(prediction_norm: torch.Tensor) -> np.ndarray:
     # Quitamos la dimensión de canal que es 1 -> (T_pred, Z, H, W)
     return pred_physical_cleaned.squeeze(2)
 
-def save_prediction_as_netcdf(output_subdir: str, pred_sequence_cleaned: np.ndarray, start_datetime: datetime):
-    """Guarda la secuencia de predicción en múltiples archivos NetCDF dentro de un subdirectorio."""
+def save_prediction_as_netcdf(output_subdir: str, pred_sequence_cleaned: np.ndarray, data_cfg, start_datetime: datetime):
+    """
+    Guarda la predicción en un archivo NetCDF con todos los metadatos
+    necesarios para ser compatible con las herramientas de LROSE.
+    """
     num_pred_steps, num_z, num_y, num_x = pred_sequence_cleaned.shape
-    # (El resto de esta función es idéntica a la que ya tenías en tu script de inferencia)
-    # ... (código para crear coordenadas, grillas y guardar cada frame de la predicción) ...
+    
+    # --- 1. Pre-calcular información de la grilla (como en el archivo bueno) ---
     z_coords = np.arange(1.0, 1.0 + num_z * 1.0, 1.0, dtype=np.float32)
     x_coords = np.arange(-249.5, -249.5 + num_x * 1.0, 1.0, dtype=np.float32)
     y_coords = np.arange(-249.5, -249.5 + num_y * 1.0, 1.0, dtype=np.float32)
-    proj = pyproj.Proj(proj="aeqd", lon_0=DATA_CONFIG['sensor_longitude'], lat_0=DATA_CONFIG['sensor_latitude'], R=DATA_CONFIG['earth_radius_m'])
+    
+    proj = pyproj.Proj(
+        proj="aeqd",
+        lon_0=DATA_CONFIG['sensor_longitude'],
+        lat_0=DATA_CONFIG['sensor_latitude'],
+        R=DATA_CONFIG['earth_radius_m']
+    )
+    
     x_grid_m, y_grid_m = np.meshgrid(x_coords * 1000.0, y_coords * 1000.0)
     lon0_grid, lat0_grid = proj(x_grid_m, y_grid_m, inverse=True)
 
+    # --- Parámetros de empaquetado desde la configuración ---
+    scale_out = np.float32(DATA_CONFIG['output_nc_scale_factor'])
+    offset_out = np.float32(DATA_CONFIG['output_nc_add_offset'])
+    fill_byte_out = np.int8(DATA_CONFIG['output_nc_fill_value'])
+
+    # Itera y guarda un archivo por cada paso de predicción
     for i in range(num_pred_steps):
         lead_time_minutes = (i + 1) * DATA_CONFIG.get('prediction_interval_minutes', 3)
         forecast_dt_utc = start_datetime + timedelta(minutes=lead_time_minutes)
         output_filename = os.path.join(output_subdir, f"pred_t+{lead_time_minutes:02d}.nc")
 
         with NCDataset(output_filename, 'w', format='NETCDF3_CLASSIC') as ds_out:
+            # --- 2. Escribir todos los metadatos, dimensiones y variables ---
+            # Atributos Globales
             ds_out.Conventions = "CF-1.6"
-            # ... (resto de atributos, dimensiones y variables como en tu script) ...
-            ds_out.createDimension('time', None); ds_out.createDimension('longitude', num_x); ds_out.createDimension('latitude', num_y); ds_out.createDimension('altitude', num_z)
+            ds_out.title = f"SAN_RAFAEL_PRED - Forecast t+{lead_time_minutes}min"
+            ds_out.institution = "UM"
+            ds_out.source = "ConvLSTM Model Prediction"
+            ds_out.history = f"Created {datetime.now(timezone.utc).isoformat()} by pipeline."
+            ds_out.comment = f"Forecast data from model. Lead time: {lead_time_minutes} min."
+
+            # Dimensiones (usando nombres compatibles)
+            ds_out.createDimension('time', None)
+            ds_out.createDimension('bounds', 2)
+            ds_out.createDimension('longitude', num_x)
+            ds_out.createDimension('latitude', num_y)
+            ds_out.createDimension('altitude', num_z)
+
+            # Variables de Tiempo y Coordenadas (replicando la estructura)
             time_value = (forecast_dt_utc.replace(tzinfo=None) - datetime(1970, 1, 1)).total_seconds()
-            time_v = ds_out.createVariable('time', 'f8', ('time',)); time_v.units = "seconds since 1970-01-01T00:00:00Z"; time_v[:] = [time_value]
-            # ... (resto de variables de coordenadas y georreferenciación) ...
+            time_v = ds_out.createVariable('time', 'f8', ('time',))
+            time_v.standard_name = "time"; time_v.long_name = "Data time"
+            time_v.units = "seconds since 1970-01-01T00:00:00Z"; time_v.axis = "T"
+            time_v[:] = [time_value]
+
+            # --- Variables de Coordenadas ---
+            x_v = ds_out.createVariable('longitude', 'f4', ('longitude',)); x_v.setncatts({'standard_name':"projection_x_coordinate", 'units':"km", 'axis':"X"}); x_v[:] = x_coords
+            y_v = ds_out.createVariable('latitude', 'f4', ('latitude',)); y_v.setncatts({'standard_name':"projection_y_coordinate", 'units':"km", 'axis':"Y"}); y_v[:] = y_coords
+            z_v = ds_out.createVariable('altitude', 'f4', ('altitude',)); z_v.setncatts({'standard_name':"altitude", 'units':"km", 'axis':"Z", 'positive':"up"}); z_v[:] = z_coords
+            
+            # --- Variables de Georreferenciación ---
+            lat0_v = ds_out.createVariable('lat0', 'f4', ('latitude', 'longitude',)); lat0_v.setncatts({'standard_name':"latitude", 'units':"degrees_north"}); lat0_v[:] = lat0_grid
+            lon0_v = ds_out.createVariable('lon0', 'f4', ('latitude', 'longitude',)); lon0_v.setncatts({'standard_name':"longitude", 'units':"degrees_east"}); lon0_v[:] = lon0_grid
+            gm_v = ds_out.createVariable('grid_mapping_0', 'i4'); gm_v.setncatts({'grid_mapping_name':"azimuthal_equidistant", 'longitude_of_projection_origin':data_cfg['sensor_longitude'], 'latitude_of_projection_origin':data_cfg['sensor_latitude'], 'false_easting':0.0, 'false_northing':0.0, 'earth_radius':data_cfg['earth_radius_m']})
+
+            # --- Variable Principal DBZ (AHORA SIMPLIFICADA) ---
             fill_value_float = np.float32(-999.0)
             dbz_v = ds_out.createVariable('DBZ', 'f4', ('time', 'altitude', 'latitude', 'longitude'), fill_value=fill_value_float)
-            dbz_v.setncatts({'units': 'dBZ', '_FillValue': fill_value_float, 'missing_value': fill_value_float})
+            dbz_v.setncatts({'units': 'dBZ', 'long_name': 'DBZ', 'standard_name': 'reflectivity', '_FillValue': fill_value_float, 'missing_value': fill_value_float})
+            
+            # Los datos ya vienen limpios, solo reemplazamos NaN por el valor de relleno
             pred_data_single_step = pred_sequence_cleaned[i]
             dbz_final_to_write = np.nan_to_num(pred_data_single_step, nan=fill_value_float)
+            
             dbz_v[0, :, :, :] = dbz_final_to_write
-        logging.info(f"  -> Predicción guardada en: {os.path.basename(output_filename)}")
 
+        logging.info(f"  -> Predicción guardada en: {os.path.basename(output_filename)}")
 
 def convert_mdv_to_nc(mdv_filepath: str, final_output_dir: str, params_path: str):
     """

@@ -27,3 +27,7 @@ output_encoding_type = ENCODING_INT8;
 // --- Depuración ---
 // Se deja en OFF para la automatización, pero se puede cambiar a DEBUG_VERBOSE si se necesita
 debug = DEBUG_NORM;
+
+// --- Nombre de dataset ---
+data_set_name = "SAN_RAFAEL"
+data_set_source = "FC_ConvLSTM_Model"

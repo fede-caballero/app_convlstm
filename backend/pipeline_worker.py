@@ -66,42 +66,41 @@ def postprocess_prediction(prediction_norm: torch.Tensor) -> np.ndarray:
     # Quitamos la dimensión de canal que es 1 -> (T_pred, Z, H, W)
     return pred_physical_cleaned.squeeze(2)
 
-def save_prediction_as_netcdf(output_subdir: str, pred_sequence_cleaned: np.ndarray, data_cfg, start_datetime: datetime):
+def save_prediction_as_netcdf(output_subdir: str, pred_sequence_cleaned: np.ndarray, data_cfg: dict, start_datetime: datetime):
     """
     Guarda la predicción en un archivo NetCDF con todos los metadatos
     necesarios para ser compatible con las herramientas de LROSE.
     """
+    # Se usa 'pred_sequence_cleaned' consistentemente
     num_pred_steps, num_z, num_y, num_x = pred_sequence_cleaned.shape
     
-    # --- 1. Pre-calcular información de la grilla (como en el archivo bueno) ---
+    # --- 1. Pre-calcular información de la grilla ---
     z_coords = np.arange(1.0, 1.0 + num_z * 1.0, 1.0, dtype=np.float32)
     x_coords = np.arange(-249.5, -249.5 + num_x * 1.0, 1.0, dtype=np.float32)
     y_coords = np.arange(-249.5, -249.5 + num_y * 1.0, 1.0, dtype=np.float32)
     
+    # Se usa 'data_cfg' consistentemente
     proj = pyproj.Proj(
         proj="aeqd",
-        lon_0=DATA_CONFIG['sensor_longitude'],
-        lat_0=DATA_CONFIG['sensor_latitude'],
-        R=DATA_CONFIG['earth_radius_m']
+        lon_0=data_cfg['sensor_longitude'],
+        lat_0=data_cfg['sensor_latitude'],
+        R=data_cfg['earth_radius_m']
     )
     
     x_grid_m, y_grid_m = np.meshgrid(x_coords * 1000.0, y_coords * 1000.0)
     lon0_grid, lat0_grid = proj(x_grid_m, y_grid_m, inverse=True)
 
-    # --- Parámetros de empaquetado desde la configuración ---
-    scale_out = np.float32(DATA_CONFIG['output_nc_scale_factor'])
-    offset_out = np.float32(DATA_CONFIG['output_nc_add_offset'])
-    fill_byte_out = np.int8(DATA_CONFIG['output_nc_fill_value'])
-
     # Itera y guarda un archivo por cada paso de predicción
     for i in range(num_pred_steps):
-        lead_time_minutes = (i + 1) * DATA_CONFIG.get('prediction_interval_minutes', 3)
+        # Se usa 'data_cfg' y 'start_datetime' consistentemente
+        lead_time_minutes = (i + 1) * data_cfg.get('prediction_interval_minutes', 3)
         forecast_dt_utc = start_datetime + timedelta(minutes=lead_time_minutes)
-        output_filename = os.path.join(output_subdir, f"pred_t+{lead_time_minutes:02d}.nc")
+        
+        # Se usa 'output_subdir' consistentemente
+        output_filename = os.path.join(output_subdir, f"{forecast_dt_utc.strftime('%Y%m%d_%H%M%S')}.nc")
 
         with NCDataset(output_filename, 'w', format='NETCDF3_CLASSIC') as ds_out:
-            # --- 2. Escribir todos los metadatos, dimensiones y variables ---
-            # Atributos Globales
+            # --- 2. Escribir metadatos, dimensiones y variables ---
             ds_out.Conventions = "CF-1.6"
             ds_out.title = f"SAN_RAFAEL_PRED - Forecast t+{lead_time_minutes}min"
             ds_out.institution = "UM"
@@ -109,40 +108,55 @@ def save_prediction_as_netcdf(output_subdir: str, pred_sequence_cleaned: np.ndar
             ds_out.history = f"Created {datetime.now(timezone.utc).isoformat()} by pipeline."
             ds_out.comment = f"Forecast data from model. Lead time: {lead_time_minutes} min."
 
-            # Dimensiones (usando nombres compatibles)
             ds_out.createDimension('time', None)
             ds_out.createDimension('bounds', 2)
             ds_out.createDimension('longitude', num_x)
             ds_out.createDimension('latitude', num_y)
             ds_out.createDimension('altitude', num_z)
 
-            # Variables de Tiempo y Coordenadas (replicando la estructura)
             time_value = (forecast_dt_utc.replace(tzinfo=None) - datetime(1970, 1, 1)).total_seconds()
             time_v = ds_out.createVariable('time', 'f8', ('time',))
             time_v.standard_name = "time"; time_v.long_name = "Data time"
             time_v.units = "seconds since 1970-01-01T00:00:00Z"; time_v.axis = "T"
             time_v[:] = [time_value]
 
-            # --- Variables de Coordenadas ---
             x_v = ds_out.createVariable('longitude', 'f4', ('longitude',)); x_v.setncatts({'standard_name':"projection_x_coordinate", 'units':"km", 'axis':"X"}); x_v[:] = x_coords
             y_v = ds_out.createVariable('latitude', 'f4', ('latitude',)); y_v.setncatts({'standard_name':"projection_y_coordinate", 'units':"km", 'axis':"Y"}); y_v[:] = y_coords
             z_v = ds_out.createVariable('altitude', 'f4', ('altitude',)); z_v.setncatts({'standard_name':"altitude", 'units':"km", 'axis':"Z", 'positive':"up"}); z_v[:] = z_coords
             
-            # --- Variables de Georreferenciación ---
             lat0_v = ds_out.createVariable('lat0', 'f4', ('latitude', 'longitude',)); lat0_v.setncatts({'standard_name':"latitude", 'units':"degrees_north"}); lat0_v[:] = lat0_grid
             lon0_v = ds_out.createVariable('lon0', 'f4', ('latitude', 'longitude',)); lon0_v.setncatts({'standard_name':"longitude", 'units':"degrees_east"}); lon0_v[:] = lon0_grid
+            
+            # Se usa 'data_cfg' consistentemente
             gm_v = ds_out.createVariable('grid_mapping_0', 'i4'); gm_v.setncatts({'grid_mapping_name':"azimuthal_equidistant", 'longitude_of_projection_origin':data_cfg['sensor_longitude'], 'latitude_of_projection_origin':data_cfg['sensor_latitude'], 'false_easting':0.0, 'false_northing':0.0, 'earth_radius':data_cfg['earth_radius_m']})
 
-            # --- Variable Principal DBZ (AHORA SIMPLIFICADA) ---
-            fill_value_float = np.float32(-999.0)
-            dbz_v = ds_out.createVariable('DBZ', 'f4', ('time', 'altitude', 'latitude', 'longitude'), fill_value=fill_value_float)
-            dbz_v.setncatts({'units': 'dBZ', 'long_name': 'DBZ', 'standard_name': 'reflectivity', '_FillValue': fill_value_float, 'missing_value': fill_value_float})
-            
-            # Los datos ya vienen limpios, solo reemplazamos NaN por el valor de relleno
-            pred_data_single_step = pred_sequence_cleaned[i]
-            dbz_final_to_write = np.nan_to_num(pred_data_single_step, nan=fill_value_float)
-            
-            dbz_v[0, :, :, :] = dbz_final_to_write
+            # --- Variable Principal DBZ (EMPAQUETADA COMO EN ENTRENAMIENTO) ---
+            scale_factor = 0.5
+            add_offset = 33.5
+            _fill_value_byte = np.int8(-128)
+
+            # Prepara los datos: Aplica umbral y mapea a physical, luego empaqueta
+            pred_data_single_step = pred_sequence_cleaned[i]  # Ya tiene NaN para <30
+            # Reemplaza NaN con un valor bajo para packed (e.g., min_dbz)
+            pred_for_packing = np.where(np.isnan(pred_data_single_step), data_cfg['min_dbz'], pred_data_single_step)
+            # Clip para seguridad
+            pred_for_packing = np.clip(pred_for_packing, data_cfg['min_dbz'], data_cfg['max_dbz'])
+            # Empaqueta a byte
+            dbz_packed = np.round((pred_for_packing - add_offset) / scale_factor).astype(np.int8)
+            # Asegura missing para valores inválidos (e.g., si <30, fuerza a _fill)
+            invalid_mask = np.isnan(pred_sequence_cleaned[i]) | (pred_sequence_cleaned[i] < data_cfg['physical_threshold_dbz'])
+            dbz_packed[invalid_mask] = _fill_value_byte
+
+            dbz_v = ds_out.createVariable('DBZ', 'b', ('time', 'altitude', 'latitude', 'longitude'), fill_value=_fill_value_byte)  # 'b' para byte
+            dbz_v.scale_factor = np.float32(scale_factor)
+            dbz_v.add_offset = np.float32(add_offset)
+            dbz_v.valid_min = -127  # Para byte firmado, ajusta si unsigned
+            dbz_v.valid_max = 127
+            dbz_v.min_value = data_cfg['min_dbz']  # -29.0
+            dbz_v.max_value = data_cfg['max_dbz']  # 65.0 o 62.5
+            dbz_v.setncatts({'standard_name': 'DBZ', 'long_name': 'DBZ', 'units': 'dBZ', '_FillValue': _fill_value_byte})
+
+            dbz_v[0, :, :, :] = dbz_packed
 
         logging.info(f"  -> Predicción guardada en: {os.path.basename(output_filename)}")
 
@@ -217,7 +231,7 @@ def convert_mdv_to_nc(mdv_filepath: str, final_output_dir: str, params_path: str
         os.chdir(original_dir)
         if os.path.exists(temp_work_dir):
             shutil.rmtree(temp_work_dir)
-
+    
 def convert_predictions_to_mdv(nc_input_dir: str, mdv_output_dir: str, params_template_path: str):
     """
     Replica la lógica del script post_process.sh:
@@ -264,24 +278,35 @@ def convert_predictions_to_mdv(nc_input_dir: str, mdv_output_dir: str, params_te
     logging.info("Renombrando archivos MDV de salida...")
     try:
         # NcGeneric2Mdv crea una estructura de subdirectorios con la fecha (ej: YYYYMMDD/)
-        # por lo que buscamos recursivamente.
         generated_files = glob.glob(os.path.join(abs_mdv_output_dir, "**", "*.mdv"), recursive=True)
         
         if not generated_files:
             logging.warning("NcGeneric2Mdv se ejecutó pero no se encontraron archivos .mdv en la salida.")
-            return True # No es un error fatal, puede que no hubiera nada que convertir.
+            return True
+
+        # Mapear NC a MDV basado en el timestamp
+        nc_files = sorted(glob.glob(os.path.join(abs_nc_input_dir, "*.nc")))
+        nc_timestamps = [os.path.basename(f).replace('.nc', '') for f in nc_files]  # e.g., ['20250906_120000', ...]
 
         for old_filepath in generated_files:
-            filename = os.path.basename(old_filepath)
+            filename = os.path.basename(old_filepath)  # e.g., '20250906_120000.mdv'
             
-            # Replicamos la lógica de tu script: quitar el prefijo de fecha.
-            if "_" in filename:
-                # Particiona el string en el primer '_' y toma la segunda parte.
-                new_filename = filename.split('_', 1)[1]
+            # Preservar el nombre completo (YYYYMMDD_HHMMSS.mdv)
+            if filename.endswith('.mdv') and '_' in filename:
+                new_filename = filename  # Mantener sin cambios
                 new_filepath = os.path.join(os.path.dirname(old_filepath), new_filename)
                 
-                logging.info(f"  Renombrando '{filename}' -> '{new_filename}'")
-                os.rename(old_filepath, new_filepath)
+                # Verificar que el timestamp coincide con un NC
+                timestamp = filename.replace('.mdv', '')
+                if timestamp in nc_timestamps:
+                    logging.info(f"  Manteniendo nombre MDV: '{filename}'")
+                    if old_filepath != new_filepath:
+                        os.rename(old_filepath, new_filepath)
+                else:
+                    logging.warning(f"  MDV '{filename}' no tiene NC correspondiente. Manteniendo nombre.")
+            else:
+                logging.warning(f"  Formato inesperado para '{filename}'. Manteniendo nombre.")
+                
         return True
     except Exception as e:
         logging.error(f"Ocurrió un error durante el renombrado de archivos: {e}")
@@ -343,7 +368,8 @@ def main():
                 output_subdir_name = last_input_dt_utc.strftime('%Y%m%d-%H%M%S')
                 output_subdir_path = os.path.join(OUTPUT_DIR, output_subdir_name)
                 os.makedirs(output_subdir_path, exist_ok=True)
-                save_prediction_as_netcdf(output_subdir_path, prediction_cleaned, last_input_dt_utc)
+                save_prediction_as_netcdf(output_subdir_path, prediction_cleaned, DATA_CONFIG, last_input_dt_utc)
+
                 
                 params_template_path = "/app/lrose_params/params.nc2mdv.final"
                 convert_predictions_to_mdv(output_subdir_path, MDV_OUTPUT_DIR, params_template_path)

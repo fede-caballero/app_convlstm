@@ -62,6 +62,7 @@ class ModelPredictor:
         # La lista se llamará 'all_predictions_chunks' de principio a fin.
         all_predictions_chunks = []
 
+        logging.info(f"Input shape: {x_to_model_full.shape}, Output shape: {prediction_norm.shape}")
         logging.info(f"Iniciando predicción para {num_z_levels} niveles de altura...")
 
         for z_start in range(0, num_z_levels, Z_BATCH_SIZE):

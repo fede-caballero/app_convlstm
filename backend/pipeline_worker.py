@@ -62,7 +62,7 @@ def postprocess_prediction(prediction_norm: torch.Tensor) -> np.ndarray:
     pred_physical_cleaned = pred_physical_clipped.copy()
     threshold = DATA_CONFIG.get('physical_threshold_dbz', 30.0)
     pred_physical_cleaned[pred_physical_cleaned < threshold] = np.nan
-    
+    logging.info(f"Max dBZ después de umbral: {np.nanmax(pred_physical_cleaned)}")
     # Quitamos la dimensión de canal que es 1 -> (T_pred, Z, H, W)
     return pred_physical_cleaned.squeeze(2)
 
@@ -131,9 +131,9 @@ def save_prediction_as_netcdf(output_subdir: str, pred_sequence_cleaned: np.ndar
             gm_v = ds_out.createVariable('grid_mapping_0', 'i4'); gm_v.setncatts({'grid_mapping_name':"azimuthal_equidistant", 'longitude_of_projection_origin':data_cfg['sensor_longitude'], 'latitude_of_projection_origin':data_cfg['sensor_latitude'], 'false_easting':0.0, 'false_northing':0.0, 'earth_radius':data_cfg['earth_radius_m']})
 
             # --- Variable Principal DBZ (EMPAQUETADA COMO EN ENTRENAMIENTO) ---
-            scale_factor = 0.5
-            add_offset = 33.5
-            _fill_value_byte = np.int8(-128)
+            scale_factor = data_cfg['output_nc_scale_factor']
+            add_offset = data_cfg['output_nc_add_offset']
+            _fill_value_byte = np.int8(data_cfg['output_nc_fill_value'])
 
             # Prepara los datos: Aplica umbral y mapea a physical, luego empaqueta
             pred_data_single_step = pred_sequence_cleaned[i]  # Ya tiene NaN para <30

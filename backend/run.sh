@@ -39,14 +39,20 @@ trap cleanup SIGINT SIGTERM
 
 # --- Iniciar los Procesos ---
 echo "Iniciando Pipeline Worker en segundo plano..."
-python3 /app/pipeline_worker.py &
+# Redirigimos stdout y stderr al archivo de log
+python3 /app/pipeline_worker.py >> "$LOG_FILE" 2>&1 &
 # Guardamos el ID del Proceso (PID) del worker
 WORKER_PID=$!
 
 echo "Iniciando API Server en el puerto 8080..."
-python3 /app/api.py &
+# Redirigimos stdout y stderr al archivo de log
+python3 /app/api.py >> "$LOG_FILE" 2>&1 &
 # Guardamos el PID de la API
 API_PID=$!
+
+echo "Logs siendo escritos en $LOG_FILE."
+echo "Para verlos en tiempo real, ejecuta en otra terminal:"
+echo "docker exec -it <container_name> tail -f $LOG_FILE"
 
 # 'wait' le dice al script que se quede esperando aquí.
 # Sin esto, el script terminaría y el contenedor se cerraría.

@@ -62,7 +62,6 @@ class ModelPredictor:
         # La lista se llamará 'all_predictions_chunks' de principio a fin.
         all_predictions_chunks = []
 
-        logging.info(f"Input shape: {x_to_model_full.shape}, Output shape: {prediction_norm.shape}")
         logging.info(f"Iniciando predicción para {num_z_levels} niveles de altura...")
 
         for z_start in range(0, num_z_levels, Z_BATCH_SIZE):
@@ -77,7 +76,7 @@ class ModelPredictor:
 
         # Concatenamos los resultados
         prediction_norm = torch.cat(all_predictions_chunks, dim=0)
-        logging.info("Predicción completada.")
+        logging.info(f"Predicción completada. Input shape: {x_to_model_full.shape}, Output shape: {prediction_norm.shape}")
 
         # Liberamos memoria
         del x_to_model_full, all_predictions_chunks, x_chunk

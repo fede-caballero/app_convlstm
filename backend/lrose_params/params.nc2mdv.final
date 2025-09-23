@@ -1,33 +1,46 @@
 // ==================================================================
-// Parámetros PLANTILLA para NcGeneric2Mdv (VERSIÓN FINAL Y COMPLETA)
-// Basado en la configuración funcional del usuario.
+// Parámetros PLANTILLA para NcGeneric2Mdv
+// Forzar escalado fijo para DBZ y respetar _FillValue
 // ==================================================================
 
 // Modo ARCHIVE para escanear un directorio completo
 mode = ARCHIVE;
 
-// El script de automatización reemplazará esta línea
+// Directorios de entrada y salida (reemplazados por el script)
 input_dir = "%%INPUT_DIR%%";
-
-// El script de automatización reemplazará esta línea
 output_url = "%%OUTPUT_DIR%%";
 
-// --- Manejo del Tiempo ---
+// Manejo del Tiempo
 netcdf_var_base_time = "none";
 netcdf_var_time_offset = "time";
 
-// --- Proyección de ENTRADA ---
+// Proyección de ENTRADA
 input_projection = PROJ_FLAT;
 input_proj_origin_lat = -34.6479988;
 input_proj_origin_lon = -68.0169982;
 
-// --- Codificación de SALIDA ---
+// Codificación de SALIDA
 output_encoding_type = ENCODING_INT8;
 
-// --- Depuración ---
-// Se deja en OFF para la automatización, pero se puede cambiar a DEBUG_VERBOSE si se necesita
-debug = DEBUG_NORM;
+// Forzar escalado fijo para DBZ
+apply_linear_transforms = TRUE;
+transform_fields = {
+  {
+    input_field_name = "DBZ",
+    scale = 0.5,
+    offset = 33.5,
+    output_field_name = "DBZ",
+    output_units = "dBZ"
+  }
+};
 
-// --- Nombre de dataset ---
-data_set_name = "SAN_RAFAEL"
-data_set_source = "FC_ConvLSTM_Model"
+// Manejo de valores faltantes
+use_user_missing_vals = TRUE;
+user_missing_val = -128;
+
+// Metadata para claridad
+data_set_name = "SAN_RAFAEL_PRED";
+data_set_source = "ConvLSTM_Model";
+
+// Depuración
+debug = DEBUG_VERBOSE;

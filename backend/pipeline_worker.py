@@ -107,6 +107,9 @@ def save_prediction_as_netcdf(output_subdir: str, pred_sequence_cleaned: np.ndar
             ds_out.source = "ConvLSTM Model Prediction"
             ds_out.history = f"Created {datetime.now(timezone.utc).isoformat()} by pipeline."
             ds_out.comment = f"Forecast data from model. Lead time: {lead_time_minutes} min."
+            ds_out.sensor_longitude = data_cfg['sensor_longitude']
+            ds_out.sensor_latitude = data_cfg['sensor_latitude']
+            ds_out.sensor_altitude = data_cfg['sensor_altitude_km']
 
             ds_out.createDimension('time', None)
             ds_out.createDimension('bounds', 2)
@@ -130,33 +133,27 @@ def save_prediction_as_netcdf(output_subdir: str, pred_sequence_cleaned: np.ndar
             # Se usa 'data_cfg' consistentemente
             gm_v = ds_out.createVariable('grid_mapping_0', 'i4'); gm_v.setncatts({'grid_mapping_name':"azimuthal_equidistant", 'longitude_of_projection_origin':data_cfg['sensor_longitude'], 'latitude_of_projection_origin':data_cfg['sensor_latitude'], 'false_easting':0.0, 'false_northing':0.0, 'earth_radius':data_cfg['earth_radius_m']})
 
-            # --- Variable Principal DBZ (EMPAQUETADA COMO EN ENTRENAMIENTO) ---
-            scale_factor = data_cfg['output_nc_scale_factor']
-            add_offset = data_cfg['output_nc_add_offset']
-            _fill_value_byte = np.int8(data_cfg['output_nc_fill_value'])
+            # --- Variable Principal DBZ (COMO FLOAT, SIN EMPAQUETAR) ---
+            # Basado en el ncdump del archivo que funcionaba localmente.
+            _fill_value_float = -999.0
+            
+            # Los datos ya están en el formato físico correcto (float32) y con NaNs
+            # donde los valores son inválidos o están por debajo del umbral.
+            prediction_data_for_nc = pred_sequence_cleaned[i]
 
-            # Prepara los datos: Aplica umbral y mapea a physical, luego empaqueta
-            pred_data_single_step = pred_sequence_cleaned[i]  # Ya tiene NaN para <30
-            # Reemplaza NaN con un valor bajo para packed (e.g., min_dbz)
-            pred_for_packing = np.where(np.isnan(pred_data_single_step), data_cfg['min_dbz'], pred_data_single_step)
-            # Clip para seguridad
-            pred_for_packing = np.clip(pred_for_packing, data_cfg['min_dbz'], data_cfg['max_dbz'])
-            # Empaqueta a byte
-            dbz_packed = np.round((pred_for_packing - add_offset) / scale_factor).astype(np.int8)
-            # Asegura missing para valores inválidos (e.g., si <30, fuerza a _fill)
-            invalid_mask = np.isnan(pred_sequence_cleaned[i]) | (pred_sequence_cleaned[i] < data_cfg['physical_threshold_dbz'])
-            dbz_packed[invalid_mask] = _fill_value_byte
+            # Al crear la variable con un fill_value, netCDF4 reemplazará automáticamente
+            # los NaN en el array por este valor al escribirlo.
+            dbz_v = ds_out.createVariable('DBZ', 'f4', ('time', 'altitude', 'latitude', 'longitude'), fill_value=_fill_value_float)
+            
+            # Añadimos los metadatos que vimos en el ncdump funcional
+            dbz_v.setncatts({
+                'long_name': 'DBZ',
+                'standard_name': 'reflectivity',
+                'units': 'dBZ',
+                'missing_value': _fill_value_float
+            })
 
-            dbz_v = ds_out.createVariable('DBZ', 'b', ('time', 'altitude', 'latitude', 'longitude'), fill_value=_fill_value_byte)  # 'b' para byte
-            dbz_v.scale_factor = np.float32(scale_factor)
-            dbz_v.add_offset = np.float32(add_offset)
-            dbz_v.valid_min = -127  # Para byte firmado, ajusta si unsigned
-            dbz_v.valid_max = 127
-            dbz_v.min_value = data_cfg['min_dbz']  # -29.0
-            dbz_v.max_value = data_cfg['max_dbz']  # 65.0 o 62.5
-            dbz_v.setncatts({'standard_name': 'DBZ', 'long_name': 'DBZ', 'units': 'dBZ', '_FillValue': _fill_value_byte})
-
-            dbz_v[0, :, :, :] = dbz_packed
+            dbz_v[0, :, :, :] = prediction_data_for_nc
 
         logging.info(f"  -> Predicción guardada en: {os.path.basename(output_filename)}")
 

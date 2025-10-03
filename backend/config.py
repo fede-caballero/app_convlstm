@@ -33,6 +33,7 @@ DATA_CONFIG = {
     'physical_threshold_dbz': 30.0,
     'sensor_latitude': -34.64799880981445,
     'sensor_longitude': -68.01699829101562,
+    'sensor_altitude_km': 0.55,
     'earth_radius_m': 6378137.0,
 
     # Parámetros para empaquetar la salida como byte, igual que el archivo de entrada

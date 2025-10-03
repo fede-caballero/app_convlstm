@@ -372,15 +372,13 @@ def main():
                 convert_predictions_to_mdv(output_subdir_path, MDV_OUTPUT_DIR, params_template_path)
                 
                 # --- GESTIÓN DEL BUFFER (VENTANA DESLIZANTE) ---
-                # En lugar de archivar los 12 archivos usados, archivamos solo los más antiguos
-                # para mantener el tamaño del buffer y permitir que la ventana se deslice.
-                if len(input_files) > SECUENCE_LENGHT:
-                    num_to_archive = len(input_files) - SECUENCE_LENGHT
-                    files_to_archive = input_files[:num_to_archive]
-                    logging.info(f"Limpiando buffer: archivando {len(files_to_archive)} archivo(s) antiguo(s)...")
-                    for f in files_to_archive:
-                        path_to_archive = os.path.join(INPUT_DIR, f)
-                        shutil.move(path_to_archive, os.path.join(ARCHIVE_DIR, f))
+                # Archivamos el archivo más antiguo de la secuencia que se acaba de procesar.
+                # Esto reduce el buffer a 11, forzando al sistema a esperar un nuevo archivo.
+                oldest_file_in_sequence = files_to_process[0]
+                path_to_archive = os.path.join(INPUT_DIR, oldest_file_in_sequence)
+                
+                logging.info(f"Ventana deslizante: archivando '{oldest_file_in_sequence}' para esperar el próximo escaneo.")
+                shutil.move(path_to_archive, os.path.join(ARCHIVE_DIR, oldest_file_in_sequence))
                 
                 logging.info(f"Ciclo de predicción para la secuencia {seq_id} completado.")
 

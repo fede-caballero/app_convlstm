@@ -3,7 +3,7 @@
 # =================================================================
 # Script de Inicio Robusto para el Backend
 # - Inicia ambos servicios (worker y API).
-# - Guarda los logs en un archivo.
+# - Guarda los logs en un archivo Y LOS MUESTRA EN CONSOLA.
 # - Atrapa la señal de Ctrl+C para una detención limpia.
 # =================================================================
 
@@ -13,6 +13,9 @@ export PYTHONUNBUFFERED=1
 LOG_DIR="/app/logs"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/session_$(date +%Y%m%d_%H%M%S).log"
+
+# Tocar el archivo de log para que tail no falle si no se escribe nada al instante
+touch "$LOG_FILE"
 
 echo "============================================================"
 echo "Iniciando Backend..."
@@ -26,8 +29,9 @@ cleanup() {
     echo ""
     echo "¡Señal de detención recibida! Limpiando procesos..."
     # Mata al proceso del worker y al de la API usando sus PIDs
-    kill $WORKER_PID
-    kill $API_PID
+    # El '|| true' es para evitar errores si el proceso ya no existe
+    kill $WORKER_PID || true
+    kill $API_PID || true
     echo "Procesos detenidos. Saliendo."
     exit 0
 }
@@ -50,10 +54,11 @@ python3 /app/api.py >> "$LOG_FILE" 2>&1 &
 # Guardamos el PID de la API
 API_PID=$!
 
-echo "Logs siendo escritos en $LOG_FILE."
-echo "Para verlos en tiempo real, ejecuta en otra terminal:"
-echo "docker exec -it <container_name> tail -f $LOG_FILE"
+echo ""
+echo "Mostrando logs en tiempo real. Presiona Ctrl+C para salir."
+echo "------------------------------------------------------------"
 
-# 'wait' le dice al script que se quede esperando aquí.
-# Sin esto, el script terminaría y el contenedor se cerraría.
-wait $API_PID
+# 'tail -f' seguirá el archivo de log y mostrará las nuevas líneas.
+# Se ejecuta en primer plano, manteniendo el script vivo.
+# Al presionar Ctrl+C, 'tail' se detiene y el trap de limpieza se activa.
+tail -f "$LOG_FILE"

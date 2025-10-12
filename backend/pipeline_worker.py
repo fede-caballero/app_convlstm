@@ -11,11 +11,78 @@ import xarray as xr
 from netCDF4 import Dataset as NCDataset
 import pyproj
 import glob
+import pyart
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 
 # Importamos desde nuestros módulos
 from config import (MDV_INBOX_DIR, MDV_ARCHIVE_DIR, INPUT_DIR, OUTPUT_DIR, ARCHIVE_DIR, 
                     SECUENCE_LENGHT, POLL_INTERVAL_SECONDS, MODEL_PATH, 
-                    DATA_CONFIG, STATUS_FILE_PATH, MDV_OUTPUT_DIR)
+                    DATA_CONFIG, STATUS_FILE_PATH, MDV_OUTPUT_DIR, IMAGE_OUTPUT_DIR)
+
+def generar_imagen_desde_nc(nc_file_path: str, output_image_path: str, skip_levels: int = 2):
+    """
+    Genera una imagen de reflectividad compuesta sobre un mapa a partir de un archivo NetCDF.
+    """
+    try:
+        logging.info(f"Generando imagen para: {os.path.basename(nc_file_path)}")
+        
+        ds = xr.open_dataset(nc_file_path, mask_and_scale=True, decode_times=False)
+
+        lon_name = 'longitude' if 'longitude' in ds.coords else 'x0'
+        lat_name = 'latitude' if 'latitude' in ds.coords else 'y0'
+        alt_name = 'altitude' if 'altitude' in ds.coords else 'z0'
+        
+        x = ds[lon_name].values
+        y = ds[lat_name].values
+        dbz_data = ds['DBZ'].squeeze().values
+
+        # --- 1. Crear el composite omitiendo los primeros niveles ---
+        if dbz_data.ndim == 3 and dbz_data.shape[0] > skip_levels:
+            composite_data_2d = np.nanmax(dbz_data[skip_levels:, :, :], axis=0)
+        else:
+            composite_data_2d = np.nanmax(dbz_data, axis=0)
+
+        # --- 2. Obtener la información de la proyección ---
+        proj_info = ds['grid_mapping_0'].attrs
+        lon_0 = proj_info['longitude_of_projection_origin']
+        lat_0 = proj_info['latitude_of_projection_origin']
+        projection = ccrs.AzimuthalEquidistant(central_longitude=lon_0, central_latitude=lat_0)
+
+        # --- 3. Creación del gráfico final con mapa ---
+        logging.info("Generando gráfico final con mapa...")
+        fig = plt.figure(figsize=(12, 12))
+        ax = fig.add_subplot(1, 1, 1, projection=projection)
+
+        # Definir la extensión de los datos en metros
+        x_min, x_max = x.min() * 1000, x.max() * 1000
+        y_min, y_max = y.min() * 1000, y.max() * 1000
+        extent = (x_min, x_max, y_min, y_max)
+
+        # Dibujar la imagen de reflectividad en el eje del mapa
+        im = ax.imshow(composite_data_2d, cmap='LangRainbow12', origin='lower', 
+                       vmin=0, vmax=70, extent=extent)
+
+        # Añadir características del mapa
+        ax.add_feature(cfeature.COASTLINE.with_scale('10m'), edgecolor='black', linewidth=0.5)
+        ax.add_feature(cfeature.BORDERS.with_scale('10m'), edgecolor='black', linewidth=0.7)
+        ax.add_feature(cfeature.STATES.with_scale('10m'), linestyle='--', edgecolor='gray', linewidth=0.5)
+        ax.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
+
+        fig.colorbar(im, ax=ax, label="Reflectividad (dBZ)", shrink=0.7)
+        ax.set_title(f"Reflectividad Compuesta - {os.path.basename(nc_file_path)}")
+        
+        plt.tight_layout()
+        plt.savefig(output_image_path, dpi=150)
+        plt.close(fig)
+
+        logging.info(f"  -> Imagen final guardada en: {output_image_path}")
+        return True
+
+    except Exception as e:
+        logging.error(f"No se pudo generar la imagen para {nc_file_path}: {e}", exc_info=True)
+        return False
 from model.predict import ModelPredictor
 
 # --- Configuración del Logging ---
@@ -313,8 +380,9 @@ def main():
     """
     Bucle principal con lógica de VENTANA DESLIZANTE.
     """
-    logging.info("====== INICIO DEL WORKER DEL PIPELINE (v8 - Sliding Window) ======")
-    for path in [MDV_INBOX_DIR, MDV_ARCHIVE_DIR, INPUT_DIR, OUTPUT_DIR, ARCHIVE_DIR, MDV_OUTPUT_DIR]:
+    logging.info("====== INICIO DEL WORKER DEL PIPELINE (v9 - Image Generation) ======")
+    # Aseguramos que todos los directorios necesarios existan
+    for path in [MDV_INBOX_DIR, MDV_ARCHIVE_DIR, INPUT_DIR, OUTPUT_DIR, ARCHIVE_DIR, MDV_OUTPUT_DIR, IMAGE_OUTPUT_DIR]:
         os.makedirs(path, exist_ok=True)
     
     predictor = ModelPredictor(MODEL_PATH)
@@ -330,64 +398,79 @@ def main():
                 mdv_to_nc_params = "/app/lrose_params/Mdv2NetCDF.params"
                 success = convert_mdv_to_nc(mdv_path, INPUT_DIR, mdv_to_nc_params)
                 
-                shutil.move(mdv_path, os.path.join(MDV_ARCHIVE_DIR, mdv_file_to_process))
+                # Archivamos el MDV original independientemente del resultado de la conversión
+                archive_mdv_path = os.path.join(MDV_ARCHIVE_DIR, os.path.basename(mdv_path))
+                shutil.move(mdv_path, archive_mdv_path)
+
                 if success:
-                    logging.info(f"{mdv_file_to_process} archivado y convertido.")
+                    logging.info(f"{mdv_file_to_process} archivado y convertido a NC.")
                 else:
-                    logging.warning(f"{mdv_file_to_process} archivado pero falló la conversión.")
+                    logging.warning(f"{mdv_file_to_process} archivado, pero la conversión a NC falló.")
                 
-                time.sleep(1)
-                continue     # CLAVE: Vuelve al inicio del bucle para buscar más MDVs
+                time.sleep(1) # Pequeña pausa para no saturar el CPU
+                continue     # Vuelve al inicio para priorizar la conversión de MDVs
 
             # --- TAREA SECUNDARIA: buscar secuencias NC ---
             input_files = sorted([f for f in os.listdir(INPUT_DIR) if f.endswith('.nc')])
-            logging.info(f"VERIFICANDO BUFFER: Se encontraron {len(input_files)} archivos .nc")
             
-            if len(input_files) >= SECUENCE_LENGHT:
-                
-                # --- LÓGICA DE VENTANA DESLIZANTE ---
-                # 1. Tomar los ÚLTIMOS 12 archivos de la lista ordenada
-                files_to_process = input_files[-SECUENCE_LENGHT:]
-                full_paths = [os.path.join(INPUT_DIR, f) for f in files_to_process]
-                
-                seq_id = os.path.splitext(files_to_process[-1])[0] # Usamos el último como identificador
-                update_status(f"Procesando secuencia deslizante terminada en {seq_id}", len(files_to_process), SECUENCE_LENGHT)
-                
-                # --- La lógica de predicción y guardado que ya tenías ---
-                input_tensor = load_and_preprocess_input_sequence(full_paths)
-                prediction_tensor = predictor.predict(input_tensor)
-                prediction_cleaned = postprocess_prediction(prediction_tensor)
-                try:
-                    last_input_dt_utc = datetime.strptime(seq_id, '%Y%m%d%H%M%S')
-                except ValueError:
-                    last_input_dt_utc = datetime.now(timezone.utc)
-                
-                output_subdir_name = last_input_dt_utc.strftime('%Y%m%d-%H%M%S')
-                output_subdir_path = os.path.join(OUTPUT_DIR, output_subdir_name)
-                os.makedirs(output_subdir_path, exist_ok=True)
-                save_prediction_as_netcdf(output_subdir_path, prediction_cleaned, DATA_CONFIG, last_input_dt_utc)
-
-                
-                params_template_path = "/app/lrose_params/params.nc2mdv.final"
-                convert_predictions_to_mdv(output_subdir_path, MDV_OUTPUT_DIR, params_template_path)
-                
-                # --- GESTIÓN DEL BUFFER (VENTANA DESLIZANTE) ---
-                # Archivamos el archivo más antiguo de la secuencia que se acaba de procesar.
-                # Esto reduce el buffer a 11, forzando al sistema a esperar un nuevo archivo.
-                oldest_file_in_sequence = files_to_process[0]
-                path_to_archive = os.path.join(INPUT_DIR, oldest_file_in_sequence)
-                
-                logging.info(f"Ventana deslizante: archivando '{oldest_file_in_sequence}' para esperar el próximo escaneo.")
-                shutil.move(path_to_archive, os.path.join(ARCHIVE_DIR, oldest_file_in_sequence))
-                
-                logging.info(f"Ciclo de predicción para la secuencia {seq_id} completado.")
-
-            else:
+            if len(input_files) < SECUENCE_LENGHT:
                 update_status("IDLE - Esperando archivos NC", len(input_files), SECUENCE_LENGHT)
+                time.sleep(POLL_INTERVAL_SECONDS)
+                continue
 
-            # Si no hay nada que hacer, esperar el intervalo completo
-            time.sleep(POLL_INTERVAL_SECONDS)
-        
+            # --- INICIO DEL CICLO DE PREDICCIÓN ---
+            files_to_process = input_files[-SECUENCE_LENGHT:]
+            full_paths = [os.path.join(INPUT_DIR, f) for f in files_to_process]
+            
+            seq_id = os.path.splitext(files_to_process[-1])[0]
+            update_status(f"Procesando secuencia terminada en {seq_id}", len(files_to_process), SECUENCE_LENGHT)
+            
+            # --- 1. Generar imagen del último scan de entrada ---
+            last_input_nc_path = full_paths[-1]
+            input_image_filename = f"INPUT_{seq_id}.png"
+            input_image_path = os.path.join(IMAGE_OUTPUT_DIR, input_image_filename)
+            generar_imagen_desde_nc(last_input_nc_path, input_image_path, skip_levels=2)
+
+            # --- 2. Predecir ---
+            input_tensor = load_and_preprocess_input_sequence(full_paths)
+            prediction_tensor = predictor.predict(input_tensor)
+            prediction_cleaned = postprocess_prediction(prediction_tensor)
+            
+            try:
+                last_input_dt_utc = datetime.strptime(seq_id, '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
+            except ValueError:
+                last_input_dt_utc = datetime.now(timezone.utc)
+            
+            # --- 3. Guardar predicciones en NetCDF ---
+            output_subdir_name = last_input_dt_utc.strftime('%Y%m%d-%H%M%S')
+            output_subdir_path = os.path.join(OUTPUT_DIR, output_subdir_name)
+            os.makedirs(output_subdir_path, exist_ok=True)
+            save_prediction_as_netcdf(output_subdir_path, prediction_cleaned, DATA_CONFIG, last_input_dt_utc)
+
+            # --- 4. Convertir predicciones a MDV (para Titan) ---
+            params_template_path = "/app/lrose_params/params.nc2mdv.final"
+            convert_predictions_to_mdv(output_subdir_path, MDV_OUTPUT_DIR, params_template_path)
+
+            # --- 5. Generar imágenes de las predicciones ---
+            logging.info("Iniciando generación de imágenes de predicción...")
+            prediction_nc_files = sorted(glob.glob(os.path.join(output_subdir_path, "*.nc")))
+            for nc_file in prediction_nc_files:
+                pred_filename_base = os.path.splitext(os.path.basename(nc_file))[0]
+                pred_image_filename = f"PRED_{pred_filename_base}.png"
+                pred_image_path = os.path.join(IMAGE_OUTPUT_DIR, pred_image_filename)
+                generar_imagen_desde_nc(nc_file, pred_image_path, skip_levels=2)
+
+            # --- 6. Gestión del buffer (Ventana deslizante) ---
+            oldest_file_in_sequence = files_to_process[0]
+            path_to_archive = os.path.join(INPUT_DIR, oldest_file_in_sequence)
+            logging.info(f"Ventana deslizante: archivando '{oldest_file_in_sequence}' para esperar el próximo escaneo.")
+            shutil.move(path_to_archive, os.path.join(ARCHIVE_DIR, oldest_file_in_sequence))
+            
+            logging.info(f"Ciclo de predicción para la secuencia {seq_id} completado.")
+
+            # Pequeña pausa después de un ciclo completo
+            time.sleep(1)
+
         except Exception as e:
             update_status("ERROR - ver logs para detalles", -1, -1)
             logging.error(f"Ocurrió un error en el bucle principal: {e}", exc_info=True)

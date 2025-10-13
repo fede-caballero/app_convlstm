@@ -44,18 +44,39 @@ def get_images():
 
         all_files = [f for f in os.listdir(IMAGE_OUTPUT_DIR) if f.endswith('.png')]
         
-        input_images = sorted([f for f in all_files if f.startswith('INPUT_')], reverse=True)
-        prediction_images = sorted([f for f in all_files if f.startswith('PRED_')], reverse=True)
+        input_images_names = sorted([f for f in all_files if f.startswith('INPUT_')], reverse=True)
+        prediction_images_names = sorted([f for f in all_files if f.startswith('PRED_')], reverse=True)
 
-        # Construir las URLs completas
         base_url = "/images/"
-        input_urls = [base_url + f for f in input_images]
-        prediction_urls = [base_url + f for f in prediction_images]
+        
+        def create_image_data(filenames):
+            image_data_list = []
+            for filename in filenames:
+                json_path = os.path.join(IMAGE_OUTPUT_DIR, f"{filename}.json")
+                bounds = None
+                if os.path.exists(json_path):
+                    try:
+                        with open(json_path, 'r') as f:
+                            data = json.load(f)
+                            bounds = data.get('bounds')
+                    except Exception as e:
+                        logging.warning(f"No se pudo leer o parsear el JSON '{json_path}': {e}")
+                else:
+                    logging.warning(f"No se encontró el archivo de coordenadas para {filename}")
+                
+                # Solo añadir si tenemos coordenadas, para asegurar que el mapa funcione
+                if bounds:
+                    image_data_list.append({
+                        "url": base_url + filename,
+                        "bounds": bounds
+                    })
+            return image_data_list
 
         return jsonify({
-            "input_images": input_urls,
-            "prediction_images": prediction_urls
+            "input_images": create_image_data(input_images_names),
+            "prediction_images": create_image_data(prediction_images_names)
         })
+
     except Exception as e:
         logging.error(f"Error al listar las imágenes: {e}")
         return jsonify({"error": "An internal error occurred."}), 500

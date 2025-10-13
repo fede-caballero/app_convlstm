@@ -1,24 +1,28 @@
-"use client"
+'use client'
 
 import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Slider } from "@/components/ui/slider"
-import { MapPin, Clock, Play, Pause, RotateCcw, ZoomIn, ZoomOut } from "lucide-react"
+import { MapPin, Clock, Play, Pause, RotateCcw } from "lucide-react"
+import { MapContainer, TileLayer, ImageOverlay } from "react-leaflet"
+import { LatLngBoundsExpression } from "leaflet"
+import { ImageWithBounds } from "@/lib/api" // Importar la nueva interfaz
 
 interface RadarVisualizationProps {
-  inputFiles: string[]
-  predictionFiles: string[]
+  inputFiles: ImageWithBounds[]
+  predictionFiles: ImageWithBounds[]
   isProcessing: boolean
 }
+
+// Coordenadas de San Rafael, Mendoza, Argentina. Temporales hasta que el API las provea.
+const MAP_CENTER: [number, number] = [-34.647, -68.016]
 
 export function RadarVisualization({ inputFiles, predictionFiles, isProcessing }: RadarVisualizationProps) {
   const [animationPlaying, setAnimationPlaying] = useState(false)
   const [currentFrame, setCurrentFrame] = useState(0)
-  const [zoomLevel, setZoomLevel] = useState(1)
 
   // Reset frame when input files change
   useEffect(() => {
@@ -42,17 +46,8 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing }
     setCurrentFrame(0)
   }
 
-  const handleZoomIn = () => setZoomLevel((prev) => Math.min(prev * 1.2, 5))
-  const handleZoomOut = () => setZoomLevel((prev) => Math.max(prev / 1.2, 0.5))
-
   const currentImage = inputFiles[currentFrame]
-  const getTimestampFromUrl = (url: string) => {
-    const match = url.match(/INPUT_(\d{8}_\d{6}).png/)
-    if (!match) return "N/A"
-    const [_, datetime] = match
-    const [date, time] = [datetime.slice(0, 8), datetime.slice(9)]
-    return `${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)} ${time.slice(0,2)}:${time.slice(2,4)}:${time.slice(4,6)}`
-  }
+  const mapBounds = currentImage?.bounds as LatLngBoundsExpression | undefined
 
   return (
     <Card className="h-full">
@@ -63,7 +58,7 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing }
       <CardContent>
         <Tabs defaultValue="original" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="original">Datos de Entrada</TabsTrigger>
+            <TabsTrigger value="original">Datos de Entrada (Mapa Interactivo)</TabsTrigger>
             <TabsTrigger value="predictions">Predicciones</TabsTrigger>
           </TabsList>
 
@@ -79,18 +74,24 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing }
                       <RotateCcw className="h-4 w-4" />
                     </Button>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Button size="sm" variant="outline" onClick={handleZoomOut}><ZoomOut className="h-4 w-4" /></Button>
-                    <span className="text-sm font-medium min-w-16 text-center">{Math.round(zoomLevel * 100)}%</span>
-                    <Button size="sm" variant="outline" onClick={handleZoomIn}><ZoomIn className="h-4 w-4" /></Button>
-                  </div>
                   <Badge variant="outline">Frame {currentFrame + 1}/{inputFiles.length}</Badge>
                 </div>
 
                 <div className="relative bg-black rounded-lg overflow-hidden" style={{ height: "500px" }}>
-                  <div className="absolute inset-0 flex items-center justify-center" style={{ transform: `scale(${zoomLevel})` }}>
-                    {currentImage && <img src={currentImage} alt={`Radar scan ${currentFrame + 1}`} className="max-w-full max-h-full object-contain" />}
-                  </div>
+                  <MapContainer center={MAP_CENTER} zoom={9} style={{ height: "100%", width: "100%" }}>
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    />
+                    {currentImage && mapBounds && (
+                      <ImageOverlay
+                        url={currentImage.url}
+                        bounds={mapBounds}
+                        opacity={0.7}
+                        zIndex={10}
+                      />
+                    )}
+                  </MapContainer>
                 </div>
 
                 <div className="space-y-2">
@@ -117,7 +118,7 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing }
 
           <TabsContent value="predictions" className="space-y-4">
             {predictionFiles.length > 0 ? (
-              <PredictionsView predictions={predictionFiles} zoomLevel={zoomLevel} />
+              <PredictionsView predictions={predictionFiles} />
             ) : (
               <div className="text-center py-12">
                 <Clock className="mx-auto h-12 w-12 text-gray-400" />
@@ -133,7 +134,8 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing }
   )
 }
 
-function PredictionsView({ predictions, zoomLevel }: { predictions: string[], zoomLevel: number }) {
+// Vista de predicciones con mapa interactivo
+function PredictionsView({ predictions }: { predictions: ImageWithBounds[] }) {
   const [selectedPrediction, setSelectedPrediction] = useState(0)
 
   useEffect(() => {
@@ -142,33 +144,41 @@ function PredictionsView({ predictions, zoomLevel }: { predictions: string[], zo
     }
   }, [predictions, selectedPrediction])
 
-  const currentPredictionImage = predictions[selectedPrediction]
+  const currentPrediction = predictions[selectedPrediction]
+  const mapBounds = currentPrediction?.bounds as LatLngBoundsExpression | undefined
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-center">
-        <p className="text-sm text-muted-foreground">Mostrando predicción T+{selectedPrediction + 1}</p>
+        <p className="text-sm text-muted-foreground">Mostrando predicción T+{selectedPrediction + 1} (+{(selectedPrediction + 1) * 3} min)</p>
       </div>
       <div className="relative bg-black rounded-lg overflow-hidden" style={{ height: "500px" }}>
-        <div className="absolute inset-0 flex items-center justify-center" style={{ transform: `scale(${zoomLevel})` }}>
-          {currentPredictionImage && <img src={currentPredictionImage} alt={`Prediction T+${selectedPrediction + 1}`} className="max-w-full max-h-full object-contain" />}
-        </div>
-        <div className="absolute top-4 left-4 bg-black bg-opacity-70 text-white p-2 rounded">
-          <p className="text-sm font-medium">Predicción T+{selectedPrediction + 1}</p>
-          <p className="text-xs opacity-80">+{(selectedPrediction + 1) * 3} minutos</p>
-        </div>
+        <MapContainer center={MAP_CENTER} zoom={9} style={{ height: "100%", width: "100%" }}>
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          />
+          {currentPrediction && mapBounds && (
+            <ImageOverlay
+              url={currentPrediction.url}
+              bounds={mapBounds}
+              opacity={0.7}
+              zIndex={10}
+            />
+          )}
+        </MapContainer>
       </div>
 
       <div className="grid grid-cols-5 gap-2">
         {predictions.map((pred, index) => (
           <div
-            key={pred}
+            key={pred.url}
             className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
               selectedPrediction === index ? "border-blue-500" : "border-transparent"
             }`}
             onClick={() => setSelectedPrediction(index)}
           >
-            <img src={pred} alt={`T+${index + 1}`} className="w-full h-24 object-cover" />
+            <img src={pred.url} alt={`T+${index + 1}`} className="w-full h-24 object-cover" />
             <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 text-center">
               T+{index + 1}
             </div>

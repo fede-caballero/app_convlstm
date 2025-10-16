@@ -27,8 +27,11 @@ CONFIG = {
     'model_save_dir': "/app/model_output",
     'predictions_output_dir': "/app/predictions_output",
 
+    #Dataset de ejemplo pequeño para pruebas rápidas
+    #https://drive.google.com/file/d/12-Ry9JtHpkBsjXWiWFqR-bPFlBNYCdjw/view?usp=sharing
+
     # --- Parámetros del Dataset y Descarga ---
-    'dataset_gdown_id': '1UFm8S6-Zu-YI6a_z_vUnGSqGz00ClChH', # ID del archivo a descargar
+    'dataset_gdown_id': '12-Ry9JtHpkBsjXWiWFqR-bPFlBNYCdjw', # ID del archivo a descargar
     'dataset_archive_name': 'sample.tar.gz',
     'dataset_unpacked_name': 'sample', # Nombre de la carpeta una vez descomprimida
 
@@ -53,8 +56,8 @@ CONFIG = {
     'model_use_layer_norm': True,
 
     # --- Parámetros de Entrenamiento ---
-    'batch_size': 2, # Ajustar según VRAM
-    'epochs': 50,
+    'batch_size': 4, # Ajustar según VRAM
+    'epochs': 5,
     'learning_rate': 1e-5,
     'weight_decay': 1e-5,
     'lr_patience': 3,
@@ -69,8 +72,9 @@ CONFIG = {
     'high_penalty_weight': 10.0,
 
     # --- Parámetros de Logging y Checkpoints ---
-    'log_interval': 10, # Cada cuántos batches loggear
+    'log_interval': 1, # Cada cuántos batches loggear
     'checkpoint_interval': 1, # Cada cuántas épocas guardar checkpoint
+    'resume_checkpoint_path': None, # Ruta a un checkpoint para reanudar, ej: '/app/model_output/best_model.pth'
     'seed': 42
 }
 
@@ -112,8 +116,8 @@ class RadarDataset(Dataset):
             try:
                 with xr.open_dataset(file_path, mask_and_scale=True, decode_times=False) as ds:
                     # Downsampling usando xarray
-                    resampled_ds = ds.interp(y=np.linspace(ds.y.min(), ds.y.max(), self.downsample_size[0]),
-                                             x=np.linspace(ds.x.min(), ds.x.max(), self.downsample_size[1]),
+                    resampled_ds = ds.interp(y0=np.linspace(ds.y0.min(), ds.y0.max(), self.downsample_size[0]),
+                                             x0=np.linspace(ds.x0.min(), ds.x0.max(), self.downsample_size[1]),
                                              method="linear")
                     dbz_physical = resampled_ds['DBZ'].values
 
@@ -135,133 +139,7 @@ class RadarDataset(Dataset):
         
         return x, y
 
-class ConvLSTMCell(nn.Module):
-    def __init__(self, input_dim, hidden_dim, kernel_size, bias=True):
-        super(ConvLSTMCell, self).__init__()
-        self.input_dim = input_dim
-        self.hidden_dim = hidden_dim
-        self.kernel_size = kernel_size
-        self.padding = kernel_size[0] // 2, kernel_size[1] // 2
-        self.bias = bias
-        self.conv = nn.Conv2d(in_channels=self.input_dim + self.hidden_dim,
-                              out_channels=4 * self.hidden_dim,
-                              kernel_size=self.kernel_size,
-                              padding=self.padding,
-                              bias=self.bias)
-        nn.init.xavier_uniform_(self.conv.weight)
-        if self.bias:
-            nn.init.zeros_(self.conv.bias)
-
-    def forward(self, input_tensor, cur_state):
-        h_cur, c_cur = cur_state
-        combined = torch.cat([input_tensor, h_cur], dim=1)
-        combined_conv = self.conv(combined)
-        cc_i, cc_f, cc_o, cc_g = torch.split(combined_conv, self.hidden_dim, dim=1)
-        i = torch.sigmoid(cc_i)
-        f = torch.sigmoid(cc_f)
-        o = torch.sigmoid(cc_o)
-        g = torch.tanh(cc_g)
-        c_next = f * c_cur + i * g
-        h_next = o * torch.tanh(c_next)
-        return h_next, c_next
-
-    def init_hidden(self, batch_size, image_size, device):
-        height, width = image_size
-        return (torch.zeros(batch_size, self.hidden_dim, height, width, device=device),
-                torch.zeros(batch_size, self.hidden_dim, height, width, device=device))
-
-class ConvLSTM2DLayer(nn.Module):
-    def __init__(self, input_dim, hidden_dim, kernel_size, use_layer_norm, img_size, return_all_layers=False):
-        super(ConvLSTM2DLayer, self).__init__()
-        self.cell = ConvLSTMCell(input_dim, hidden_dim, kernel_size)
-        self.use_layer_norm = use_layer_norm
-        self.return_all_layers = return_all_layers
-        if self.use_layer_norm:
-            self.layer_norm = nn.LayerNorm([hidden_dim, img_size[0], img_size[1]])
-
-    def forward(self, input_tensor, hidden_state=None):
-        b, seq_len, _, h, w = input_tensor.size()
-        device = input_tensor.device
-        if hidden_state is None:
-            hidden_state = self.cell.init_hidden(b, (h, w), device)
-
-        layer_output_list = []
-        h_cur, c_cur = hidden_state
-        for t in range(seq_len):
-            h_cur, c_cur = self.cell(input_tensor=input_tensor[:, t, :, :, :], cur_state=[h_cur, c_cur])
-            layer_output_list.append(h_cur)
-
-        if self.return_all_layers:
-            layer_output = torch.stack(layer_output_list, dim=1)
-            if self.use_layer_norm:
-                B_ln, T_ln, C_ln, H_ln, W_ln = layer_output.shape
-                output_reshaped = layer_output.contiguous().view(B_ln * T_ln, C_ln, H_ln, W_ln)
-                normalized_output = self.layer_norm(output_reshaped)
-                layer_output = normalized_output.view(B_ln, T_ln, C_ln, H_ln, W_ln)
-        else:
-            layer_output = h_cur.unsqueeze(1)
-
-        return layer_output, (h_cur, c_cur)
-
-class Seq2Seq(nn.Module):
-    def __init__(self, config):
-        super(Seq2Seq, self).__init__()
-        self.config = config
-        self.num_layers = config['model_num_layers']
-        self.hidden_dims = config['model_hidden_dims']
-        
-        self.layers = nn.ModuleList()
-        current_dim = config['model_input_dim']
-        for i in range(self.num_layers):
-            is_last_layer = (i == self.num_layers - 1)
-            self.layers.append(
-                ConvLSTM2DLayer(
-                    input_dim=current_dim,
-                    hidden_dim=self.hidden_dims[i],
-                    kernel_size=config['model_kernel_sizes'][i],
-                    use_layer_norm=config['model_use_layer_norm'],
-                    img_size=config['downsample_size'],
-                    return_all_layers=not is_last_layer
-                )
-            )
-            current_dim = self.hidden_dims[i]
-
-        self.output_conv = nn.Conv3d(
-            in_channels=self.hidden_dims[-1],
-            out_channels=config['model_input_dim'] * config['pred_len'],
-            kernel_size=(1, 3, 3),
-            padding=(0, 1, 1)
-        )
-        self.sigmoid = nn.Sigmoid()
-        nn.init.xavier_uniform_(self.output_conv.weight)
-        nn.init.zeros_(self.output_conv.bias)
-        logging.info(f"Modelo Seq2Seq creado: {self.num_layers} capas, Hidden dims: {self.hidden_dims}")
-
-    def forward(self, x_volumetric):
-        num_z_levels, b, seq_len, h, w, c_in = x_volumetric.shape
-        all_level_predictions = []
-
-        for z_idx in range(num_z_levels):
-            current_input = x_volumetric[z_idx, ...].permute(0, 1, 4, 2, 3)
-            hidden_states = [None] * self.num_layers
-
-            for i in range(self.num_layers):
-                layer_input = current_input
-                # Usar checkpoint para ahorrar memoria
-                layer_output, hidden_state = checkpoint(self.layers[i], layer_input, hidden_states[i], use_reentrant=False)
-                hidden_states[i] = hidden_state
-                current_input = layer_output
-
-            output_for_conv3d = current_input.permute(0, 2, 1, 3, 4)
-            raw_conv_output = self.output_conv(output_for_conv3d)
-            
-            pred_features = raw_conv_output.squeeze(2)
-            level_pred = pred_features.view(b, self.config['pred_len'], self.config['model_input_dim'], h, w)
-            level_pred = level_pred.permute(0, 1, 3, 4, 2)
-            level_pred = self.sigmoid(level_pred)
-            all_level_predictions.append(level_pred)
-
-        return torch.stack(all_level_predictions, dim=0)
+from backend.model.architecture import Seq2Seq
 
 class SSIMLoss(nn.Module):
     def __init__(self, data_range=1.0, kernel_size=7):
@@ -285,50 +163,68 @@ def prepare_and_split_data(config):
         logging.error(f"El directorio del dataset no fue encontrado en: {root_dir}")
         return [], []
 
-    all_event_dirs = sorted([d for d in os.listdir(root_dir) if os.path.isdir(os.path.join(root_dir, d))])
-    if not all_event_dirs:
-        logging.warning(f"No se encontraron directorios de eventos en {root_dir}")
+    # Obtiene todas las carpetas de secuencias que el usuario creó
+    all_sequence_dirs = sorted([d for d in os.listdir(root_dir) if os.path.isdir(os.path.join(root_dir, d))])
+    if not all_sequence_dirs:
+        logging.warning(f"No se encontraron directorios de secuencias en {root_dir}")
         return [], []
 
-    logging.info(f"Encontrados {len(all_event_dirs)} directorios de eventos.")
-    split_idx = int(len(all_event_dirs) * config['train_val_split_ratio'])
-    train_dirs = all_event_dirs[:split_idx]
-    val_dirs = all_event_dirs[split_idx:]
-    logging.info(f"División de eventos - Entrenamiento: {len(train_dirs)}, Validación: {len(val_dirs)}")
+    logging.info(f"Encontrados {len(all_sequence_dirs)} directorios de secuencias.")
+    
+    # Mezclar las secuencias antes de dividirlas para asegurar que la validación sea una muestra representativa
+    random.shuffle(all_sequence_dirs)
 
-    def create_sliding_windows(event_dirs, base_path):
+    # Dividir la lista de directorios de secuencias
+    split_idx = int(len(all_sequence_dirs) * config['train_val_split_ratio'])
+    train_dirs = all_sequence_dirs[:split_idx]
+    val_dirs = all_sequence_dirs[split_idx:]
+    logging.info(f"División de secuencias - Entrenamiento: {len(train_dirs)}, Validación: {len(val_dirs)}")
+
+    # Nueva función simplificada para cargar las secuencias desde los directorios
+    def load_sequences_from_dirs(sequence_dirs, base_path):
         sequences = []
-        total_seq_len = config['seq_len'] + config['pred_len']
-        for event_dir in event_dirs:
-            files = sorted(glob.glob(os.path.join(base_path, event_dir, "*.nc")))
-            if len(files) >= total_seq_len:
-                for i in range(0, len(files) - total_seq_len + 1, config['seq_stride']):
-                    sequences.append(files[i : i + total_seq_len])
+        # La longitud esperada es la suma de la secuencia de entrada y la de predicción
+        expected_len = config['seq_len'] + config['pred_len']
+        for seq_dir in sequence_dirs:
+            dir_path = os.path.join(base_path, seq_dir)
+            files = sorted(glob.glob(os.path.join(dir_path, "*.nc")))
+            
+            # Verificar si el directorio contiene el número exacto de archivos
+            if len(files) == expected_len:
+                sequences.append(files)
+            else:
+                logging.warning(f"Omitiendo directorio {dir_path}: no contiene los {expected_len} archivos esperados. Encontrados: {len(files)}")
         return sequences
 
-    train_sequences = create_sliding_windows(train_dirs, root_dir)
-    val_sequences = create_sliding_windows(val_dirs, root_dir)
-    logging.info(f"Generadas {len(train_sequences)} secuencias de entrenamiento y {len(val_sequences)} de validación.")
+    train_sequences = load_sequences_from_dirs(train_dirs, root_dir)
+    val_sequences = load_sequences_from_dirs(val_dirs, root_dir)
+    
+    logging.info(f"Cargadas {len(train_sequences)} secuencias de entrenamiento y {len(val_sequences)} de validación.")
     return train_sequences, val_sequences
 
-def train_model(model, train_loader, val_loader, config):
+def train_model(model, optimizer, scheduler, train_loader, val_loader, config, start_epoch=0):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=config['learning_rate'], weight_decay=config['weight_decay'])
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=config['lr_patience'], verbose=True)
-    
     criterion_huber = nn.HuberLoss(reduction='none').to(device)
     criterion_ssim = SSIMLoss().to(device) if config['use_ssim_loss'] else None
     
     scaler = torch.amp.GradScaler(enabled=config['use_amp'])
     best_val_loss = float('inf')
     
-    logging.info(f"Iniciando entrenamiento por {config['epochs']} épocas...")
+    # Cargar best_val_loss si se reanuda
+    if start_epoch > 0 and os.path.exists(os.path.join(config['model_save_dir'], "best_model.pth")):
+        checkpoint = torch.load(os.path.join(config['model_save_dir'], "best_model.pth"))
+        if 'best_val_loss' in checkpoint:
+            best_val_loss = checkpoint['best_val_loss']
+            logging.info(f"Reanudando con mejor pérdida de validación: {best_val_loss:.6f}")
 
-    for epoch in range(config['epochs']):
+    logging.info(f"Iniciando entrenamiento desde la época {start_epoch + 1} hasta la {config['epochs']}...")
+
+    for epoch in range(start_epoch, config['epochs']):
         model.train()
         running_train_loss = 0.0
+        running_train_ssim = 0.0
         optimizer.zero_grad()
 
         for batch_idx, (x, y) in enumerate(train_loader):
@@ -352,6 +248,9 @@ def train_model(model, train_loader, val_loader, config):
                     y_no_nan = torch.nan_to_num(y, nan=0.0)
                     loss_ssim_val = criterion_ssim(preds_no_nan, y_no_nan)
                     current_loss = (1.0 - config['ssim_loss_weight']) * loss_huber + config['ssim_loss_weight'] * loss_ssim_val
+                    running_train_ssim += (1.0 - loss_ssim_val.item())
+                else:
+                    running_train_ssim += 0
 
                 loss_to_accumulate = current_loss / config['accumulation_steps']
 
@@ -367,19 +266,24 @@ def train_model(model, train_loader, val_loader, config):
 
             running_train_loss += current_loss.item()
             if (batch_idx + 1) % config['log_interval'] == 0:
-                logging.info(f"Época {epoch+1}/{config['epochs']} [{batch_idx+1}/{len(train_loader)}] - Pérdida (batch): {current_loss.item():.6f}")
+                log_line = f"Época {epoch+1}/{config['epochs']} [{batch_idx+1}/{len(train_loader)}] - Pérdida (batch): {current_loss.item():.6f}"
+                if config['use_ssim_loss'] and 'loss_ssim_val' in locals():
+                    ssim_score = 1.0 - loss_ssim_val.item()
+                    log_line += f", SSIM (batch): {ssim_score:.4f}"
+                logging.info(log_line)
 
         avg_train_loss = running_train_loss / len(train_loader)
+        avg_train_ssim = running_train_ssim / len(train_loader)
         
         # Validation
         model.eval()
         running_val_loss = 0.0
+        running_val_ssim = 0.0
         with torch.no_grad():
             for x_val, y_val in val_loader:
                 x_val = x_val.to(device).permute(1, 0, 2, 3, 4, 5)
                 y_val = y_val.to(device).permute(1, 0, 2, 3, 4, 5)
                 with torch.amp.autocast(device_type=device.type, dtype=torch.float16, enabled=config['use_amp']):
-                    # Misma lógica de pérdida que en entrenamiento
                     predictions_val = model(x_val)
                     valid_mask_val = ~torch.isnan(y_val)
                     weights_val = torch.ones_like(y_val[valid_mask_val])
@@ -393,20 +297,101 @@ def train_model(model, train_loader, val_loader, config):
                         y_val_no_nan = torch.nan_to_num(y_val, nan=0.0)
                         val_loss_ssim = criterion_ssim(preds_val_no_nan, y_val_no_nan)
                         val_loss = (1.0 - config['ssim_loss_weight']) * val_loss_huber + config['ssim_loss_weight'] * val_loss_ssim
+                        running_val_ssim += (1.0 - val_loss_ssim.item())
+                    else:
+                        running_val_ssim += 0
                 running_val_loss += val_loss.item()
         
         avg_val_loss = running_val_loss / len(val_loader)
+        avg_val_ssim = running_val_ssim / len(val_loader)
         scheduler.step(avg_val_loss)
-        logging.info(f"Época {epoch+1} completada. Pérdida (train): {avg_train_loss:.6f}, Pérdida (val): {avg_val_loss:.6f}")
+        
+        log_msg = f"Época {epoch+1} completada. Pérdida (train): {avg_train_loss:.6f}, Pérdida (val): {avg_val_loss:.6f}"
+        if config['use_ssim_loss']:
+            log_msg += f", SSIM (train): {avg_train_ssim:.4f}, SSIM (val): {avg_val_ssim:.4f}"
+        logging.info(log_msg)
+
+        # Guardar checkpoint de estado completo
+        def save_checkpoint(path, is_best=False):
+            state = {
+                'epoch': epoch + 1,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'scheduler_state_dict': scheduler.state_dict(),
+                'best_val_loss': best_val_loss if is_best else avg_val_loss,
+            }
+            torch.save(state, path)
 
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
-            torch.save({'epoch': epoch + 1, 'model_state_dict': model.state_dict()}, os.path.join(config['model_save_dir'], "best_model.pth"))
+            save_checkpoint(os.path.join(config['model_save_dir'], "best_model.pth"), is_best=True)
             logging.info(f"Mejor modelo guardado (Pérdida Val: {best_val_loss:.6f})")
 
         if (epoch + 1) % config['checkpoint_interval'] == 0:
-            torch.save({'epoch': epoch + 1, 'model_state_dict': model.state_dict()}, os.path.join(config['model_save_dir'], f"checkpoint_epoch_{epoch+1}.pth"))
+            save_checkpoint(os.path.join(config['model_save_dir'], f"checkpoint_epoch_{epoch+1}.pth"))
             logging.info(f"Checkpoint guardado en la época {epoch+1}")
+
+def generate_predictions(config):
+    logging.info("Iniciando generación de predicciones post-entrenamiento...")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # 1. Cargar el mejor modelo
+    model = Seq2Seq(config).to(device)
+    best_model_path = os.path.join(config['model_save_dir'], 'best_model.pth')
+    if not os.path.exists(best_model_path):
+        logging.error("No se encontró el mejor modelo ('best_model.pth'). Abortando predicción.")
+        return
+
+    checkpoint = torch.load(best_model_path, map_location=device)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model.eval()
+    logging.info("Mejor modelo cargado para predicción.")
+
+    # 2. Preparar el dataloader de validación
+    _, val_paths = prepare_and_split_data(config)
+    if not val_paths:
+        logging.error("No se encontraron datos de validación para generar predicciones.")
+        return
+    val_dataset = RadarDataset(val_paths, config)
+    val_loader = DataLoader(val_dataset, batch_size=config['batch_size'], shuffle=False, num_workers=4, pin_memory=True)
+
+    # 3. Iterar y guardar predicciones
+    output_dir = config['predictions_output_dir']
+    with torch.no_grad():
+        for i, (x, y_true) in enumerate(val_loader):
+            x = x.to(device).permute(1, 0, 2, 3, 4, 5)
+            
+            with torch.amp.autocast(device_type=device.type, dtype=torch.float16, enabled=config['use_amp']):
+                predictions_norm = model(x)
+
+            # Denormalizar
+            min_dbz, max_dbz = config['min_dbz_norm'], config['max_dbz_norm']
+            predictions_physical = predictions_norm.cpu().numpy() * (max_dbz - min_dbz) + min_dbz
+            
+            # Guardar cada secuencia del batch como un archivo .nc
+            for j in range(predictions_physical.shape[1]): # Iterar sobre el tamaño del batch
+                pred_seq = predictions_physical[:, j, :, :, :, 0] # Shape: (pred_len, H, W)
+                
+                # Crear DataArray de xarray
+                da = xr.DataArray(
+                    pred_seq,
+                    dims=('time', 'y', 'x'),
+                    coords={
+                        'time': np.arange(pred_seq.shape[0]),
+                        'y': np.arange(pred_seq.shape[1]),
+                        'x': np.arange(pred_seq.shape[2])
+                    },
+                    attrs={
+                        'description': 'Precipitation forecast (DBZ)',
+                        'units': 'dBZ'
+                    }
+                )
+                
+                output_filename = os.path.join(output_dir, f'prediction_batch_{i}_seq_{j}.nc')
+                da.to_netcdf(output_filename)
+
+    logging.info(f"Predicciones guardadas en '{output_dir}'.")
+
 
 def setup_dataset(config):
     """Descarga y descomprime el dataset si no existe."""
@@ -439,7 +424,7 @@ def setup_dataset(config):
 
 def main():
     """Función principal que orquesta el pipeline de entrenamiento."""
-    set_seed(CONFIG['seed'])
+    set_seed(CONFIG.get('seed', 42))
     
     # Crear directorios de salida
     os.makedirs(CONFIG['model_save_dir'], exist_ok=True)
@@ -460,16 +445,43 @@ def main():
     train_loader = DataLoader(train_dataset, batch_size=CONFIG['batch_size'], shuffle=True, num_workers=4, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=CONFIG['batch_size'], shuffle=False, num_workers=4, pin_memory=True)
 
-    # 4. Inicializar el modelo
-    model = Seq2Seq(CONFIG)
+    # 4. Inicializar modelo, optimizador y scheduler
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = Seq2Seq(CONFIG).to(device)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=CONFIG['learning_rate'], weight_decay=CONFIG['weight_decay'])
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=CONFIG['lr_patience'], verbose=True)
+    
+    start_epoch = 0
+    # --- Lógica para reanudar entrenamiento ---
+    if CONFIG.get('resume_checkpoint_path') and os.path.exists(CONFIG['resume_checkpoint_path']):
+        try:
+            logging.info(f"Cargando checkpoint desde: {CONFIG['resume_checkpoint_path']}")
+            checkpoint = torch.load(CONFIG['resume_checkpoint_path'], map_location=device)
+            
+            model.load_state_dict(checkpoint['model_state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            start_epoch = checkpoint['epoch']
+            
+            logging.info(f"Checkpoint cargado. Reanudando entrenamiento desde la época {start_epoch + 1}.")
+        except Exception as e:
+            logging.error(f"Error al cargar el checkpoint: {e}. Empezando entrenamiento desde cero.")
+            start_epoch = 0 # Reset epoch
+    else:
+        if CONFIG.get('resume_checkpoint_path'):
+            logging.warning(f"Archivo de checkpoint no encontrado en {CONFIG['resume_checkpoint_path']}. Empezando desde cero.")
+
     logging.info(f"Arquitectura del modelo:\n{model}")
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logging.info(f"Número total de parámetros entrenables: {total_params:,}")
 
     # 5. Entrenar el modelo
-    train_model(model, train_loader, val_loader, CONFIG)
+    train_model(model, optimizer, scheduler, train_loader, val_loader, CONFIG, start_epoch)
 
-    logging.info("Pipeline de entrenamiento completado.")
+    # 6. Generar predicciones con el mejor modelo
+    generate_predictions(CONFIG)
+
+    logging.info("Pipeline de entrenamiento y predicción completado.")
 
 if __name__ == '__main__':
     main()

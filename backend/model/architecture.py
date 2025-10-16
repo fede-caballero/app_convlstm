@@ -1,10 +1,9 @@
 import torch
 import torch.nn as nn
+import logging
+from torch.utils.checkpoint import checkpoint
 
 class ConvLSTMCell(nn.Module):
-    """
-    Célula básica de ConvLSTM.
-    """
     def __init__(self, input_dim, hidden_dim, kernel_size, bias=True):
         super(ConvLSTMCell, self).__init__()
         self.input_dim = input_dim
@@ -17,6 +16,9 @@ class ConvLSTMCell(nn.Module):
                               kernel_size=self.kernel_size,
                               padding=self.padding,
                               bias=self.bias)
+        nn.init.xavier_uniform_(self.conv.weight)
+        if self.bias:
+            nn.init.zeros_(self.conv.bias)
 
     def forward(self, input_tensor, cur_state):
         h_cur, c_cur = cur_state
@@ -37,72 +39,94 @@ class ConvLSTMCell(nn.Module):
                 torch.zeros(batch_size, self.hidden_dim, height, width, device=device))
 
 class ConvLSTM2DLayer(nn.Module):
-    """
-    Capa que apila una secuencia de células ConvLSTM.
-    """
-    def __init__(self, input_dim, hidden_dim, kernel_size, use_layer_norm=True, img_size=(500,500), bias=True, return_all_layers=False):
+    def __init__(self, input_dim, hidden_dim, kernel_size, use_layer_norm, img_size, return_all_layers=False):
         super(ConvLSTM2DLayer, self).__init__()
+        self.cell = ConvLSTMCell(input_dim, hidden_dim, kernel_size)
         self.use_layer_norm = use_layer_norm
         self.return_all_layers = return_all_layers
-        self.cell = ConvLSTMCell(input_dim, hidden_dim, kernel_size, bias=bias)
         if self.use_layer_norm:
             self.layer_norm = nn.LayerNorm([hidden_dim, img_size[0], img_size[1]])
 
     def forward(self, input_tensor, hidden_state=None):
         b, seq_len, _, h, w = input_tensor.size()
+        device = input_tensor.device
         if hidden_state is None:
-            hidden_state = self.cell.init_hidden(b, (h, w), input_tensor.device)
-        
-        output_list = []
+            hidden_state = self.cell.init_hidden(b, (h, w), device)
+
+        layer_output_list = []
         h_cur, c_cur = hidden_state
         for t in range(seq_len):
             h_cur, c_cur = self.cell(input_tensor=input_tensor[:, t, :, :, :], cur_state=[h_cur, c_cur])
-            output_list.append(h_cur)
-            
+            layer_output_list.append(h_cur)
+
         if self.return_all_layers:
-            layer_output = torch.stack(output_list, dim=1)
+            layer_output = torch.stack(layer_output_list, dim=1)
             if self.use_layer_norm:
-                B, T, C, H, W = layer_output.shape
-                output_reshaped = layer_output.contiguous().view(B * T, C, H, W)
+                B_ln, T_ln, C_ln, H_ln, W_ln = layer_output.shape
+                output_reshaped = layer_output.contiguous().view(B_ln * T_ln, C_ln, H_ln, W_ln)
                 normalized_output = self.layer_norm(output_reshaped)
-                layer_output = normalized_output.view(B, T, C, H, W)
+                layer_output = normalized_output.view(B_ln, T_ln, C_ln, H_ln, W_ln)
         else:
             layer_output = h_cur.unsqueeze(1)
+
         return layer_output, (h_cur, c_cur)
 
-class ConvLSTM3D_Enhanced(nn.Module):
-    """
-    La arquitectura completa del modelo que apila múltiples capas de ConvLSTM2DLayer.
-    """
-    def __init__(self, input_dim, hidden_dims, kernel_sizes, num_layers, pred_steps, use_layer_norm, img_height, img_width):
-        super(ConvLSTM3D_Enhanced, self).__init__()
-        self.input_dim = input_dim
-        self.pred_steps = pred_steps
+class Seq2Seq(nn.Module):
+    def __init__(self, config):
+        super(Seq2Seq, self).__init__()
+        self.config = config
+        self.num_layers = config['model_num_layers']
+        self.hidden_dims = config['model_hidden_dims']
+        
         self.layers = nn.ModuleList()
-        current_dim = self.input_dim
-        for i in range(num_layers):
-            is_last_layer = (i == num_layers - 1)
+        current_dim = config['model_input_dim']
+        for i in range(self.num_layers):
+            is_last_layer = (i == self.num_layers - 1)
             self.layers.append(
                 ConvLSTM2DLayer(
-                    input_dim=current_dim, hidden_dim=hidden_dims[i], kernel_size=kernel_sizes[i],
-                    use_layer_norm=use_layer_norm, img_size=(img_height, img_width),
-                    return_all_layers=not is_last_layer, bias=True
-                ))
-            current_dim = hidden_dims[i]
-        self.output_conv = nn.Conv3d(in_channels=hidden_dims[-1], out_channels=self.pred_steps * self.input_dim,
-                                     kernel_size=(1, 3, 3), padding=(0, 1, 1))
+                    input_dim=current_dim,
+                    hidden_dim=self.hidden_dims[i],
+                    kernel_size=config['model_kernel_sizes'][i],
+                    use_layer_norm=config['model_use_layer_norm'],
+                    img_size=config['downsample_size'],
+                    return_all_layers=not is_last_layer
+                )
+            )
+            current_dim = self.hidden_dims[i]
+
+        self.output_conv = nn.Conv3d(
+            in_channels=self.hidden_dims[-1],
+            out_channels=config['model_input_dim'] * config['pred_len'],
+            kernel_size=(1, 3, 3),
+            padding=(0, 1, 1)
+        )
         self.sigmoid = nn.Sigmoid()
         nn.init.xavier_uniform_(self.output_conv.weight)
         nn.init.zeros_(self.output_conv.bias)
+        logging.info(f"Modelo Seq2Seq creado: {self.num_layers} capas, Hidden dims: {self.hidden_dims}")
 
-    def forward(self, x):
-        b, seq_len, c, h, w = x.shape
-        current_input = x
-        hidden_states = [None] * len(self.layers)
-        for i, layer in enumerate(self.layers):
-            current_input, hidden_states[i] = layer(current_input, hidden_states[i])
-        output_for_conv3d = current_input.permute(0, 2, 1, 3, 4)
-        raw_conv_output = self.output_conv(output_for_conv3d)
-        prediction_features = raw_conv_output.squeeze(2)
-        predictions_norm = self.sigmoid(prediction_features.view(b, self.pred_steps, self.input_dim, h, w))
-        return predictions_norm
+    def forward(self, x_volumetric):
+        num_z_levels, b, seq_len, h, w, c_in = x_volumetric.shape
+        all_level_predictions = []
+
+        for z_idx in range(num_z_levels):
+            current_input = x_volumetric[z_idx, ...].permute(0, 1, 4, 2, 3)
+            hidden_states = [None] * self.num_layers
+
+            for i in range(self.num_layers):
+                layer_input = current_input
+                # Usar checkpoint para ahorrar memoria
+                layer_output, hidden_state = checkpoint(self.layers[i], layer_input, hidden_states[i], use_reentrant=False)
+                hidden_states[i] = hidden_state
+                current_input = layer_output
+
+            output_for_conv3d = current_input.permute(0, 2, 1, 3, 4)
+            raw_conv_output = self.output_conv(output_for_conv3d)
+            
+            pred_features = raw_conv_output.squeeze(2)
+            level_pred = pred_features.view(b, self.config['pred_len'], self.config['model_input_dim'], h, w)
+            level_pred = level_pred.permute(0, 1, 3, 4, 2)
+            level_pred = self.sigmoid(level_pred)
+            all_level_predictions.append(level_pred)
+
+        return torch.stack(all_level_predictions, dim=0)

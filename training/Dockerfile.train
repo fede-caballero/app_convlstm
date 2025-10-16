@@ -1,0 +1,27 @@
+# Use an official PyTorch image with CUDA 12.1 support, matching the notebook environment
+FROM pytorch/pytorch:2.5.1-cuda12.1-cudnn8-runtime
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Install system dependencies required by the training process (e.g., pigz for parallel decompression)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pigz \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the training requirements file first to leverage Docker layer caching
+COPY ./training/requirements.train.txt /app/requirements.train.txt
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.train.txt
+
+# Copy the rest of the relevant source code
+# Copy backend for model architecture and utilities
+COPY ./backend /app/backend
+# Copy the training directory itself for scripts
+COPY ./training /app/training
+
+# Set the default command to run the training script
+# The -u flag ensures that prints and logs are sent straight to stdout without being buffered
+CMD ["python", "-u", "training/train_worker.py"]
+

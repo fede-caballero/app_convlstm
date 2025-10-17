@@ -54,6 +54,7 @@ CONFIG = {
     'model_kernel_sizes': [(3, 3), (3, 3), (3, 3)],
     'model_num_layers': 3,
     'model_use_layer_norm': True,
+    'use_attention': True,
 
     # --- Parámetros de Entrenamiento ---
     'batch_size': 4, # Ajustar según VRAM

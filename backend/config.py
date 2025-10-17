@@ -21,10 +21,16 @@ POLL_INTERVAL_SECONDS = 10
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # --- Configuración del Modelo ---
+# Unificada con la configuración de training_worker.py
 MODEL_CONFIG = {
-    'input_dim': 1, 'hidden_dims': [128, 128, 128], 'kernel_sizes': [(3, 3), (3, 3), (3, 3)],
-    'num_layers': 3, 'pred_steps': 5, 'use_layer_norm': True,
-    'img_height': 500, 'img_width': 500
+    'model_input_dim': 1,
+    'model_hidden_dims': [128, 128, 128],
+    'model_kernel_sizes': [(3, 3), (3, 3), (3, 3)],
+    'model_num_layers': 3,
+    'pred_len': 7,
+    'model_use_layer_norm': True,
+    'downsample_size': (250, 250),
+    'use_attention': True # Parámetro para activar la atención
 }
 
 # --- Configuración de Datos ---

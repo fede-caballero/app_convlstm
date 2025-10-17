@@ -3,6 +3,31 @@ import torch.nn as nn
 import logging
 from torch.utils.checkpoint import checkpoint
 
+class SelfAttention(nn.Module):
+    """ Capa de Self-Attention Espacial """
+    def __init__(self, in_dim):
+        super(SelfAttention, self).__init__()
+        self.query_conv = nn.Conv2d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1)
+        self.key_conv = nn.Conv2d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1)
+        self.value_conv = nn.Conv2d(in_channels=in_dim, out_channels=in_dim, kernel_size=1)
+        self.gamma = nn.Parameter(torch.zeros(1))
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, x):
+        # x: (B, C, H, W)
+        B, C, H, W = x.size()
+        proj_query = self.query_conv(x).view(B, -1, W * H).permute(0, 2, 1)
+        proj_key = self.key_conv(x).view(B, -1, W * H)
+        energy = torch.bmm(proj_query, proj_key)
+        attention = self.softmax(energy)
+        proj_value = self.value_conv(x).view(B, -1, W * H)
+
+        out = torch.bmm(proj_value, attention.permute(0, 2, 1))
+        out = out.view(B, C, H, W)
+
+        out = self.gamma * out + x
+        return out, attention
+
 class ConvLSTMCell(nn.Module):
     def __init__(self, input_dim, hidden_dim, kernel_size, bias=True):
         super(ConvLSTMCell, self).__init__()
@@ -94,6 +119,10 @@ class Seq2Seq(nn.Module):
             )
             current_dim = self.hidden_dims[i]
 
+        if self.config.get('use_attention', False):
+            self.attention = SelfAttention(self.hidden_dims[-1])
+            logging.info("Mecanismo de atención espacial activado.")
+
         self.output_conv = nn.Conv3d(
             in_channels=self.hidden_dims[-1],
             out_channels=config['model_input_dim'] * config['pred_len'],
@@ -115,10 +144,17 @@ class Seq2Seq(nn.Module):
 
             for i in range(self.num_layers):
                 layer_input = current_input
-                # Usar checkpoint para ahorrar memoria
                 layer_output, hidden_state = checkpoint(self.layers[i], layer_input, hidden_states[i], use_reentrant=False)
                 hidden_states[i] = hidden_state
                 current_input = layer_output
+
+            # Aplicar atención si está activada
+            if hasattr(self, 'attention'):
+                # La salida de la última capa es (B, 1, C, H, W), la quitamos para la atención
+                attention_input = current_input.squeeze(1)
+                attention_output, _ = self.attention(attention_input)
+                # Añadimos la dimensión de nuevo para la convolución 3D
+                current_input = attention_output.unsqueeze(1)
 
             output_for_conv3d = current_input.permute(0, 2, 1, 3, 4)
             raw_conv_output = self.output_conv(output_for_conv3d)

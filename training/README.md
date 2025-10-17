@@ -1,52 +1,191 @@
-# Estrategia de Entrenamiento del Modelo ConvLSTM
+# 🧠 Estrategia de Entrenamiento del Modelo PredRNN++ para Predicción de Radar
 
-Este documento detalla una estrategia de entrenamiento en dos fases para el modelo ConvLSTM, diseñada para optimizar el aprendizaje y la calidad de las predicciones.
+Este documento describe una **estrategia de entrenamiento optimizada en múltiples fases** para el modelo **PredRNN++**, adaptada al caso de predicción de tormentas severas con reflectividades radar (DBZ) en formato NetCDF.
 
-## Resumen de la Estrategia
-
-El entrenamiento se divide en dos fases principales:
-
-1.  **Fase 1: Estabilización Inicial.** El objetivo es que el modelo aprenda a generar predicciones con celdas de alta reflectividad, superando el problema inicial de producir solo valores bajos.
-2.  **Fase 2: Refinamiento y Generalización.** Una vez que el modelo es capaz de predecir tormentas intensas, se ajustan los hiperparámetros para mejorar la precisión estructural (SSIM) y la calidad general de la predicción en todo el rango de reflectividades.
-
----
-
-## Fase 1: Estabilización Inicial
-
-**Objetivo:** Forzar al modelo a predecir valores de alta reflectividad (tormentas) y establecer una base de aprendizaje estable.
-
-**Duración Sugerida:** 15-25 épocas.
-
-### Hiperparámetros Recomendados:
-
-*   **`EPOCHS`**: `25`
-*   **`BATCH_SIZE`**: `4` (o el máximo que permita tu VRAM, como `8` o `12` en la H200). Un batch size mayor puede acelerar el entrenamiento y estabilizar el gradiente.
-*   **`LEARNING_RATE`**: `1e-4` (un valor estándar para empezar con Adam).
-*   **`SSIM_LOSS_WEIGHT`**: `0.1` (inicialmente bajo para no penalizar demasiado la estructura y centrarnos en el error de píxel).
-*   **`HIGH_DBZ_THRESHOLD_NORM`**: `0.75` (umbral alto para definir qué es "alta reflectividad").
-*   **`HIGH_PENALTY_WEIGHT`**: `100` (penalización muy alta para los errores en píxeles de alta reflectividad, forzando al modelo a aprenderlos).
+El enfoque está diseñado para:
+- Capturar la **advección real** de celdas convectivas (evitando que el modelo “engorde” los ecos).
+- Mejorar la **coherencia estructural y temporal** de las predicciones.
+- Controlar los costos de GPU en la H200.
+- Mantener compatibilidad total con los archivos **NetCDF** originales (preservando metadatos para reconversión posterior).
 
 ---
 
-## Fase 2: Refinamiento y Generalización
+## 📦 Configuración de Entradas y Salidas
 
-**Objetivo:** Mejorar la calidad estructural de las predicciones (SSIM) y el rendimiento general del modelo, una vez que ya no ignora las altas reflectividades.
-
-**Requisito:** Haber completado la Fase 1 o tener un modelo que ya predice altas reflectividades. Se debe cargar el `best_convLSTM_model.pth` de la fase anterior.
-
-**Duración Sugerida:** 25+ épocas.
-
-### Hiperparámetros Recomendados:
-
-*   **`EPOCHS`**: `50` (o más, hasta que la pérdida de validación se estanque).
-*   **`BATCH_SIZE`**: Mantener el valor de la Fase 1.
-*   **`LEARNING_RATE`**: `5e-5` (reducir el learning rate para un ajuste fino).
-*   **`SSIM_LOSS_WEIGHT`**: `0.4` (aumentar el peso de SSIM para dar más importancia a la similitud estructural).
-*   **`HIGH_DBZ_THRESHOLD_NORM`**: `0.5` (reducir el umbral para considerar un rango más amplio de reflectividades como importante).
-*   **`HIGH_PENALTY_WEIGHT`**: `40` (reducir la penalización, ya que el modelo ya debería estar prestando atención a las altas reflectividades).
+- **Entrada:** 10 imágenes (frames) consecutivas cada 3–4 minutos.
+- **Salida:** 5 imágenes futuras (horizonte de 15–20 minutos).
+- **Formato:** NetCDF (`DBZ(time, z, y, x)`).
+- **Normalización:**  
+  ```python
+  dbz = np.clip(dbz, -29, 65)
+  dbz_norm = (dbz + 29) / (65 + 29)
+  ```
+- **Downsampling inteligente:**  
+  En lugar de un `resize` estándar, se recomienda un **average pooling 2D**:
+  ```python
+  import torch.nn.functional as F
+  x_down = F.avg_pool2d(x, kernel_size=2)  # 500x500 → 250x250
+  ```
+  ✅ Preserva las estructuras convectivas  
+  ✅ Reduce la VRAM hasta 75%  
+  ✅ Mantiene la compatibilidad de metadatos (solo requiere registrar el nuevo tamaño en el NetCDF final)
 
 ---
 
-## Generación de Predicciones Post-Entrenamiento
+## ⚙️ Arquitectura del Modelo
 
-Una vez finalizado el ciclo de entrenamiento, se cargará el mejor modelo guardado (`best_convLSTM_model.pth`) y se generarán predicciones sobre el conjunto de validación. Estas predicciones se guardarán en la carpeta `predictions_output` en formato NetCDF (`.nc`), permitiendo su descarga y análisis local.
+### 🔹 Modelo: PredRNN++
+El modelo usa **memorias espaciotemporales acopladas (C, M)** que mejoran la representación de desplazamientos y deformaciones de celdas convectivas.
+
+Ventajas:
+- Representa la **advección natural** sin “hinchar” las celdas.
+- Preserva **estructuras intensas (>35 dBZ)**.
+- Escalable con el tamaño de batch.
+
+---
+
+## 🧩 Estrategia Multietapa de Entrenamiento
+
+El entrenamiento se divide en **tres fases**.  
+Cada fase tiene un objetivo distinto en el proceso de aprendizaje.
+
+---
+
+### 🥇 Fase 1 — Estabilización Inicial
+**Objetivo:** que el modelo empiece a reproducir tormentas intensas y evite outputs uniformes o con baja reflectividad.
+
+**Duración sugerida:** 20–25 épocas.
+
+| Parámetro | Valor | Justificación |
+|------------|--------|---------------|
+| `EPOCHS` | 25 | suficiente para estabilizar salida |
+| `BATCH_SIZE` | 8–12 (según VRAM) | mejora la estabilidad de gradiente |
+| `LEARNING_RATE` | 1e-4 | base estable para Adam |
+| `SSIM_LOSS_WEIGHT` | 0.1 | prioriza error por píxel |
+| `HIGH_DBZ_THRESHOLD_NORM` | 0.75 | destaca ecos fuertes |
+| `HIGH_PENALTY_WEIGHT` | 100 | fuerza el aprendizaje de tormentas |
+| `OPTIMIZER` | Adam (β1=0.9, β2=0.999) | estándar robusto |
+
+💡 **Consejo:**  
+Aplicar *gradient clipping* (`torch.nn.utils.clip_grad_norm_`) para evitar explosión de gradientes en las primeras épocas.
+
+---
+
+### 🥈 Fase 2 — Refinamiento Estructural
+**Objetivo:** mejorar la coherencia estructural y la similitud espacial (SSIM), sin perder intensidad.
+
+**Duración sugerida:** 40–60 épocas.
+
+| Parámetro | Valor | Justificación |
+|------------|--------|---------------|
+| `EPOCHS` | 50 | permite consolidar la memoria espaciotemporal |
+| `LEARNING_RATE` | 5e-5 | ajuste fino |
+| `SSIM_LOSS_WEIGHT` | 0.4 | mayor énfasis en estructura |
+| `HIGH_DBZ_THRESHOLD_NORM` | 0.5 | cubre más rango de reflectividades |
+| `HIGH_PENALTY_WEIGHT` | 40 | reduce penalización para balancear |
+| `SCHEDULER` | CosineAnnealingLR o ReduceLROnPlateau | mejora la convergencia final |
+
+📈 En esta fase, el modelo debe ser capaz de seguir **trayectorias de celdas individuales** y **preservar divisiones y fusiones**.
+
+---
+
+### 🥉 Fase 3 — Estabilización Avanzada (Fine-Tuning Global)
+**Objetivo:** ajustar detalles finos y eliminar fluctuaciones o “alucinaciones” locales.
+
+**Duración sugerida:** 20–30 épocas.
+
+| Parámetro | Valor | Justificación |
+|------------|--------|---------------|
+| `EPOCHS` | 30 | fine-tuning final |
+| `LEARNING_RATE` | 1e-5 | ultra fino |
+| `SSIM_LOSS_WEIGHT` | 0.6 | maximiza la coherencia estructural |
+| `HIGH_PENALTY_WEIGHT` | 20 | penalización suave |
+| `REGULARIZACIÓN` | Dropout 0.1 o Weight Decay 1e-5 | evita sobreajuste |
+
+🎯 En esta etapa se puede aplicar *early stopping* basado en **SSIM promedio** o **MSE de alta reflectividad**.
+
+---
+
+## 🧮 Métricas de Evaluación
+
+Se recomienda monitorear:
+
+| Métrica | Descripción |
+|----------|--------------|
+| **MSE / RMSE** | Error general de reflectividad. |
+| **SSIM** | Coherencia estructural espacial. |
+| **CSI (>35 dBZ)** | Tasa de acierto de tormentas intensas. |
+| **Bias (>35 dBZ)** | Sobre o subestimación de eventos fuertes. |
+| **FAR (False Alarm Rate)** | Control de alucinaciones. |
+
+💡 Ponderar más los píxeles >35 dBZ en todas las métricas.
+
+---
+
+## 💾 Guardado de Modelos y Predicciones
+
+- Guardar el mejor modelo con:
+  ```python
+  if val_loss < best_loss:
+      torch.save(model.state_dict(), "best_predrnn_model.pth")
+  ```
+
+- Generar predicciones post-entrenamiento y exportarlas a NetCDF:
+  ```python
+  import xarray as xr
+
+  pred_nc = xr.Dataset(
+      {"DBZ_pred": (("time", "z", "y", "x"), pred_array)},
+      coords={"time": time_coords, "z": z_levels, "y": y_coords, "x": x_coords},
+      attrs=metadata_original
+  )
+  pred_nc.to_netcdf("predictions_output/pred_case.nc")
+  ```
+
+✅ Esto asegura compatibilidad total con tus herramientas de análisis actuales (TITAN, Py-ART, etc.).
+
+---
+
+## 📊 Consejos finales para la H200
+
+- VRAM disponible (80 GB) → aprovechar con `batch_size=12–16` y `mixed_precision` (`torch.cuda.amp`).
+- Downsampling 2× mantiene coherencia espacial sin perder metadatos.
+- PredRNN++ con 10→5 secuencias es el **equilibrio óptimo** entre precisión, costo y estabilidad.
+- No es necesario más de 3 capas ocultas (`hidden_dims=[64,64,64]`).
+
+---
+
+## 🧩 Resumen Global
+
+| Fase | Épocas | LR | Batch | SSIM W | HighPenalty | Objetivo |
+|------|---------|----|--------|---------|--------------|-----------|
+| 1 | 25 | 1e-4 | 8–12 | 0.1 | 100 | Aprendizaje de ecos fuertes |
+| 2 | 50 | 5e-5 | 8–12 | 0.4 | 40 | Coherencia estructural |
+| 3 | 30 | 1e-5 | 8–12 | 0.6 | 20 | Refinamiento global |
+
+Total recomendado: **~100–110 épocas**  
+→ Con early stopping, se logra un modelo muy sólido y físicamente coherente.
+
+---
+
+## 🚀 Resultado Esperado
+
+- Advección realista y desplazamientos suaves de celdas.
+- Preservación de reflectividades >35 dBZ sin inflado.
+- Reducción de falsos positivos (“alucinaciones”).
+- Predicciones físicamente coherentes hasta 20 minutos adelante.
+
+---
+
+## 🧩 Futuras Mejoras Opcionales
+
+- Añadir un **bloque de atención temporal** (Temporal Self-Attention) en la salida del encoder.
+- Combinar PredRNN++ con **PhydNet-style regularization** (basado en ecuaciones de advección-difusión).
+- Incluir una cuarta **fase de reentrenamiento corto** con datos balanceados en intensidad para corregir sesgos.
+
+---
+
+✍️ **Autor:** Federico Caballero  
+📚 **Proyecto de Tesis:** Predicción de tormentas severas mediante redes espaciotemporales (PredRNN++)  
+🧩 **Framework:** PyTorch  
+💾 **Entrenamiento en GPU:** NVIDIA H200

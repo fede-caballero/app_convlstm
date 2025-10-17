@@ -3,7 +3,7 @@ import logging
 
 from config import DEVICE, MODEL_CONFIG, Z_BATCH_SIZE
 
-from model.architecture import ConvLSTM3D_Enhanced
+from model.architecture import Seq2Seq
 
 class ModelPredictor:
     # Clase para la carga del modelo y ejecución de predicciones
@@ -20,7 +20,7 @@ class ModelPredictor:
         logging.info(f"Cargando modelo desde {model_path}...")
         try:
             # 1. Construir la arquitectura del modelo usando la configuración
-            model = ConvLSTM3D_Enhanced(**MODEL_CONFIG)
+            model = Seq2Seq(MODEL_CONFIG)
 
             # 2. Cargar los pesos entrenados
             # weights_only=True

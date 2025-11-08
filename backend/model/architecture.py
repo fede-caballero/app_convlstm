@@ -166,3 +166,165 @@ class Seq2Seq(nn.Module):
             all_level_predictions.append(level_pred)
 
         return torch.stack(all_level_predictions, dim=0)
+
+
+# --- Nueva Arquitectura: PredRNN++ 3D ---
+
+class STLSTMCell_3D(nn.Module):
+    """
+    Célula Spatio-Temporal LSTM (ST-LSTM) adaptada para 3D.
+    El corazón de PredRNN++.
+    """
+    def __init__(self, in_channel, num_hidden, filter_size, stride, layer_norm):
+        super(STLSTMCell_3D, self).__init__()
+
+        self.num_hidden = num_hidden
+        self.padding = filter_size // 2
+        self._forget_bias = 1.0
+        
+        # Gates convolucionales para el flujo temporal (similar a ConvLSTM)
+        self.conv_t = nn.Conv3d(in_channel + num_hidden, num_hidden * 4, filter_size, stride, padding=self.padding)
+
+        # Gates convolucionales para el flujo de memoria espaciotemporal (lo nuevo de PredRNN)
+        self.conv_s = nn.Conv3d(num_hidden, num_hidden * 4, filter_size, stride, padding=self.padding)
+        
+        # Normalización de capa si se activa
+        if layer_norm:
+            self.layer_norm_t = nn.LayerNorm([num_hidden * 4, 18, 250, 250]) # Asumiendo Z, H, W downsampleadas
+            self.layer_norm_s = nn.LayerNorm([num_hidden * 4, 18, 250, 250])
+        else:
+            self.layer_norm_t = lambda x: x
+            self.layer_norm_s = lambda x: x
+
+
+    def forward(self, x, h, c, m):
+        # x: input tensor
+        # h: hidden state (estado oculto temporal)
+        # c: cell state (estado de celda temporal)
+        # m: memory state (memoria espaciotemporal)
+
+        # --- Flujo Temporal ---
+        # Concatena la entrada y el estado oculto anterior
+        combined_t = torch.cat((x, h), 1)
+        # Pasa por la convolución temporal
+        gates_t = self.layer_norm_t(self.conv_t(combined_t))
+        
+        # Separa los 4 gates: input, forget, output, g
+        i_t, f_t, g_t, o_t = torch.split(gates_t, self.num_hidden, dim=1)
+        f_t = torch.sigmoid(f_t + self._forget_bias)
+        i_t = torch.sigmoid(i_t)
+        g_t = torch.tanh(g_t)
+        
+        # Actualiza el estado de celda temporal
+        c_next = f_t * c + i_t * g_t
+
+        # --- Flujo Espaciotemporal ---
+        # La memoria 'm' pasa por su propia convolución
+        gates_s = self.layer_norm_s(self.conv_s(m))
+        
+        # Separa los 4 gates: input, forget, g, output
+        i_s, f_s, g_s, o_s = torch.split(gates_s, self.num_hidden, dim=1)
+        f_s = torch.sigmoid(f_s + self._forget_bias)
+        i_s = torch.sigmoid(i_s)
+        g_s = torch.tanh(g_s)
+
+        # Actualiza la memoria espaciotemporal 'm'
+        m_next = f_s * m + i_s * g_s
+        
+        # --- Salida ---
+        o_t = torch.sigmoid(o_t)
+        o_s = torch.sigmoid(o_s)
+        
+        # El nuevo estado oculto 'h' se crea combinando la celda temporal y la memoria espaciotemporal
+        h_next = o_t * torch.tanh(c_next) + o_s * torch.tanh(m_next)
+
+        return h_next, c_next, m_next
+
+
+class PredRNNpp_3D(nn.Module):
+    """
+    Modelo PredRNN++ completo, adaptado para datos volumétricos 3D.
+    """
+    def __init__(self, config):
+        super(PredRNNpp_3D, self).__init__()
+        self.config = config
+        self.num_layers = len(config['model_hidden_dims'])
+        self.num_hidden = config['model_hidden_dims']
+        self.frame_channel = config['model_input_dim']
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        self.cells = nn.ModuleList()
+        
+        # --- Construcción de las capas ---
+        input_channel = self.frame_channel
+        for i in range(self.num_layers):
+            self.cells.append(
+                STLSTMCell_3D(
+                    in_channel=input_channel,
+                    num_hidden=self.num_hidden[i],
+                    filter_size=config['model_kernel_sizes'][i][0], # Tomamos el primer valor del kernel
+                    stride=1,
+                    layer_norm=config['model_use_layer_norm']
+                )
+            )
+            input_channel = self.num_hidden[i]
+
+        # --- Capa de salida ---
+        # Convierte el estado oculto de la última capa a la predicción de 1 frame
+        self.output_conv = nn.Conv3d(
+            self.num_hidden[-1], 
+            self.frame_channel,
+            kernel_size=1, stride=1, padding=0)
+            
+        logging.info(f"Modelo PredRNNpp_3D creado: {self.num_layers} capas, Hidden dims: {self.num_hidden}")
+
+    def forward(self, frames, mask_true):
+        # frames: (B, T_in, C, Z, H, W)
+        # mask_true: (B, T_out, C, Z, H, W) - para scheduled sampling
+        
+        batch_size, seq_len, _, z_dim, h_dim, w_dim = frames.shape
+        
+        # Inicializar estados (h, c, m) para cada capa
+        h = []
+        c = []
+        m = []
+        for i in range(self.num_layers):
+            zero_tensor = torch.zeros(batch_size, self.num_hidden[i], z_dim, h_dim, w_dim).to(self.device)
+            h.append(zero_tensor)
+            c.append(zero_tensor)
+            m.append(zero_tensor)
+
+        # Lista para guardar las predicciones
+        next_frames = []
+
+        # --- Bucle de predicción ---
+        total_len = self.config['seq_len'] + self.config['pred_len']
+        
+        for t in range(total_len - 1):
+            if t < self.config['seq_len']:
+                x = frames[:, t]
+            else:
+                # Scheduled sampling: usar la predicción anterior o el ground truth
+                # como entrada para el siguiente paso
+                mask = mask_true[:, t - self.config['seq_len']]
+                x = mask * frames[:, t] + (1 - mask) * x_gen
+            
+            # --- Propagación a través de las capas ---
+            # La salida de la capa inferior es la entrada de la superior
+            h[0], c[0], m[0] = self.cells[0](x, h[0], c[0], m[0])
+            for i in range(1, self.num_layers):
+                h[i], c[i], m[i] = self.cells[i](h[i-1], h[i], c[i], m[i])
+
+            # --- Generación de la predicción ---
+            # La salida de la última capa pasa por la convolución de salida
+            x_gen = self.output_conv(h[-1])
+            
+            # Guardar la predicción si estamos en el horizonte de predicción
+            if t >= self.config['seq_len'] - 1:
+                next_frames.append(x_gen)
+
+        # Apilar las predicciones en un solo tensor
+        # (T_out, B, C, Z, H, W) -> (B, T_out, C, Z, H, W)
+        predictions = torch.stack(next_frames, dim=0).permute(1, 0, 2, 3, 4, 5)
+        
+        return predictions

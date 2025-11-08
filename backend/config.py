@@ -11,6 +11,7 @@ MDV_INBOX_DIR = "/app/mdv_inbox/"         # Bandeja de entrada para archivos MDV
 MDV_ARCHIVE_DIR = "/app/mdv_archive/"     # Archivo para los MDV ya convertidos
 MDV_OUTPUT_DIR = "/app/mdv_predictions/"  # Salida de predicciones en MDV
 IMAGE_OUTPUT_DIR = "/app/output_images"
+LROSE_PARAMS_DIR = "/app/backend/lrose_params/"   # Directorio para archivos de parámetros de LROSE
 STATUS_FILE_PATH = "/app/status.json"     # Archivo de estado para la API
 
 # --- Parámetros del Watcher ---

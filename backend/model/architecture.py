@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import logging
+import torchmetrics
 from torch.utils.checkpoint import checkpoint
 
 class SelfAttention(nn.Module):
@@ -328,3 +329,17 @@ class PredRNNpp_3D(nn.Module):
         predictions = torch.stack(next_frames, dim=0).permute(1, 0, 2, 3, 4, 5)
         
         return predictions
+
+
+class SSIMLoss(nn.Module):
+    def __init__(self, data_range=1.0, kernel_size=7):
+        super(SSIMLoss, self).__init__()
+        self.ssim_metric = torchmetrics.StructuralSimilarityIndexMeasure(
+            data_range=data_range, kernel_size=kernel_size, reduction='elementwise_mean'
+        ).to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+
+    def forward(self, img1, img2):
+        b, t, c, z, h, w = img1.shape
+        img1_reshaped = img1.reshape(-1, c * z, h, w)
+        img2_reshaped = img2.reshape(-1, c * z, h, w)
+        return 1.0 - self.ssim_metric(img1_reshaped, img2_reshaped)

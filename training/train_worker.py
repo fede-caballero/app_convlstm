@@ -10,66 +10,15 @@ import xarray as xr
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from torch.utils.checkpoint import checkpoint
-import torchmetrics
-import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from netCDF4 import Dataset as NCDataset
 import pyproj
 
-# ==============================================================================
-# CONFIGURACIÓN DEL SCRIPT
-# ==============================================================================
-
-CONFIG = {
-    # --- Rutas dentro del contenedor Docker ---
-    'dataset_root_dir': "/app/datasets",
-    'model_save_dir': "/app/model_output",
-    'predictions_output_dir': "/app/predictions_output",
-
-    # --- Parámetros del Dataset y Descarga ---
-    'dataset_gdown_id': '12-Ry9JtHpkBsjXWiWFqR-bPFlBNYCdjw',
-    'dataset_archive_name': 'sample.tar.gz',
-    'dataset_unpacked_name': 'sample',
-
-    # --- Parámetros de Pre-procesamiento y Secuencia ---
-    'downsample_size': (250, 250),
-    'original_size': (500, 500),
-    'z_levels': 18,
-    'seq_len': 8,
-    'pred_len': 7,
-    'seq_stride': 5,
-
-    # --- Parámetros de División del Dataset ---
-    'train_val_split_ratio': 0.8,
-
-    # --- Parámetros de Normalización y Físicos ---
-    'min_dbz_norm': -29.0,
-    'max_dbz_norm': 65.0,
-    
-    # --- Parámetros del Modelo (PredRNN++ 3D) ---
-    'model_input_dim': 1,
-    'model_hidden_dims': [64, 64, 64],
-    'model_kernel_sizes': [(3, 3, 3), (3, 3, 3), (3, 3, 3)],
-    'model_num_layers': 3,
-    'model_use_layer_norm': True,
-
-    # --- Parámetros de Entrenamiento Generales ---
-    'batch_size': 16,
-    'use_amp': True,
-    'clip_grad_norm': 1.0,
-    'accumulation_steps': 2,
-    'log_interval': 1,
-    'checkpoint_interval': 5,
-    'seed': 42,
-
-    # --- Parámetros de Georreferenciación y Salida ---
-    'sensor_longitude': -68.01699829101562,
-    'sensor_latitude': -34.64799880981445,
-    'earth_radius_m': 6378137.0,
-    'prediction_interval_minutes': 3
-}
+from config import CONFIG
+from scripts.dataset import RadarDataset
+from backend.model.architecture import PredRNNpp_3D, SSIMLoss
 
 # Configuración del Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -89,93 +38,42 @@ def set_seed(seed):
         torch.backends.cudnn.benchmark = True
     logging.info(f"Semillas configuradas con valor: {seed}")
 
-class RadarDataset(Dataset):
-    def __init__(self, sequence_paths, config):
-        self.sequence_paths = sequence_paths
-        self.config = config
-        self.seq_len = config['seq_len']
-        self.total_seq_len = config['seq_len'] + config['pred_len']
-        logging.info(f"RadarDataset inicializado con {len(self.sequence_paths)} secuencias.")
-
-    def __len__(self):
-        return len(self.sequence_paths)
-
-    def __getitem__(self, idx):
-        sequence_files = self.sequence_paths[idx]
-        data_list = []
-        last_file_path = sequence_files[-1]
-
-        for file_path in sequence_files:
-            try:
-                with xr.open_dataset(file_path, mask_and_scale=True, decode_times=False) as ds:
-                    dbz_physical = ds['DBZ'].values[0]
-
-                dbz_clipped = np.clip(dbz_physical, self.config['min_dbz_norm'], self.config['max_dbz_norm'])
-                dbz_normalized = (dbz_clipped - self.config['min_dbz_norm']) / (self.config['max_dbz_norm'] - self.config['min_dbz_norm'])
-                
-                dbz_tensor = torch.from_numpy(dbz_normalized).float()
-                dbz_tensor_unsqueezed = dbz_tensor.unsqueeze(1)
-                downsampled_tensor = F.avg_pool2d(dbz_tensor_unsqueezed, kernel_size=2)
-                data_list.append(downsampled_tensor.squeeze(1).numpy())
-
-            except Exception as e:
-                logging.error(f"Error procesando {file_path}. Omitiendo. Error: {e}")
-                return self.__getitem__((idx + 1) % len(self))
-        
-        full_sequence = np.stack(data_list, axis=0)
-        full_sequence = full_sequence[:, np.newaxis, ...]
-
-        input_tensor = full_sequence[:self.seq_len, ...]
-        output_tensor = full_sequence[self.seq_len:, ...]
-
-        x = torch.from_numpy(np.nan_to_num(input_tensor, nan=0.0)).float()
-        y = torch.from_numpy(output_tensor).float()
-        
-        return x, y, last_file_path
-
-from backend.model.architecture import PredRNNpp_3D
-
-class SSIMLoss(nn.Module):
-    def __init__(self, data_range=1.0, kernel_size=7):
-        super(SSIMLoss, self).__init__()
-        self.ssim_metric = torchmetrics.StructuralSimilarityIndexMeasure(
-            data_range=data_range, kernel_size=kernel_size, reduction='elementwise_mean'
-        ).to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
-
-    def forward(self, img1, img2):
-        b, t, c, z, h, w = img1.shape
-        img1_reshaped = img1.reshape(-1, c * z, h, w)
-        img2_reshaped = img2.reshape(-1, c * z, h, w)
-        return 1.0 - self.ssim_metric(img1_reshaped, img2_reshaped)
 
 def prepare_and_split_data(config):
     root_dir = os.path.join(config['dataset_root_dir'], config['dataset_unpacked_name'])
     if not os.path.exists(root_dir):
         logging.error(f"El directorio del dataset no fue encontrado en: {root_dir}")
         return [], []
-    all_event_dirs = sorted([d for d in os.listdir(root_dir) if os.path.isdir(os.path.join(root_dir, d))])
-    if not all_event_dirs:
-        logging.warning(f"No se encontraron directorios de eventos en {root_dir}")
-        return [], []
-    logging.info(f"Encontrados {len(all_event_dirs)} directorios de eventos.")
-    split_idx = int(len(all_event_dirs) * config['train_val_split_ratio'])
-    train_dirs = all_event_dirs[:split_idx]
-    val_dirs = all_event_dirs[split_idx:]
     
-    def create_sliding_windows(event_dir_list, base_path):
+    # Cada subdirectorio es ahora una secuencia pre-construida
+    all_sequence_dirs = sorted([d for d in os.listdir(root_dir) if os.path.isdir(os.path.join(root_dir, d))])
+    if not all_sequence_dirs:
+        logging.warning(f"No se encontraron directorios de secuencias en {root_dir}")
+        return [], []
+
+    logging.info(f"Encontrados {len(all_sequence_dirs)} directorios de secuencias. Barajando para división aleatoria.")
+    random.shuffle(all_sequence_dirs)
+
+    split_idx = int(len(all_sequence_dirs) * config['train_val_split_ratio'])
+    train_dirs = all_sequence_dirs[:split_idx]
+    val_dirs = all_sequence_dirs[split_idx:]
+    
+    def collect_premade_sequences(dir_list, base_path):
         all_sequences = []
         total_seq_len = config['seq_len'] + config['pred_len']
-        for event_dir in event_dir_list:
-            dir_path = os.path.join(base_path, event_dir)
+        for seq_dir in dir_list:
+            dir_path = os.path.join(base_path, seq_dir)
             files = sorted(glob.glob(os.path.join(dir_path, "*.nc")))
-            if len(files) >= total_seq_len:
-                for i in range(0, len(files) - total_seq_len + 1, config['seq_stride']):
-                    all_sequences.append(files[i : i + total_seq_len])
+            if len(files) == total_seq_len:
+                all_sequences.append(files)
+            else:
+                logging.warning(f"Directorio de secuencia '{seq_dir}' omitido: se encontraron {len(files)} archivos, pero se esperaban {total_seq_len}.")
         return all_sequences
 
-    train_sequences = create_sliding_windows(train_dirs, root_dir)
-    val_sequences = create_sliding_windows(val_dirs, root_dir)
-    logging.info(f"Generadas {len(train_sequences)} secuencias de entrenamiento y {len(val_sequences)} de validación.")
+    train_sequences = collect_premade_sequences(train_dirs, root_dir)
+    val_sequences = collect_premade_sequences(val_dirs, root_dir)
+    
+    logging.info(f"Cargadas {len(train_sequences)} secuencias de entrenamiento y {len(val_sequences)} de validación (lógica de ventanas deslizantes desactivada).")
     return train_sequences, val_sequences
 
 def train_model(model, optimizer, scheduler, train_loader, val_loader, phase_config, start_epoch=0):

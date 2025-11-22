@@ -1,0 +1,103 @@
+export interface ApiStatus {
+  status: string;
+  message: string;
+  buffer_status?: {
+    current_size: number;
+    max_size: number;
+  };
+  last_prediction?: {
+    timestamp: string;
+    sequence_end: string;
+  };
+}
+
+// Nueva interfaz para una imagen con sus coordenadas
+export interface ImageWithBounds {
+  url: string;
+  bounds: [[number, number], [number, number]];
+}
+
+// Actualizamos la interfaz principal de imágenes
+export interface ApiImages {
+  input_images: ImageWithBounds[];
+  prediction_images: ImageWithBounds[];
+}
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+
+// MOCK DATA FOR LOCAL TESTING
+// We will load this from metadata.json if the API fails
+let MOCK_DATA_CACHE: ImageWithBounds[] | null = null;
+
+async function getMockData(): Promise<ImageWithBounds[]> {
+  if (MOCK_DATA_CACHE) return MOCK_DATA_CACHE;
+  try {
+    const res = await fetch('/mock_data/metadata.json');
+    if (res.ok) {
+      MOCK_DATA_CACHE = await res.json();
+      return MOCK_DATA_CACHE || [];
+    }
+  } catch (e) {
+    console.error("Failed to load mock metadata", e);
+  }
+  return [];
+}
+
+const MOCK_STATUS: ApiStatus = {
+  status: "MOCK_MODE",
+  message: "Running with local converted NC data",
+  buffer_status: { current_size: 15, max_size: 15 },
+  last_prediction: { timestamp: new Date().toISOString(), sequence_end: "T+5" }
+};
+
+async function fetchApi<T>(endpoint: string): Promise<T> {
+  const url = `${API_BASE_URL}${endpoint}`;
+  try {
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.warn(`Failed to fetch from ${url}, falling back to mock data.`);
+    
+    if (endpoint === '/api/status') return MOCK_STATUS as unknown as T;
+    
+    if (endpoint === '/api/images') {
+       const images = await getMockData();
+       // Split images for demo: first 10 as input, last 5 as prediction
+       const splitIndex = Math.max(0, images.length - 5);
+       return {
+         input_images: images.slice(0, splitIndex),
+         prediction_images: images.slice(splitIndex)
+       } as unknown as T;
+    }
+    throw error;
+  }
+}
+
+export const fetchStatus = (): Promise<ApiStatus> => fetchApi<ApiStatus>('/api/status');
+
+// La función fetchImages ahora maneja la nueva estructura
+export const fetchImages = async (): Promise<ApiImages> => {
+  const data = await fetchApi<ApiImages>('/api/images');
+  
+  // Si estamos en modo mock (data ya tiene URLs relativas válidas), retornamos directo
+  if ((data as any).input_images?.[0]?.url.startsWith('/')) {
+      return data;
+  }
+
+  // Mapeamos sobre los arrays para construir las URLs absolutas si vienen del backend
+  const processImages = (images: ImageWithBounds[]) => {
+    if (!Array.isArray(images)) return [];
+    return images.map(image => ({
+      ...image,
+      url: image.url.startsWith('http') || image.url.startsWith('/') ? image.url : `${API_BASE_URL}${image.url}`
+    }));
+  };
+
+  return {
+    input_images: processImages(data.input_images),
+    prediction_images: processImages(data.prediction_images),
+  };
+};

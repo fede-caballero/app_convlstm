@@ -1,47 +1,69 @@
-FROM nvidia/cuda:11.8-devel-ubuntu20.04
 
-# Evitar prompts interactivos
-ENV DEBIAN_FRONTEND=noninteractive
+FROM node:18-alpine AS base
 
-# Instalar dependencias del sistema
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-dev \
-    build-essential \
-    wget \
-    curl \
-    git \
-    && rm -rf /var/lib/apt/lists/*
-
-# Instalar LROSE (ajustar según tu instalación)
-# RUN wget https://github.com/NCAR/lrose-core/releases/download/lrose-core-20230815/lrose-core-20230815.x86_64.tgz
-# RUN tar -xzf lrose-core-20230815.x86_64.tgz -C /opt/
-# ENV PATH="/opt/lrose-core-20230815.x86_64/bin:${PATH}"
-
-# Crear directorio de trabajo
+# Install dependencies only when needed
+FROM base AS deps
+# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copiar archivos de la aplicación
-COPY scripts/ ./scripts/
-COPY requirements.txt .
+# Install dependencies based on the preferred package manager
+COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
+RUN \
+    if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
+    elif [ -f package-lock.json ]; then npm install --legacy-peer-deps; \
+    elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --frozen-lockfile; \
+    else echo "Lockfile not found." && exit 1; \
+    fi
 
-# Instalar dependencias Python
-RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Crear directorios de datos
-RUN mkdir -p /data/radar/mdv \
-    /data/radar/netcdf \
-    /data/radar/predictions \
-    /data/radar/predictions_mdv \
-    /models \
-    /logs
+# Rebuild the source code only when needed
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
 
-# Configurar permisos
-RUN chmod +x scripts/*.py scripts/*.sh
+# Next.js collects completely anonymous telemetry data about general usage.
+# Learn more here: https://nextjs.org/telemetry
+# Uncomment the following line in case you want to disable telemetry during the build.
+# ENV NEXT_TELEMETRY_DISABLED 1
 
-# Exponer puerto para API
-EXPOSE 8000
+RUN \
+    if [ -f yarn.lock ]; then yarn run build; \
+    elif [ -f package-lock.json ]; then npm run build; \
+    elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm run build; \
+    else echo "Lockfile not found." && exit 1; \
+    fi
 
-# Comando por defecto
-CMD ["python3", "scripts/api_server.py"]
+# Production image, copy all the files and run next
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV production
+# Uncomment the following line in case you want to disable telemetry during runtime.
+# ENV NEXT_TELEMETRY_DISABLED 1
+
+# Don't run as root
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/public ./public
+
+# Set the correct permission for prerender cache
+RUN mkdir .next
+RUN chown nextjs:nodejs .next
+
+# Automatically leverage output traces to reduce image size
+# https://nextjs.org/docs/advanced-features/output-file-tracing
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3000
+
+ENV PORT 3000
+# set hostname to localhost
+ENV HOSTNAME "0.0.0.0"
+
+CMD ["node", "server.js"]

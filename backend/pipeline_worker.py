@@ -13,12 +13,17 @@ import pyproj
 import glob
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
+import sqlite3
+
 
 # Importamos desde nuestros módulos
 from config import (MDV_INBOX_DIR, MDV_ARCHIVE_DIR, INPUT_DIR, OUTPUT_DIR, ARCHIVE_DIR, 
                     SECUENCE_LENGHT, POLL_INTERVAL_SECONDS, MODEL_PATH, 
                     DATA_CONFIG, STATUS_FILE_PATH, MDV_OUTPUT_DIR, IMAGE_OUTPUT_DIR)
 from model.predict import ModelPredictor
+
+DB_PATH = "/app/data/radar_history.db"
+
 
 # --- Configuración del Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
@@ -84,6 +89,40 @@ def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: s
     except Exception as e:
         logging.error(f"No se pudo generar la imagen para {nc_file_path}: {e}", exc_info=True)
         return None
+
+def init_db():
+    """Inicializa la base de datos SQLite si no existe."""
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS predictions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            input_sequence_id TEXT,
+            output_path TEXT,
+            status TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+    logging.info(f"Base de datos inicializada en {DB_PATH}")
+
+def log_prediction(timestamp, input_seq_id, output_path, status="SUCCESS"):
+    """Registra una predicción en la base de datos."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO predictions (timestamp, input_sequence_id, output_path, status)
+            VALUES (?, ?, ?, ?)
+        ''', (timestamp.isoformat(), input_seq_id, output_path, status))
+        conn.commit()
+        conn.close()
+        logging.info(f"Predicción registrada en DB: {input_seq_id}")
+    except Exception as e:
+        logging.error(f"Error al registrar en DB: {e}")
+
 
 def update_status(status_message: str, file_count: int, total_needed: int):
     """Crea y escribe el estado actual en el archivo JSON."""
@@ -277,7 +316,10 @@ def main():
     for path in [MDV_INBOX_DIR, MDV_ARCHIVE_DIR, INPUT_DIR, OUTPUT_DIR, ARCHIVE_DIR, MDV_OUTPUT_DIR, IMAGE_OUTPUT_DIR]:
         os.makedirs(path, exist_ok=True)
     
+    init_db()
+    
     predictor = ModelPredictor(MODEL_PATH)
+
     
     while True:
         try:
@@ -330,6 +372,10 @@ def main():
             output_subdir_path = os.path.join(OUTPUT_DIR, output_subdir_name)
             os.makedirs(output_subdir_path, exist_ok=True)
             save_prediction_as_netcdf(output_subdir_path, prediction_cleaned, DATA_CONFIG, last_input_dt_utc)
+            
+            # Registrar en DB
+            log_prediction(datetime.now(timezone.utc), seq_id, output_subdir_path, "SUCCESS")
+
 
             # --- 4. Convertir predicciones a MDV ---
             params_template_path = "/app/lrose_params/params.nc2mdv.final"

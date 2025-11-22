@@ -118,7 +118,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/  # COMMENTED OUT - Blocks frontend/lib/ which contains utilities
 lib64/
 parts/
 sdist/

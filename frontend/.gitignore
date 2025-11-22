@@ -337,7 +337,10 @@ tramp
 *.pem
 
 # Google Cloud
-*.json
+# *.json  # COMMENTED OUT - Too aggressive, blocks package.json!
+# Only ignore GCP credential files specifically:
+*-credentials.json
+service-account*.json
 gcloud/
 .gcloud/
 

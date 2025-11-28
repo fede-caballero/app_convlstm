@@ -1,9 +1,16 @@
 # backend/config.py
+import os
 import torch
 
 # --- Rutas del Pipeline ---
 # Todas las rutas deben ser relativas a la raíz del contenedor (/app)
-MODEL_PATH = "/app/model/best_convlstm_model.pth"
+# Auto-detect model path
+if os.getenv("MODEL_PATH"):
+    MODEL_PATH = os.getenv("MODEL_PATH")
+elif os.path.exists("/workspace/model/best_convlstm_model.pth"):
+    MODEL_PATH = "/workspace/model/best_convlstm_model.pth"
+else:
+    MODEL_PATH = "/app/model/best_convlstm_model.pth"
 INPUT_DIR = "/app/input_scans/"          # Buffer para archivos NC listos para predecir
 OUTPUT_DIR = "/app/output_predictions/"   # Salida de predicciones en NC
 ARCHIVE_DIR = "/app/archive_scans/"       # Archivo para los NC ya procesados
@@ -12,6 +19,7 @@ MDV_ARCHIVE_DIR = "/app/mdv_archive/"     # Archivo para los MDV ya convertidos
 MDV_OUTPUT_DIR = "/app/mdv_predictions/"  # Salida de predicciones en MDV
 IMAGE_OUTPUT_DIR = "/app/output_images"
 STATUS_FILE_PATH = "/app/status.json"     # Archivo de estado para la API
+DB_PATH = "/app/data/radar_history.db"    # Base de datos SQLite
 
 # --- Parámetros del Watcher ---
 SECUENCE_LENGHT = 12

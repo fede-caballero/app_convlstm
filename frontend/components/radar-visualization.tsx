@@ -1,12 +1,9 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Slider } from "@/components/ui/slider"
-import { MapPin, Clock, Play, Pause, RotateCcw, Maximize2, Minimize2 } from "lucide-react"
+import { Play, Pause, RotateCcw, Calendar, Clock } from "lucide-react"
 import { ImageWithBounds } from "@/lib/api"
 import Map, { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, MapRef } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -27,11 +24,17 @@ const INITIAL_VIEW_STATE = {
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 
 export function RadarVisualization({ inputFiles, predictionFiles, isProcessing }: RadarVisualizationProps) {
-  const [animationPlaying, setAnimationPlaying] = useState(false)
-  const [currentFrame, setCurrentFrame] = useState(0)
-  const [opacity, setOpacity] = useState(0.8)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [boundariesData, setBoundariesData] = useState<any>(null)
   const mapRef = useRef<MapRef>(null)
+
+  // Merge frames: Inputs + Predictions
+  const frames = useMemo(() => {
+    return [...inputFiles, ...predictionFiles];
+  }, [inputFiles, predictionFiles]);
+
+  const totalFrames = frames.length;
 
   // Load boundaries
   useEffect(() => {
@@ -41,194 +44,192 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing }
       .catch(err => console.error("Failed to load boundaries", err));
   }, []);
 
-  // Reset frame when input files change
-  useEffect(() => {
-    setCurrentFrame(0)
-  }, [inputFiles])
-
   // Animation logic
   useEffect(() => {
     let interval: NodeJS.Timeout
-    if (animationPlaying && inputFiles.length > 0) {
+    if (isPlaying && totalFrames > 0) {
       interval = setInterval(() => {
-        setCurrentFrame((prev) => (prev + 1) % inputFiles.length)
-      }, 500)
+        setCurrentFrameIndex((prev) => {
+          if (prev >= totalFrames - 1) return 0; // Loop back to start
+          return prev + 1;
+        })
+      }, 2000) // 2000ms per frame (slower for better loading on high latency)
     }
     return () => clearInterval(interval)
-  }, [animationPlaying, inputFiles.length])
+  }, [isPlaying, totalFrames])
 
-  const toggleAnimation = () => setAnimationPlaying(!animationPlaying)
-  const resetAnimation = () => {
-    setAnimationPlaying(false)
-    setCurrentFrame(0)
-  }
+  // Reset when data changes significantly
+  useEffect(() => {
+    if (totalFrames > 0 && currentFrameIndex >= totalFrames) {
+      setCurrentFrameIndex(0);
+    }
+  }, [totalFrames]);
 
-  const currentImage = inputFiles[currentFrame]
+  const togglePlay = () => setIsPlaying(!isPlaying)
+  const resetAnimation = () => { setIsPlaying(false); setCurrentFrameIndex(0); }
 
-  const imageCoordinates = useMemo(() => {
-    if (!currentImage?.bounds) return undefined;
-    const b = currentImage.bounds as any;
-    const p1 = b[0]; // [lat, lon]
-    const p2 = b[1]; // [lat, lon]
+  const currentImage = frames[currentFrameIndex];
+  const isPrediction = currentFrameIndex >= inputFiles.length;
+
+  const getImageCoordinates = (image: ImageWithBounds | undefined) => {
+    if (!image?.bounds) return undefined;
+    const b = image.bounds as any;
+    const p1 = b[0];
+    const p2 = b[1];
 
     const minLat = Math.min(p1[0], p2[0]);
     const maxLat = Math.max(p1[0], p2[0]);
     const minLon = Math.min(p1[1], p2[1]);
     const maxLon = Math.max(p1[1], p2[1]);
 
-    // MapLibre expects: Top Left, Top Right, Bottom Right, Bottom Left
-    // [lon, lat]
     return [
       [minLon, maxLat], // TL
       [maxLon, maxLat], // TR
       [maxLon, minLat], // BR
       [minLon, minLat]  // BL
     ] as [[number, number], [number, number], [number, number], [number, number]];
-  }, [currentImage]);
+  }
+
+  const imageCoordinates = useMemo(() => getImageCoordinates(currentImage), [currentImage]);
 
   const boundaryLayerStyle = {
     id: 'boundaries-layer',
     type: 'line',
     paint: {
-      'line-color': '#facc15', // Yellow-400
+      'line-color': '#facc15',
       'line-width': 2,
       'line-opacity': 0.6
     }
   } as const;
 
+  // Calculate time label (approximate based on index)
+  // Assuming inputs are every 15 min and predictions every 3 min (based on previous context)
+  // But for simplicity in UI, we'll just show "Past" vs "Forecast +X min"
+  const getTimeLabel = () => {
+    if (!isPrediction) {
+      return `Radar Pasado (${currentFrameIndex + 1}/${inputFiles.length})`;
+    } else {
+      const predIndex = currentFrameIndex - inputFiles.length;
+      return `Pronóstico T+${(predIndex + 1) * 3} min`;
+    }
+  };
+
   return (
-    <Card className="h-full border-none shadow-none bg-transparent">
-      <CardContent className="p-0">
-        <Tabs defaultValue="original" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="original">Datos de Entrada (Radar)</TabsTrigger>
-            <TabsTrigger value="predictions">Predicciones (Modelo)</TabsTrigger>
-          </TabsList>
+    <div className="relative w-full h-full bg-black">
+      <Map
+        ref={mapRef}
+        initialViewState={INITIAL_VIEW_STATE}
+        style={{ width: '100%', height: '100%' }}
+        mapStyle={MAP_STYLE}
+        attributionControl={false}
+      >
+        <NavigationControl position="top-right" />
+        <ScaleControl />
+        <FullscreenControl position="top-right" />
 
-          <TabsContent value="original" className="space-y-4">
-            <div className="relative h-[600px] w-full rounded-xl overflow-hidden border border-gray-800 shadow-2xl">
-              <Map
-                ref={mapRef}
-                initialViewState={INITIAL_VIEW_STATE}
-                style={{ width: '100%', height: '100%' }}
-                mapStyle={MAP_STYLE}
-                attributionControl={false}
-              >
-                <NavigationControl position="top-right" />
-                <ScaleControl />
-                <FullscreenControl position="top-right" />
+        {boundariesData && (
+          <Source id="boundaries-source" type="geojson" data={boundariesData}>
+            <Layer {...boundaryLayerStyle} />
+          </Source>
+        )}
 
-                {boundariesData && (
-                  <Source id="boundaries-source" type="geojson" data={boundariesData}>
-                    <Layer {...boundaryLayerStyle} />
-                  </Source>
-                )}
+        {/* Logo Overlay */}
+        <div className="absolute top-4 left-4 z-10 pointer-events-none flex flex-col items-center">
+          <img src="/logo.png" alt="Hailcast Logo" className="w-24 h-24 object-contain drop-shadow-lg opacity-90" />
+          <p className="text-[10px] text-white/90 font-medium mt-1 drop-shadow-md bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm tracking-wide">
+            Sistema de Predicción Meteorológica
+          </p>
+        </div>
 
-                {currentImage && imageCoordinates && (
-                  <Source
-                    id="radar-source"
-                    type="image"
-                    url={currentImage.url}
-                    coordinates={imageCoordinates}
-                  >
-                    <Layer
-                      id="radar-layer"
-                      type="raster"
-                      paint={{ "raster-opacity": opacity, "raster-fade-duration": 0 }}
-                    />
-                  </Source>
-                )}
 
-                {/* Floating Controls */}
-                <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-[90%] max-w-md">
-                  <div className="bg-black/60 backdrop-blur-md border border-white/10 p-4 rounded-2xl text-white shadow-xl">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 hover:bg-white/20 text-white"
-                          onClick={toggleAnimation}
-                        >
-                          {animationPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 hover:bg-white/20 text-white"
-                          onClick={resetAnimation}
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="text-sm font-mono text-blue-300">
-                        Frame {currentFrame + 1}/{inputFiles.length || 0}
-                      </div>
-                    </div>
 
-                    <Slider
-                      value={[currentFrame]}
-                      onValueChange={(value) => {
-                        setAnimationPlaying(false);
-                        setCurrentFrame(value[0]);
-                      }}
-                      max={Math.max(0, inputFiles.length - 1)}
-                      step={1}
-                      className="cursor-pointer"
-                    />
-                    <div className="flex justify-between mt-2 text-[10px] text-gray-400 uppercase tracking-wider">
-                      <span>Pasado</span>
-                      <span>Presente</span>
-                    </div>
-                  </div>
-                </div>
-              </Map>
-            </div>
-          </TabsContent>
+        {currentImage && imageCoordinates && (
+          <Source
+            id="radar-source"
+            type="image"
+            url={currentImage.url}
+            coordinates={imageCoordinates}
+          >
+            <Layer
+              id="radar-layer"
+              type="raster"
+              paint={{
+                "raster-opacity": 0.8,
+                "raster-fade-duration": 0
+              }}
+            />
+          </Source>
+        )}
 
-          <TabsContent value="predictions">
-            {predictionFiles.length > 0 ? (
-              <div className="space-y-6">
-                <PredictionStrip predictions={predictionFiles} />
+        {/* Unified Timeline Control Bar */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/60 to-transparent pb-8 pt-12">
+          <div className="max-w-4xl mx-auto w-full flex flex-col gap-2">
+
+            {/* Time Label & Status */}
+            <div className="flex justify-between items-end px-2 mb-1">
+              <div className="flex flex-col">
+                <span className={`text-xs font-bold uppercase tracking-wider ${isPrediction ? 'text-primary' : 'text-muted-foreground'}`}>
+                  {isPrediction ? 'Modelo Predictivo' : 'Datos Observados'}
+                </span>
+                <span className="text-2xl font-light text-foreground flex items-center gap-2">
+                  {isPrediction ? <Clock className="w-5 h-5 text-primary" /> : <Calendar className="w-5 h-5 text-muted-foreground" />}
+                  {getTimeLabel()}
+                </span>
               </div>
-            ) : (
-              <EmptyState isProcessing={isProcessing} />
-            )}
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
-  )
-}
 
-function PredictionStrip({ predictions }: { predictions: ImageWithBounds[] }) {
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-      {predictions.map((pred, idx) => (
-        <div key={idx} className="group relative aspect-square bg-gray-900 rounded-xl overflow-hidden border border-gray-800 hover:border-blue-500 transition-all">
-          <img src={pred.url} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 to-transparent p-3">
-            <p className="text-xs font-bold text-blue-400">T+{idx + 1}</p>
-            <p className="text-[10px] text-gray-400">+{(idx + 1) * 15} min</p>
+              <div className="flex gap-2">
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  className="h-10 w-10 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_15px_rgba(133,153,51,0.5)]"
+                  onClick={togglePlay}
+                >
+                  {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-1" />}
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-10 w-10 rounded-full text-muted-foreground hover:text-foreground hover:bg-white/10"
+                  onClick={resetAnimation}
+                >
+                  <RotateCcw className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Slider Track */}
+            <div className="relative h-6 flex items-center group">
+              {/* Background Track with "Past" vs "Future" distinction */}
+              <div className="absolute inset-x-0 h-1.5 bg-white/10 rounded-full overflow-hidden flex">
+                <div
+                  className="h-full bg-white/20"
+                  style={{ width: `${(inputFiles.length / Math.max(1, totalFrames)) * 100}%` }}
+                />
+                <div
+                  className="h-full bg-primary/20"
+                  style={{ width: `${(predictionFiles.length / Math.max(1, totalFrames)) * 100}%` }}
+                />
+              </div>
+
+              <Slider
+                value={[currentFrameIndex]}
+                onValueChange={(value) => { setIsPlaying(false); setCurrentFrameIndex(value[0]); }}
+                max={Math.max(0, totalFrames - 1)}
+                step={1}
+                className="cursor-pointer z-10"
+              />
+            </div>
+
+            {/* Ticks/Labels under slider */}
+            <div className="flex justify-between text-[10px] text-muted-foreground px-1 font-mono uppercase tracking-widest">
+              <span>Pasado</span>
+              <span>Ahora</span>
+              <span>Futuro</span>
+            </div>
+
           </div>
         </div>
-      ))}
-    </div>
-  )
-}
-
-function EmptyState({ isProcessing }: { isProcessing: boolean }) {
-  return (
-    <div className="h-[400px] flex flex-col items-center justify-center bg-gray-50/50 rounded-xl border-2 border-dashed border-gray-200">
-      <div className={`p-4 rounded-full bg-white shadow-sm mb-4 ${isProcessing ? 'animate-pulse' : ''}`}>
-        {isProcessing ? <Clock className="h-8 w-8 text-blue-500 animate-spin" /> : <MapPin className="h-8 w-8 text-gray-300" />}
-      </div>
-      <h3 className="text-lg font-medium text-gray-900">
-        {isProcessing ? "Generando predicciones..." : "Esperando datos"}
-      </h3>
-      <p className="text-sm text-gray-500 mt-1">
-        {isProcessing ? "El modelo está procesando las secuencias" : "Inicia el pipeline para ver resultados"}
-      </p>
+      </Map>
     </div>
   )
 }

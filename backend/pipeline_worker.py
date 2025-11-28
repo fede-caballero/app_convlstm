@@ -19,10 +19,8 @@ import sqlite3
 # Importamos desde nuestros módulos
 from config import (MDV_INBOX_DIR, MDV_ARCHIVE_DIR, INPUT_DIR, OUTPUT_DIR, ARCHIVE_DIR, 
                     SECUENCE_LENGHT, POLL_INTERVAL_SECONDS, MODEL_PATH, 
-                    DATA_CONFIG, STATUS_FILE_PATH, MDV_OUTPUT_DIR, IMAGE_OUTPUT_DIR)
+                    DATA_CONFIG, STATUS_FILE_PATH, MDV_OUTPUT_DIR, IMAGE_OUTPUT_DIR, DB_PATH)
 from model.predict import ModelPredictor
-
-DB_PATH = "/app/data/radar_history.db"
 
 
 # --- Configuración del Logging ---
@@ -90,23 +88,7 @@ def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: s
         logging.error(f"No se pudo generar la imagen para {nc_file_path}: {e}", exc_info=True)
         return None
 
-def init_db():
-    """Inicializa la base de datos SQLite si no existe."""
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS predictions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT NOT NULL,
-            input_sequence_id TEXT,
-            output_path TEXT,
-            status TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
-    logging.info(f"Base de datos inicializada en {DB_PATH}")
+from database import init_db, DB_PATH
 
 def log_prediction(timestamp, input_seq_id, output_path, status="SUCCESS"):
     """Registra una predicción en la base de datos."""
@@ -160,10 +142,24 @@ def postprocess_prediction(prediction_norm: torch.Tensor) -> np.ndarray:
     pred_physical_raw = prediction_permuted.numpy() * (DATA_CONFIG['max_dbz'] - DATA_CONFIG['min_dbz']) + DATA_CONFIG['min_dbz']
     pred_physical_clipped = np.clip(pred_physical_raw, DATA_CONFIG['min_dbz'], DATA_CONFIG['max_dbz'])
     pred_physical_cleaned = pred_physical_clipped.copy()
+
+    # --- CLUTTER REMOVAL (OUTPUT): Enmascarar las primeras 2 capas ---
+    # Se hace aquí para que el modelo tenga el contexto completo a la entrada,
+    # pero la salida esté limpia de ecos fijos.
+    # El usuario reportó ecos fijos, así que aseguramos que el enmascaramiento sea efectivo.
+    if pred_physical_cleaned.ndim >= 2 and pred_physical_cleaned.shape[1] >= 3:
+         # Enmascarar niveles 0, 1 y 2 (los más bajos, donde suele haber clutter)
+         pred_physical_cleaned[:, :3, ...] = np.nan
+
     threshold = DATA_CONFIG.get('physical_threshold_dbz', 30.0)
+    # Aplicar umbral estricto para eliminar ruido de fondo
     pred_physical_cleaned[pred_physical_cleaned < threshold] = np.nan
+    
+    # Opcional: Si el ruido persiste, podríamos aumentar el umbral o enmascarar más capas.
+    # Por ahora, confiamos en que el umbral y el mask de capas bajas sea suficiente.
+    
     logging.info(f"Max dBZ después de umbral: {np.nanmax(pred_physical_cleaned)}")
-    return pred_physical_cleaned.squeeze(2)
+    return pred_physical_cleaned.squeeze(2) # Corrigiendo squeeze index: (T, Z, C, H, W) -> C está en index 2
 
 def save_prediction_as_netcdf(output_subdir: str, pred_sequence_cleaned: np.ndarray, data_cfg: dict, start_datetime: datetime):
     num_pred_steps, num_z, num_y, num_x = pred_sequence_cleaned.shape
@@ -349,14 +345,23 @@ def main():
             seq_id = os.path.splitext(files_to_process[-1])[0]
             update_status(f"Procesando secuencia terminada en {seq_id}", len(files_to_process), SECUENCE_LENGHT)
             
-            # --- 1. Generar imagen transparente y bounds del último scan ---
-            last_input_nc_path = full_paths[-1]
-            input_image_filename = f"INPUT_{seq_id}.png"
-            input_image_path = os.path.join(IMAGE_OUTPUT_DIR, input_image_filename)
-            bounds = generar_imagen_transparente_y_bounds(last_input_nc_path, input_image_path, skip_levels=2)
-            if bounds:
-                with open(f"{input_image_path}.json", 'w') as f:
-                    json.dump({"bounds": bounds}, f)
+            # --- 1. Generar imágenes transparentes y bounds de los últimos 3 scans ---
+            # Esto permite visualizar la animación de entrada en el frontend
+            logging.info("Generando imágenes para los últimos 3 inputs...")
+            last_3_inputs = full_paths[-3:]
+            for input_nc_path in last_3_inputs:
+                input_seq_id = os.path.splitext(os.path.basename(input_nc_path))[0]
+                input_image_filename = f"INPUT_{input_seq_id}.png"
+                input_image_path = os.path.join(IMAGE_OUTPUT_DIR, input_image_filename)
+                
+                # Solo generar si no existe (optimización)
+                if not os.path.exists(input_image_path):
+                    bounds = generar_imagen_transparente_y_bounds(input_nc_path, input_image_path, skip_levels=2)
+                    if bounds:
+                        with open(f"{input_image_path}.json", 'w') as f:
+                            json.dump({"bounds": bounds}, f)
+                else:
+                    logging.info(f"Imagen de input ya existe: {input_image_filename}")
 
             # --- 2. Predecir ---
             input_tensor = load_and_preprocess_input_sequence(full_paths)

@@ -23,7 +23,7 @@ export interface ApiImages {
   prediction_images: ImageWithBounds[];
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
 
 // MOCK DATA FOR LOCAL TESTING
 // We will load this from metadata.json if the API fails
@@ -60,17 +60,17 @@ async function fetchApi<T>(endpoint: string): Promise<T> {
     return await response.json();
   } catch (error) {
     console.warn(`Failed to fetch from ${url}, falling back to mock data.`);
-    
+
     if (endpoint === '/api/status') return MOCK_STATUS as unknown as T;
-    
+
     if (endpoint === '/api/images') {
-       const images = await getMockData();
-       // Split images for demo: first 10 as input, last 5 as prediction
-       const splitIndex = Math.max(0, images.length - 5);
-       return {
-         input_images: images.slice(0, splitIndex),
-         prediction_images: images.slice(splitIndex)
-       } as unknown as T;
+      const images = await getMockData();
+      // Split images for demo: first 10 as input, last 5 as prediction
+      const splitIndex = Math.max(0, images.length - 5);
+      return {
+        input_images: images.slice(0, splitIndex),
+        prediction_images: images.slice(splitIndex)
+      } as unknown as T;
     }
     throw error;
   }
@@ -81,10 +81,10 @@ export const fetchStatus = (): Promise<ApiStatus> => fetchApi<ApiStatus>('/api/s
 // La función fetchImages ahora maneja la nueva estructura
 export const fetchImages = async (): Promise<ApiImages> => {
   const data = await fetchApi<ApiImages>('/api/images');
-  
+
   // Si estamos en modo mock (data ya tiene URLs relativas válidas), retornamos directo
   if ((data as any).input_images?.[0]?.url.startsWith('/')) {
-      return data;
+    return data;
   }
 
   // Mapeamos sobre los arrays para construir las URLs absolutas si vienen del backend
@@ -92,7 +92,8 @@ export const fetchImages = async (): Promise<ApiImages> => {
     if (!Array.isArray(images)) return [];
     return images.map(image => ({
       ...image,
-      url: image.url.startsWith('http') || image.url.startsWith('/') ? image.url : `${API_BASE_URL}${image.url}`
+      // Si la URL ya es absoluta o relativa, la dejamos. Si no, asumimos que es relativa a la raíz.
+      url: image.url.startsWith('http') || image.url.startsWith('/') ? image.url : `/${image.url}`
     }));
   };
 

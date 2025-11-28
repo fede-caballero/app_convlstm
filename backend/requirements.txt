@@ -16,3 +16,4 @@ gdown
 pyart-mch
 matplotlib
 cartopy
+PyJWT

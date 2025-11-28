@@ -17,7 +17,16 @@ WORKDIR /build
 COPY frontend/package*.json ./
 RUN npm install --legacy-peer-deps
 
-COPY frontend/ ./
+# Copy source files (excluding node_modules via .dockerignore)
+COPY frontend/next.config.mjs frontend/postcss.config.mjs frontend/tsconfig.json frontend/components.json ./
+COPY frontend/tailwind.config.* ./
+COPY frontend/app ./app
+COPY frontend/components ./components
+COPY frontend/lib ./lib
+COPY frontend/public ./public
+COPY frontend/scripts ./scripts
+COPY frontend/hooks ./hooks
+
 RUN npm run build
 
 # =================================================================
@@ -32,7 +41,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
     libnetcdf19 \
     curl \
-    ca-certificates && \
+    ca-certificates \
+    build-essential \
+    libffi-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # Instalar Node.js (para servir el frontend)
@@ -50,7 +61,7 @@ ENV LD_LIBRARY_PATH="/usr/local/lrose/lib:${LD_LIBRARY_PATH}"
 # Preparamos el código del backend
 WORKDIR /app
 COPY backend/requirements.txt .
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install --default-timeout=1000 --no-cache-dir -r requirements.txt
 COPY ./backend .
 
 # Copiamos el frontend compilado
@@ -69,6 +80,18 @@ WORKDIR /app
 # Crear un script de inicio que levante backend y frontend
 RUN echo '#!/bin/bash\n\
     set -e\n\
+    \n\
+    # Auto-detect model path for Vast.ai (Search recursively)\n\
+    echo "Searching for .pth model file in /workspace..."\n\
+    FOUND_MODEL=$(find /workspace -name "*.pth" | head -n 1)\n\
+    \n\
+    if [ -n "$FOUND_MODEL" ]; then\n\
+    echo "Found model at: $FOUND_MODEL"\n\
+    export MODEL_PATH="$FOUND_MODEL"\n\
+    else\n\
+    echo "WARNING: No .pth model found in /workspace. Using default /app/model/best_convlstm_model.pth"\n\
+    fi\n\
+    \n\
     echo "Starting backend services..."\n\
     python3 /app/pipeline_worker.py > /app/logs/worker.log 2>&1 &\n\
     python3 /app/api.py > /app/logs/api.log 2>&1 &\n\

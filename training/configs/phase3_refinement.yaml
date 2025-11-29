@@ -1,0 +1,32 @@
+experiment_name: "phase3_refinement"
+data:
+  data_dir: "/workspace/data"
+  batch_size: 16
+  num_workers: 8
+  input_steps: 8
+  prediction_steps: 7
+  img_height: 250
+  img_width: 250
+  min_dbz: 0.0
+  max_dbz: 70.0
+
+model:
+  input_dim: 1
+  hidden_dims: [128, 128, 128]
+  kernel_sizes: [[3,3], [3,3], [3,3]]
+  num_layers: 3
+  use_layer_norm: true
+
+training:
+  epochs: 25 # +25 epochs
+  lr: 0.00001
+  weight_decay: 1e-5
+  gradient_clip: 0.1 # Aggressive clipping
+  save_dir: "checkpoints"
+  resume_from: "checkpoints/phase2_advection_best.pth"
+  scheduler: "cosine"
+
+loss:
+  high_penalty_weight: 25.0
+  ssim_weight: 30.0
+  high_threshold: 0.5

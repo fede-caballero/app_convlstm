@@ -1,0 +1,10 @@
+torch>=2.0.0
+torchvision
+xarray
+netCDF4
+pyyaml
+pytorch-msssim
+tqdm
+numpy
+matplotlib
+cartopy

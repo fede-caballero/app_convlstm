@@ -1,0 +1,33 @@
+experiment_name: "phase2_advection"
+data:
+  data_dir: "/workspace/data"
+  batch_size: 16 # Reduced batch size if needed, or keep 32 if memory allows
+  num_workers: 8
+  input_steps: 8
+  prediction_steps: 7
+  img_height: 250
+  img_width: 250
+  min_dbz: 0.0
+  max_dbz: 70.0
+
+model:
+  input_dim: 1
+  hidden_dims: [128, 128, 128]
+  kernel_sizes: [[3,3], [3,3], [3,3]]
+  num_layers: 3
+  use_layer_norm: true
+
+training:
+  epochs: 50 # Total epochs (runs from 0 to 50, effectively 25 to 75 if continuing)
+  lr: 0.0001
+  weight_decay: 1e-5
+  gradient_clip: 1.0
+  save_dir: "checkpoints"
+  resume_from: "checkpoints/phase1_burnin_best.pth"
+  scheduler: "plateau"
+  patience: 4
+
+loss:
+  high_penalty_weight: 50.0
+  ssim_weight: 20.0
+  high_threshold: 0.5

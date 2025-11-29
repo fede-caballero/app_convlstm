@@ -1,0 +1,32 @@
+experiment_name: "phase1_burnin"
+data:
+  data_dir: "/workspace/data"
+  batch_size: 32
+  num_workers: 8
+  input_steps: 8
+  prediction_steps: 7
+  img_height: 250
+  img_width: 250
+  min_dbz: 0.0
+  max_dbz: 70.0
+
+model:
+  input_dim: 1
+  hidden_dims: [128, 128, 128]
+  kernel_sizes: [[3,3], [3,3], [3,3]]
+  num_layers: 3
+  use_layer_norm: true
+
+training:
+  epochs: 25
+  lr: 0.001
+  weight_decay: 1e-5
+  gradient_clip: 1.0
+  save_dir: "checkpoints"
+  resume_from: null
+  scheduler: "warmup" # Custom simple warmup or just standard AdamW
+
+loss:
+  high_penalty_weight: 100.0
+  ssim_weight: 0.1
+  high_threshold: 0.5 # Normalized threshold (approx 35-40 dBZ if max is 70)

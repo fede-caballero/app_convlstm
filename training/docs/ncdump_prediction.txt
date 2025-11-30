@@ -1,0 +1,54 @@
+netcdf \20080206_111820 {
+dimensions:
+	time = UNLIMITED ; // (1 currently)
+	bounds = 2 ;
+	longitude = 500 ;
+	latitude = 500 ;
+	altitude = 18 ;
+variables:
+	double time(time) ;
+		time:standard_name = "time" ;
+		time:long_name = "Data time" ;
+		time:units = "seconds since 1970-01-01T00:00:00Z" ;
+		time:axis = "T" ;
+	float longitude(longitude) ;
+		longitude:standard_name = "projection_x_coordinate" ;
+		longitude:units = "km" ;
+		longitude:axis = "X" ;
+	float latitude(latitude) ;
+		latitude:standard_name = "projection_y_coordinate" ;
+		latitude:units = "km" ;
+		latitude:axis = "Y" ;
+	float altitude(altitude) ;
+		altitude:standard_name = "altitude" ;
+		altitude:units = "km" ;
+		altitude:axis = "Z" ;
+		altitude:positive = "up" ;
+	float lat0(latitude, longitude) ;
+		lat0:standard_name = "latitude" ;
+		lat0:units = "degrees_north" ;
+	float lon0(latitude, longitude) ;
+		lon0:standard_name = "longitude" ;
+		lon0:units = "degrees_east" ;
+	int grid_mapping_0 ;
+		grid_mapping_0:grid_mapping_name = "azimuthal_equidistant" ;
+		grid_mapping_0:longitude_of_projection_origin = -68.0169982910156 ;
+		grid_mapping_0:latitude_of_projection_origin = -34.6479988098145 ;
+		grid_mapping_0:false_easting = 0. ;
+		grid_mapping_0:false_northing = 0. ;
+		grid_mapping_0:earth_radius = 6378137. ;
+	float DBZ(time, altitude, latitude, longitude) ;
+		DBZ:_FillValue = -999.f ;
+		DBZ:units = "dBZ" ;
+		DBZ:long_name = "DBZ" ;
+		DBZ:standard_name = "reflectivity" ;
+		DBZ:missing_value = -999.f ;
+
+// global attributes:
+		:Conventions = "CF-1.6" ;
+		:title = "SAN_RAFAEL_PRED - Forecast t+3min" ;
+		:institution = "UM" ;
+		:source = "ConvLSTM Model Prediction" ;
+		:history = "Created 2025-06-20T23:52:17.311154+00:00 by ConvLSTM prediction script." ;
+		:comment = "Forecast data from model. Lead time: 3 min." ;
+}

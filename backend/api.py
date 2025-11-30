@@ -5,6 +5,7 @@ import sqlite3
 from flask import Flask, jsonify, send_from_directory, request
 from flask_cors import CORS
 from config import STATUS_FILE_PATH, IMAGE_OUTPUT_DIR, DB_PATH
+from datetime import datetime, timedelta
 import auth
 
 app = Flask(__name__)
@@ -107,21 +108,59 @@ def get_images():
 
         all_files = [f for f in os.listdir(IMAGE_OUTPUT_DIR) if f.endswith('.png')]
         
-        # Obtener los más recientes primero (reverse=True)
+        # --- INPUT IMAGES (Last 3) ---
         input_images_names = sorted([f for f in all_files if f.startswith('INPUT_')], reverse=True)[:3]
-        prediction_images_names = sorted([f for f in all_files if f.startswith('PRED_')], reverse=True)[:5]
+        input_images_names.sort() # Chronological order
 
-        # Ordenar cronológicamente para la visualización (oldest -> newest)
-        input_images_names.sort()
-        prediction_images_names.sort()
+        # --- PREDICTION IMAGES (Last 2 runs, 5th frame only) ---
+        # Filename format: PRED_<RUN_ID>_<FORECAST_TIME>.png
+        # Example: PRED_20231027-160000_20231027_161500.png
+        
+        pred_files = [f for f in all_files if f.startswith('PRED_')]
+        runs = {}
+
+        for f in pred_files:
+            try:
+                # Remove prefix and extension
+                parts = f.replace('PRED_', '').replace('.png', '').split('_')
+                # parts[0] is RUN_ID (e.g. 20231027-160000)
+                # parts[1] is FORECAST_DATE (e.g. 20231027)
+                # parts[2] is FORECAST_TIME (e.g. 161500)
+                
+                # Handle potential legacy filenames (without RUN_ID) gracefully
+                if len(parts) >= 3:
+                    run_id = parts[0]
+                    forecast_ts = f"{parts[1]}_{parts[2]}"
+                else:
+                    # Legacy file, ignore or treat as separate run
+                    continue
+
+                if run_id not in runs:
+                    runs[run_id] = []
+                runs[run_id].append(f)
+            except Exception as e:
+                logging.warning(f"Error parsing filename {f}: {e}")
+
+        # Sort runs by ID (timestamp) and take last 2
+        sorted_run_ids = sorted(runs.keys())
+        last_2_run_ids = sorted_run_ids[-2:]
+        
+        selected_predictions = []
+        for run_id in last_2_run_ids:
+            run_files = sorted(runs[run_id]) # Sort by filename (which includes forecast time)
+            # Take the last one (t+5)
+            if run_files:
+                selected_predictions.append(run_files[-1])
 
         base_url = "/images/"
         
-        def create_image_data(filenames):
+        def create_image_data(filenames, is_prediction=False):
             image_data_list = []
             for filename in filenames:
                 json_path = os.path.join(IMAGE_OUTPUT_DIR, f"{filename}.json")
                 bounds = None
+                target_time = None
+                
                 if os.path.exists(json_path):
                     try:
                         with open(json_path, 'r') as f:
@@ -129,20 +168,46 @@ def get_images():
                             bounds = data.get('bounds')
                     except Exception as e:
                         logging.warning(f"No se pudo leer o parsear el JSON '{json_path}': {e}")
-                else:
-                    logging.warning(f"No se encontró el archivo de coordenadas para {filename}")
                 
-                # Solo añadir si tenemos coordenadas, para asegurar que el mapa funcione
+                # Calculate Target Time (UTC-3)
+                try:
+                    ts_str = None
+                    if is_prediction:
+                        # PRED_<RUN_ID>_<FORECAST_TIME>.png
+                        parts = filename.replace('PRED_', '').replace('.png', '').split('_')
+                        if len(parts) >= 3:
+                            ts_str = f"{parts[1]}{parts[2]}" # YYYYMMDDHHMMSS
+                    else:
+                        # INPUT_<TIMESTAMP>.png
+                        # Example: INPUT_20080305010845.png
+                        parts = filename.replace('INPUT_', '').replace('.png', '').split('_')
+                        if len(parts) >= 1:
+                            ts_str = parts[0] # 20080305010845
+
+                    if ts_str and len(ts_str) >= 12:
+                        # Parse UTC timestamp
+                        dt_utc = datetime.strptime(ts_str[:14], "%Y%m%d%H%M%S")
+                        # Adjust to UTC-3
+                        dt_local = dt_utc - timedelta(hours=3)
+                        # Format as HH:MM
+                        target_time = dt_local.strftime("%H:%M")
+                        
+                except Exception as e:
+                    logging.warning(f"Error parsing time for {filename}: {e}")
+
                 if bounds:
-                    image_data_list.append({
+                    item = {
                         "url": base_url + filename,
                         "bounds": bounds
-                    })
+                    }
+                    if target_time:
+                        item["target_time"] = target_time
+                    image_data_list.append(item)
             return image_data_list
 
         return jsonify({
-            "input_images": create_image_data(input_images_names),
-            "prediction_images": create_image_data(prediction_images_names)
+            "input_images": create_image_data(input_images_names, is_prediction=False),
+            "prediction_images": create_image_data(selected_predictions, is_prediction=True)
         })
 
     except Exception as e:

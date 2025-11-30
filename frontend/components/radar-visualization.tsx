@@ -106,6 +106,9 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing }
   // Assuming inputs are every 15 min and predictions every 3 min (based on previous context)
   // But for simplicity in UI, we'll just show "Past" vs "Forecast +X min"
   const getTimeLabel = () => {
+    if (currentImage?.target_time) {
+      return `Pronóstico ${currentImage.target_time}`;
+    }
     if (!isPrediction) {
       return `Radar Pasado (${currentFrameIndex + 1}/${inputFiles.length})`;
     } else {

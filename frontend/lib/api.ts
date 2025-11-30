@@ -15,6 +15,7 @@ export interface ApiStatus {
 export interface ImageWithBounds {
   url: string;
   bounds: [[number, number], [number, number]];
+  target_time?: string;
 }
 
 // Actualizamos la interfaz principal de imágenes

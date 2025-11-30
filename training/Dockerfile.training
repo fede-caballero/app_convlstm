@@ -1,0 +1,35 @@
+FROM pytorch/pytorch:2.0.1-cuda11.7-cudnn8-devel
+
+# Set working directory
+WORKDIR /workspace
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    wget \
+    curl \
+    unzip \
+    liblibnetcdf-dev \
+    libnetcdf-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rclone
+RUN curl https://rclone.org/install.sh | bash
+
+# Copy requirements first to leverage cache
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir gdown
+
+# Copy the rest of the application code
+# We assume the build context is the root 'app_convlstm' directory
+COPY . /workspace/app_convlstm
+
+# Set the working directory to the training folder
+WORKDIR /workspace/app_convlstm/training
+
+# Make scripts executable
+RUN chmod +x setup_vast.sh run_training.sh
+
+# Default command (can be overridden)
+CMD ["/bin/bash"]

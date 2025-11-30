@@ -356,7 +356,8 @@ def main():
                 
                 # Solo generar si no existe (optimización)
                 if not os.path.exists(input_image_path):
-                    bounds = generar_imagen_transparente_y_bounds(input_nc_path, input_image_path, skip_levels=2)
+                    # Aumentamos skip_levels a 3 para enmascarar indices 0, 1 y 2 (clutter)
+                    bounds = generar_imagen_transparente_y_bounds(input_nc_path, input_image_path, skip_levels=3)
                     if bounds:
                         with open(f"{input_image_path}.json", 'w') as f:
                             json.dump({"bounds": bounds}, f)
@@ -391,18 +392,23 @@ def main():
             prediction_nc_files = sorted(glob.glob(os.path.join(output_subdir_path, "*.nc")))
             for nc_file in prediction_nc_files:
                 pred_filename_base = os.path.splitext(os.path.basename(nc_file))[0]
-                pred_image_filename = f"PRED_{pred_filename_base}.png"
+                # Incluimos el ID de la corrida (output_subdir_name) en el nombre de la imagen
+                # Formato: PRED_<RUN_ID>_<FORECAST_TIME>.png
+                pred_image_filename = f"PRED_{output_subdir_name}_{pred_filename_base}.png"
                 pred_image_path = os.path.join(IMAGE_OUTPUT_DIR, pred_image_filename)
-                pred_bounds = generar_imagen_transparente_y_bounds(nc_file, pred_image_path, skip_levels=2)
+                # Aumentamos skip_levels a 3 para enmascarar indices 0, 1 y 2 (clutter)
+                pred_bounds = generar_imagen_transparente_y_bounds(nc_file, pred_image_path, skip_levels=3)
                 if pred_bounds:
                     with open(f"{pred_image_path}.json", 'w') as f:
                         json.dump({"bounds": pred_bounds}, f)
 
-            # --- 6. Gestión del buffer ---
-            oldest_file_in_sequence = files_to_process[0]
-            path_to_archive = os.path.join(INPUT_DIR, oldest_file_in_sequence)
-            logging.info(f"Ventana deslizante: archivando '{oldest_file_in_sequence}' para esperar el próximo escaneo.")
-            shutil.move(path_to_archive, os.path.join(ARCHIVE_DIR, oldest_file_in_sequence))
+            # --- 6. Gestión del buffer (BATCH TRIGGER) ---
+            # Eliminamos los 2 archivos más antiguos para esperar 2 nuevos (ciclo de 2 en 2)
+            files_to_remove = files_to_process[:2]
+            for file_to_remove in files_to_remove:
+                path_to_archive = os.path.join(INPUT_DIR, file_to_remove)
+                logging.info(f"Ventana deslizante: archivando '{file_to_remove}' para esperar nuevos escaneos.")
+                shutil.move(path_to_archive, os.path.join(ARCHIVE_DIR, file_to_remove))
             
             logging.info(f"Ciclo de predicción para la secuencia {seq_id} completado.")
             time.sleep(1)

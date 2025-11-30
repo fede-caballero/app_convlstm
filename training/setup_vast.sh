@@ -10,6 +10,7 @@ apt-get install -y git wget python3-pip liblibnetcdf-dev libnetcdf-dev
 
 # 2. Install Python dependencies
 pip install -r requirements.txt
+pip install gdown
 
 # 3. Create directories
 mkdir -p checkpoints

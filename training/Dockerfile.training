@@ -4,12 +4,12 @@ FROM pytorch/pytorch:2.0.1-cuda11.7-cudnn8-devel
 WORKDIR /workspace
 
 # Install system dependencies
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
     git \
     wget \
     curl \
     unzip \
-    liblibnetcdf-dev \
     libnetcdf-dev \
     && rm -rf /var/lib/apt/lists/*
 
@@ -17,9 +17,9 @@ RUN apt-get update && apt-get install -y \
 RUN curl https://rclone.org/install.sh | bash
 
 # Copy requirements first to leverage cache
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir gdown
+COPY training/requirements.txt .
+RUN pip install --default-timeout=1000 --no-cache-dir -r requirements.txt
+RUN pip install --default-timeout=1000 --no-cache-dir gdown
 
 # Copy the rest of the application code
 # We assume the build context is the root 'app_convlstm' directory

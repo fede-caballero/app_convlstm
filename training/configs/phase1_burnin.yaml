@@ -7,8 +7,8 @@ data:
   prediction_steps: 7
   img_height: 250
   img_width: 250
-  min_dbz: -40.0
-  max_dbz: 70.0
+  min_dbz: -29.0
+  max_dbz: 65.0
 
 model:
   input_dim: 1

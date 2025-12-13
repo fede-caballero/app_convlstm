@@ -182,6 +182,9 @@ def train(config_path, resume_from=None):
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=config['training'].get('patience', 4), factor=0.5, verbose=True)
     elif scheduler_type == 'cosine':
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-6)
+    elif scheduler_type == 'warmup':
+        # Linear Warmup: Start at 10% of LR and increase linearly for 5 epochs, then constant
+        scheduler = optim.lr_scheduler.LinearLR(optimizer, start_factor=0.1, total_iters=5)
     else:
         scheduler = None
 

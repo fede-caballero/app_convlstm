@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Play, Pause, RotateCcw, Calendar, Clock } from "lucide-react"
 import { ImageWithBounds } from "@/lib/api"
-import Map, { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, MapRef } from 'react-map-gl/maplibre'
+import Map, { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, GeolocateControl, MapRef } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 interface RadarVisualizationProps {
@@ -23,10 +23,23 @@ const INITIAL_VIEW_STATE = {
 // Dark Matter style for a premium look
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 
+function haversineDistance(coords1: { lat: number, lon: number }, coords2: { lat: number, lon: number }) {
+  const toRad = (x: number) => x * Math.PI / 180;
+  const R = 6371; // km
+  const dLat = toRad(coords2.lat - coords1.lat);
+  const dLon = toRad(coords2.lon - coords1.lon);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(coords1.lat)) * Math.cos(toRad(coords2.lat)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 export function RadarVisualization({ inputFiles, predictionFiles, isProcessing }: RadarVisualizationProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [boundariesData, setBoundariesData] = useState<any>(null)
+  const [userLocation, setUserLocation] = useState<{ latitude: number, longitude: number } | null>(null)
   const mapRef = useRef<MapRef>(null)
 
   // Merge frames: Inputs + Predictions
@@ -92,6 +105,28 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing }
 
   const imageCoordinates = useMemo(() => getImageCoordinates(currentImage), [currentImage]);
 
+  // Calculate center of current image for distance
+  const stormCenter = useMemo(() => {
+    if (!currentImage?.bounds) return null;
+    const b = currentImage.bounds as any;
+    // Assuming bounds are [[lat1, lon1], [lat2, lon2]] or similar based on usage
+    // Code above uses p1[0] as lat, p1[1] as lon
+    const p1 = b[0];
+    const p2 = b[1];
+    return {
+      lat: (p1[0] + p2[0]) / 2,
+      lon: (p1[1] + p2[1]) / 2
+    };
+  }, [currentImage]);
+
+  const distanceToStorm = useMemo(() => {
+    if (!userLocation || !stormCenter) return null;
+    return haversineDistance(
+      { lat: userLocation.latitude, lon: userLocation.longitude },
+      stormCenter
+    ).toFixed(1);
+  }, [userLocation, stormCenter]);
+
   const boundaryLayerStyle = {
     id: 'boundaries-layer',
     type: 'line',
@@ -127,6 +162,17 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing }
         attributionControl={false}
       >
         <NavigationControl position="top-right" />
+        <GeolocateControl
+          position="top-right"
+          trackUserLocation={true}
+          showUserLocation={true}
+          onGeolocate={(evt) => {
+            setUserLocation({
+              latitude: evt.coords.latitude,
+              longitude: evt.coords.longitude
+            });
+          }}
+        />
         <ScaleControl />
         <FullscreenControl position="top-right" />
 
@@ -142,6 +188,11 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing }
           <p className="text-[10px] text-white/90 font-medium mt-1 drop-shadow-md bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm tracking-wide">
             Sistema de Predicción Meteorológica
           </p>
+          {distanceToStorm && (
+            <div className="mt-2 bg-red-500/80 text-white px-3 py-1 rounded-md text-xs font-bold backdrop-blur-md shadow-lg animate-pulse">
+              Distancia al Centro de Tormenta: {distanceToStorm} km
+            </div>
+          )}
         </div>
 
 

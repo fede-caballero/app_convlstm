@@ -30,6 +30,18 @@ def init_db():
                 role TEXT NOT NULL DEFAULT 'visitor'
             )
         ''')
+
+        # Tabla de comentarios de administrador
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS comments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                content TEXT NOT NULL,
+                author_id INTEGER,
+                created_at TEXT NOT NULL,
+                is_active BOOLEAN DEFAULT 1,
+                FOREIGN KEY(author_id) REFERENCES users(id)
+            )
+        ''')
         
         conn.commit()
         conn.close()

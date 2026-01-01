@@ -254,4 +254,76 @@ if __name__ == "__main__":
 
     logging.info("Iniciando servidor Flask API en modo de desarrollo...")
     app.run(host='0.0.0.0', port=8000, debug=True)
+
+# --- Comments Endpoints ---
+
+@app.route('/api/comments', methods=['POST'])
+def create_comment():
+    # 1. Verificar Auth & Rol Admin
+    token = request.headers.get('Authorization')
+    if not token or not token.startswith("Bearer "):
+        return jsonify({"error": "Missing token"}), 401
     
+    token = token.split(" ")[1]
+    payload = auth.decode_access_token(token)
+    if not payload or payload.get('role') != 'admin':
+        return jsonify({"error": "Unauthorized: Admins only"}), 403
+
+    # 2. Obtener datos
+    data = request.get_json()
+    content = data.get('content')
+    if not content:
+        return jsonify({"error": "Content required"}), 400
+
+    author_id = payload.get('id')
+    created_at = datetime.now().isoformat()
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        # 3. Desactivar comentarios anteriores (solo 1 activo a la vez)
+        cursor.execute("UPDATE comments SET is_active = 0 WHERE is_active = 1")
+        
+        # 4. Insertar nuevo
+        cursor.execute('''
+            INSERT INTO comments (content, author_id, created_at, is_active)
+            VALUES (?, ?, ?, 1)
+        ''', (content, author_id, created_at))
+        
+        conn.commit()
+        return jsonify({"message": "Comment posted successfully"}), 201
+    except Exception as e:
+        logging.error(f"Error posting comment: {e}")
+        return jsonify({"error": "Internal error"}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/comments/latest', methods=['GET'])
+def get_latest_comment():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            SELECT content, created_at, username 
+            FROM comments 
+            JOIN users ON comments.author_id = users.id 
+            WHERE is_active = 1 
+            ORDER BY created_at DESC 
+            LIMIT 1
+        ''')
+        row = cursor.fetchone()
+        
+        if row:
+            return jsonify({
+                "content": row[0],
+                "created_at": row[1],
+                "author": row[2]
+            })
+        else:
+            return jsonify(None), 200 # No content, return null (handled by frontend)
+    except Exception as e:
+        logging.error(f"Error fetching comment: {e}")
+        return jsonify({"error": "Internal error"}), 500
+    finally:
+        conn.close()

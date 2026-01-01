@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { RadarVisualization } from "@/components/radar-visualization"
+import { AdminCommentBar } from "@/components/admin-comment-bar"
 import { fetchImages, fetchStatus, ApiStatus, ApiImages } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import Link from "next/link"
@@ -57,9 +58,15 @@ export default function RadarPredictionRealtime() {
         />
       </div>
 
-      {/* Floating Navbar */}
-      <div className="absolute top-0 left-0 right-0 z-50 p-4 pointer-events-none">
-        <div className="max-w-[1600px] mx-auto flex justify-between items-start pointer-events-auto">
+      {/* Floating Navbar & Alerts - Z-Index Higher than Map */}
+      <div className="absolute top-0 left-0 right-0 z-50 p-4 pointer-events-none flex flex-col items-center">
+
+        {/* Admin Alerts Bar */}
+        <div className="pointer-events-auto w-full max-w-4xl mb-2">
+          <AdminCommentBar />
+        </div>
+
+        <div className="max-w-[1600px] w-full mx-auto flex justify-between items-start pointer-events-auto">
 
           {/* Logo & Title */}
 

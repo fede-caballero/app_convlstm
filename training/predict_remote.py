@@ -184,7 +184,7 @@ if __name__ == "__main__":
     
     data_config = {
         'min_dbz': -29.0, 'max_dbz': 65.0, 'variable_name': 'DBZ',
-        'prediction_interval_minutes': 3,
+        'prediction_interval_minutes': 3.5,
         'physical_threshold_dbz': 30.0, 
         'sensor_latitude': -34.64799880981445,
         'sensor_longitude': -68.01699829101562,

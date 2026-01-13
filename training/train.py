@@ -36,19 +36,26 @@ class StormDataset(Dataset):
         self.min_dbz = min_dbz
         self.max_dbz = max_dbz
         
-        # Find all NetCDF files
-        self.files = sorted(glob.glob(os.path.join(data_dir, "*.nc")))
-        
-        # Create valid sequences
+        # Create valid sequences respecting folder boundaries
         self.sequences = []
+        total_files = 0
         total_len = input_steps + prediction_steps
         
-        # Simple sliding window
-        # In a real scenario, check for time continuity!
-        for i in range(len(self.files) - total_len + 1):
-            self.sequences.append(self.files[i : i + total_len])
+        # Walk through directories to find sequences
+        # This guarantees we NEVER mix files from different folders
+        for root, _, files in os.walk(data_dir):
+            nc_files = sorted([f for f in files if f.endswith('.nc')])
+            if not nc_files: continue
             
-        logger.info(f"Found {len(self.files)} files. Created {len(self.sequences)} sequences.")
+            total_files += len(nc_files)
+            file_paths = [os.path.join(root, f) for f in nc_files]
+            
+            # Apply sliding window per folder
+            if len(file_paths) >= total_len:
+                for i in range(len(file_paths) - total_len + 1):
+                    self.sequences.append(file_paths[i : i + total_len])
+            
+        logger.info(f"Scanned directories. Found {total_files} files. Created {len(self.sequences)} sequences.")
 
     def __len__(self):
         return len(self.sequences)
@@ -247,6 +254,21 @@ def train(config_path, resume_from=None):
         # Simple logic: just overwrite best for now, or implement comparison
         torch.save(save_dict, best_path)
         logger.info(f"Saved checkpoint to {checkpoint_path}")
+        
+        # --- Cleanup Strategy: Keep only 'best' and 'latest' to save space ---
+        # User requested to delete models from 1 to 9 if we are at 10.
+        try:
+            # Find all checkpoints for this experiment (excluding 'best')
+            chk_pattern = os.path.join(save_dir, f"{config['experiment_name']}_epoch_*.pth")
+            all_checkpoints = sorted(glob.glob(chk_pattern))
+            
+            # If we have more than 1 checkpoint, keep only the last one (current)
+            # The 'best' file is separate, so we don't need to worry about deleting it here.
+            for chk in all_checkpoints[:-1]:
+                os.remove(chk)
+                logger.info(f"Deleted old checkpoint: {chk}")
+        except Exception as e:
+            logger.warning(f"Error deleting old checkpoints: {e}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

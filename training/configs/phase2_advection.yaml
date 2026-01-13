@@ -1,7 +1,7 @@
 experiment_name: "phase2_advection"
 data:
   data_dir: "/workspace/data"
-  batch_size: 16 # Reduced batch size if needed, or keep 32 if memory allows
+  batch_size: 32
   num_workers: 8
   input_steps: 8
   prediction_steps: 7

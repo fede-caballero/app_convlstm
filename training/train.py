@@ -76,35 +76,45 @@ class StormDataset(Dataset):
                     # README says: "NetCDF Original (500x500) -> AveragePooling2D -> Tensor (250x250)"
                     # But here we assume data might already be preprocessed or we do it here.
                     # For simplicity, let's assume we take the max over Z if 3D, or it's already 2D.
+                    data = torch.from_numpy(data).float()
                     
-                    if data.ndim == 3:
-                        data = np.nanmax(data, axis=0) # Max projection
+                    # Robust Dimension Reduction: Goal is (H, W) or (C, H, W)
+                    # Loop until we have 2 or 3 dims. 
+                    # If we have (T, L, H, W) -> Squeeze T=1, MaxPool L
+                    while data.ndim > 2:
+                        # If first dim is 1 (e.g. Time=1), squeeze it
+                        if data.shape[0] == 1:
+                            data = data.squeeze(0)
+                        else:
+                            # If first dim > 1 (e.g. Levels=18), Max Projection
+                            data = torch.max(data, dim=0)[0]
                     
-                    # Normalization
-                    data = np.nan_to_num(data, nan=self.min_dbz)
-                    data = np.clip(data, self.min_dbz, self.max_dbz)
-                    data = (data - self.min_dbz) / (self.max_dbz - self.min_dbz)
-                    
-                    # Convert to tensor (C, H, W)
-                    tensor = torch.from_numpy(data).float()
-                    if tensor.ndim == 2:
-                        tensor = tensor.unsqueeze(0)
+                    # Now data should be (H, W)
+                    if data.ndim == 2:
+                        data = data.unsqueeze(0) # (1, H, W)
                         
                     # Resize if necessary
-                    if tensor.shape[1] != self.img_height or tensor.shape[2] != self.img_width:
-                        # interpolate expects (B, C, H, W)
-                        tensor = torch.nn.functional.interpolate(
-                            tensor.unsqueeze(0), 
+                    if data.shape[1] != self.img_height or data.shape[2] != self.img_width:
+                        # interpolate expects (B, C, H, W) -> (1, 1, H, W)
+                        data = torch.nn.functional.interpolate(
+                            data.unsqueeze(0), 
                             size=(self.img_height, self.img_width), 
                             mode='bilinear', 
                             align_corners=False
                         ).squeeze(0)
                     
-                    frames.append(tensor)
+                    # Log shape for debug if needed (only once)
+                    # if idx == 0 and len(frames) == 0:
+                    #     print(f"DEBUG: Frame shape after processing: {data.shape}")
+
+                    frames.append(data)
             except Exception as e:
                 logger.error(f"Error loading {p}: {e}")
-                # Return zero tensor in case of error to avoid crashing
-                return torch.zeros((self.input_steps + self.prediction_steps, 1, self.img_height, self.img_width))
+                # Return tuple of zero tensors to allow unpacking
+                # Shape: (Seq, C, H, W)
+                input_seq = torch.zeros((self.input_steps, 1, self.img_height, self.img_width))
+                target_seq = torch.zeros((self.prediction_steps, 1, self.img_height, self.img_width))
+                return input_seq, target_seq
 
         # Stack frames: (Seq, C, H, W)
         # Note: frames are already (C, H, W) tensors
@@ -197,6 +207,9 @@ def train(config_path, resume_from=None):
 
     scaler = GradScaler()
     
+    # CUDNN Stability for H200
+    torch.backends.cudnn.benchmark = False
+    
     # Loop
     for epoch in range(start_epoch, start_epoch + epochs):
         model.train()
@@ -209,34 +222,44 @@ def train(config_path, resume_from=None):
             
             optimizer.zero_grad()
             
-            with autocast():
+            # Forward
+            with torch.cuda.amp.autocast(enabled=True):
                 outputs = model(inputs)
                 # Ensure outputs match targets shape if necessary
                 # Model output: (B, PredSteps, C, H, W)
                 # Targets: (B, PredSteps, C, H, W)
-                loss, loss_components = criterion(outputs, targets)
+                loss, loss_dict = criterion(outputs, targets)
             
+            # Backward
             scaler.scale(loss).backward()
             
-            # Gradient Clipping
-            if 'gradient_clip' in config['training']:
-                scaler.unscale_(optimizer)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), config['training']['gradient_clip'])
+            # Unscale & Clip
+            scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), float(config['training']['gradient_clip']))
             
+            # Step
             scaler.step(optimizer)
             scaler.update()
             
             epoch_loss += loss.item()
-            pbar.set_postfix({"loss": loss.item(), "ssim": loss_components['ssim']})
-        
-        avg_loss = epoch_loss / len(dataloader)
-        logger.info(f"Epoch {epoch+1} Complete. Avg Loss: {avg_loss:.6f}")
-        
-        if scheduler:
+            
+            # Update pbar
+            pbar.set_postfix({
+                'loss': loss.item(), 
+                'mse': loss_dict['mse'], 
+                'ssim': loss_dict['ssim']
+            })
+            
+        # Scheduler Step (After Optimizer Step)
+        if scheduler is not None:
+            # If Plateau, needs metric
             if isinstance(scheduler, optim.lr_scheduler.ReduceLROnPlateau):
-                scheduler.step(avg_loss)
+                scheduler.step(epoch_loss / len(dataloader))
             else:
                 scheduler.step()
+                
+        avg_loss = epoch_loss / len(dataloader)
+        logger.info(f"Epoch {epoch+1} Complete. Avg Loss: {avg_loss:.4f}")
         
         # Save Checkpoint
         checkpoint_path = os.path.join(save_dir, f"{config['experiment_name']}_epoch_{epoch+1}.pth")

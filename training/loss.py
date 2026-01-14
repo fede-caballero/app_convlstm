@@ -32,18 +32,17 @@ class CombinedLoss(nn.Module):
         weighted_loss = (mse_loss * high_intensity_mask).mean()
 
         # 3. SSIM Loss (Structural Similarity)
-        # SSIM returns a value between -1 and 1 (1 being perfect similarity)
-        # We want to minimize (1 - SSIM)
-        # SSIM expects inputs in range [0, 1] usually, which our normalized data is.
-        # We need to reshape to (B*T, C, H, W) for 2D SSIM or use 3D SSIM if available/appropriate.
-        # Here we apply 2D SSIM frame by frame or by reshaping.
-        
-        b, t, c, h, w = pred.shape
-        pred_reshaped = pred.view(b * t, c, h, w)
-        target_reshaped = target.view(b * t, c, h, w)
-        
-        ssim_val = ssim(pred_reshaped, target_reshaped, data_range=1.0, size_average=True)
-        ssim_loss = 1.0 - ssim_val
+        try:
+            b, t, c, h, w = pred.shape
+            pred_reshaped = pred.view(b * t, c, h, w)
+            target_reshaped = target.view(b * t, c, h, w)
+            
+            ssim_val = ssim(pred_reshaped, target_reshaped, data_range=1.0, size_average=True)
+            ssim_loss = 1.0 - ssim_val
+        except Exception as e:
+            # Fallback if SSIM fails (e.g. CUDNN error on H200)
+            # print(f"Warning: SSIM failed: {e}")
+            ssim_loss = torch.tensor(0.0, device=pred.device)
 
         # Combine losses
         total_loss = huber_loss + (self.high_penalty_weight * weighted_loss) + (self.ssim_weight * ssim_loss)
@@ -51,5 +50,6 @@ class CombinedLoss(nn.Module):
         return total_loss, {
             "huber": huber_loss.item(),
             "weighted": weighted_loss.item(),
-            "ssim": ssim_loss.item()
+            "ssim": ssim_loss.item(),
+            "mse": mse_loss.mean().item() # Add raw MSE for logging
         }

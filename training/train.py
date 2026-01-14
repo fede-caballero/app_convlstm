@@ -77,6 +77,11 @@ class StormDataset(Dataset):
                     # But here we assume data might already be preprocessed or we do it here.
                     # For simplicity, let's assume we take the max over Z if 3D, or it's already 2D.
                     data = torch.from_numpy(data).float()
+
+                    # 1. Handle NaNs IMMEDIATELY (Replace with min_dbz)
+                    # This is critical because torch.max propagates NaNs. 
+                    # We want empty space (NaN) to be treated as min_dbz (-29.0)
+                    data = torch.nan_to_num(data, nan=self.min_dbz)
                     
                     # Robust Dimension Reduction: Goal is (H, W) or (C, H, W)
                     # Loop until we have 2 or 3 dims. 
@@ -93,6 +98,12 @@ class StormDataset(Dataset):
                     if data.ndim == 2:
                         data = data.unsqueeze(0) # (1, H, W)
                         
+                    # 2. Clip to valid range
+                    data = torch.clamp(data, min=self.min_dbz, max=self.max_dbz)
+                    
+                    # 3. Normalize to [0, 1]
+                    data = (data - self.min_dbz) / (self.max_dbz - self.min_dbz)
+
                     # Resize if necessary
                     if data.shape[1] != self.img_height or data.shape[2] != self.img_width:
                         # interpolate expects (B, C, H, W) -> (1, 1, H, W)

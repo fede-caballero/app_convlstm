@@ -222,24 +222,30 @@ def train(config_path, resume_from=None):
             
             optimizer.zero_grad()
             
-            # Forward
-            with torch.cuda.amp.autocast(enabled=True):
-                outputs = model(inputs)
-                # Ensure outputs match targets shape if necessary
-                # Model output: (B, PredSteps, C, H, W)
-                # Targets: (B, PredSteps, C, H, W)
-                loss, loss_dict = criterion(outputs, targets)
+            # Debug: Check for NaNs in input
+            if torch.isnan(inputs).any() or torch.isnan(targets).any():
+                logger.error(f"NaN detected in inputs/targets at epoch {epoch}")
+                continue
+
+            # Forward (Full Precision - No AMP)
+            outputs = model(inputs)
+            loss, loss_dict = criterion(outputs, targets)
             
+            if torch.isnan(loss):
+                logger.error(f"NaN Loss detected at epoch {epoch}. Components: {loss_dict}")
+                # Optional: continue or break. For now let's just log and skip step to avoid wrecking weights
+                optimizer.zero_grad()
+                continue
+
             # Backward
-            scaler.scale(loss).backward()
+            loss.backward()
             
-            # Unscale & Clip
-            scaler.unscale_(optimizer)
+            # Clip
             torch.nn.utils.clip_grad_norm_(model.parameters(), float(config['training']['gradient_clip']))
             
             # Step
-            scaler.step(optimizer)
-            scaler.update()
+            optimizer.step()
+            # scaler is removed
             
             epoch_loss += loss.item()
             

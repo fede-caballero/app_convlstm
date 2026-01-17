@@ -1,0 +1,34 @@
+# Version Control
+.git
+.gitignore
+
+# Frontend Dependencies (HUGE folder, not needed for training)
+frontend/node_modules
+frontend/.next
+frontend/build
+node_modules
+
+# Backend/Python Artifacts
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+
+# Data and Models
+data/
+train_data/
+checkpoints/
+*.pth
+*.tar.gz
+*.nc
+
+# IDE Settings
+.vscode
+.idea
+
+# System
+.DS_Store

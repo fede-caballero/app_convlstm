@@ -1,7 +1,7 @@
 experiment_name: "phase3_refinement"
 data:
   data_dir: "/workspace/data"
-  batch_size: 32
+  batch_size: 16
   num_workers: 8
   input_steps: 8
   prediction_steps: 7

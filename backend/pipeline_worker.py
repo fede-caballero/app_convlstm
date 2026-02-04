@@ -43,10 +43,17 @@ def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: s
         dbz_data = ds['DBZ'].squeeze().values
 
         # --- 1. Crear el composite ---
-        if dbz_data.ndim == 3 and dbz_data.shape[0] > skip_levels:
-            composite_data_2d = np.nanmax(dbz_data[skip_levels:, :, :], axis=0)
+        if dbz_data.ndim == 3:
+            if dbz_data.shape[0] > skip_levels:
+                composite_data_2d = np.nanmax(dbz_data[skip_levels:, :, :], axis=0)
+            else:
+                 composite_data_2d = np.nanmax(dbz_data, axis=0)
+        elif dbz_data.ndim == 2:
+            # Ya es 2D (caso predicciones)
+            composite_data_2d = dbz_data
         else:
-            composite_data_2d = np.nanmax(dbz_data, axis=0)
+            logging.error(f"Dimensiones inesperadas en {nc_file_path}: {dbz_data.ndim}")
+            return None
 
         # --- 2. Obtener la información de la proyección ---
         proj_info = ds['grid_mapping_0'].attrs
@@ -122,96 +129,197 @@ def update_status(status_message: str, file_count: int, total_needed: int):
         logging.error(f"No se pudo escribir en el archivo de estado: {e}")
 
 def load_and_preprocess_input_sequence(input_file_paths: list) -> torch.Tensor:
-    """Carga una secuencia de archivos NetCDF, los pre-procesa y los apila."""
-    data_list = []
+    """
+    Carga secuencia, preprocesa (Max Projection 3D->2D) y hace DOWNSAMPLING (500->250).
+    """
+    frames = []
     min_dbz = DATA_CONFIG['min_dbz']
     max_dbz = DATA_CONFIG['max_dbz']
+    target_height = 250 # Resolución del modelo
+    target_width = 250
+
     for file_path in input_file_paths:
-        with xr.open_dataset(file_path, mask_and_scale=True, decode_times=False) as ds:
-            dbz_physical = ds[DATA_CONFIG['variable_name']].values
-        dbz_physical_squeezed = dbz_physical[0, ...]
-        dbz_clipped = np.clip(dbz_physical_squeezed, min_dbz, max_dbz)
-        dbz_normalized = (dbz_clipped - min_dbz) / (max_dbz - min_dbz)
-        data_list.append(dbz_normalized[..., np.newaxis])
-    full_sequence = np.stack(data_list, axis=1) # Forma: (Z, T, H, W, C)
-    return torch.from_numpy(np.nan_to_num(full_sequence, nan=0.0)).float()
+        try:
+            with xr.open_dataset(file_path, mask_and_scale=True, decode_times=False) as ds:
+                # Fallback variable name
+                var_name = DATA_CONFIG.get('variable_name', 'DBZ')
+                if var_name not in ds:
+                    var_name = list(ds.data_vars)[0]
+                data = ds[var_name].values
+            
+            # Convert to Tensor
+            data = torch.from_numpy(data).float()
+            
+            # 1. Handle NaNs IMMEDIATELY (Same as training)
+            data = torch.nan_to_num(data, nan=min_dbz)
+            
+            # 2. Dimension Reduction (Max Projection)
+            while data.ndim > 2:
+                if data.shape[0] == 1:
+                    data = data.squeeze(0)
+                else:
+                    data = torch.max(data, dim=0)[0] # Max Composite
+            
+            # Ensure (1, H, W) -> Channel dim
+            if data.ndim == 2:
+                data = data.unsqueeze(0)
+                
+            # 3. Clip & Normalize
+            data = torch.clamp(data, min=min_dbz, max=max_dbz)
+            data = (data - min_dbz) / (max_dbz - min_dbz)
+            
+            # 4. Resize (500 -> 250)
+            if data.shape[1] != target_height or data.shape[2] != target_width:
+                data = torch.nn.functional.interpolate(
+                    data.unsqueeze(0),
+                    size=(target_height, target_width),
+                    mode='bilinear',
+                    align_corners=False
+                ).squeeze(0)
+            
+            frames.append(data)
+            
+        except Exception as e:
+            logging.error(f"Error procesando archivo {file_path}: {e}")
+            # En producción, o saltamos o rellenamos con ceros. Rellenar es más seguro para no romper batch.
+            frames.append(torch.zeros((1, target_height, target_width)))
+
+    # Stack Time: (Seq, C, H, W)
+    full_sequence = torch.stack(frames, dim=0)
+    # Add Batch: (B, Seq, C, H, W) -> Esto lo hace el caller, pero run_inference devuelve (1, Seq, C, H, W)
+    # Pipeline espera (Seq, C, H, W) porque Predictor agrega batch dimension? 
+    # Revisemos predict.py: predict(input_volume). input_volume es (Z, T, H, W, C) <- ESTO ES VIEJO.
+    # El nuevo modelo espera (B, T, C, H, W).
+    return full_sequence.unsqueeze(0) # (1, Seq, C, H, W)
 
 def postprocess_prediction(prediction_norm: torch.Tensor) -> np.ndarray:
-    """Aplica la desnormalización y el umbral físico a la salida del modelo."""
-    prediction_permuted = prediction_norm.permute(1, 0, 2, 3, 4)
-    pred_physical_raw = prediction_permuted.numpy() * (DATA_CONFIG['max_dbz'] - DATA_CONFIG['min_dbz']) + DATA_CONFIG['min_dbz']
+    """
+    Aplica Upsampling (250->500), desnormalización y umbral físico.
+    Entrada: (1, T, C, 250, 250)
+    Salida: (T, C, 500, 500) numpy array
+    """
+    # 1. Upsampling (250 -> 500)
+    b, t, c, h, w = prediction_norm.shape
+    # Flatten T into B for interpolation
+    pred_reshaped = prediction_norm.view(b * t, c, h, w)
+    
+    pred_upsampled = torch.nn.functional.interpolate(
+        pred_reshaped, 
+        size=(500, 500), 
+        mode='bicubic', # Bicubic para mejor calidad visual
+        align_corners=False
+    )
+    
+    # Restore shape: (B, T, C, 500, 500)
+    pred_upsampled = pred_upsampled.view(b, t, c, 500, 500)
+
+    # 2. Denormalize
+    output_np = pred_upsampled.cpu().numpy()
+    pred_physical_raw = output_np * (DATA_CONFIG['max_dbz'] - DATA_CONFIG['min_dbz']) + DATA_CONFIG['min_dbz']
     pred_physical_clipped = np.clip(pred_physical_raw, DATA_CONFIG['min_dbz'], DATA_CONFIG['max_dbz'])
+    
     pred_physical_cleaned = pred_physical_clipped.copy()
 
-    # --- CLUTTER REMOVAL (OUTPUT): Enmascarar las primeras 2 capas ---
-    # Se hace aquí para que el modelo tenga el contexto completo a la entrada,
-    # pero la salida esté limpia de ecos fijos.
-    # El usuario reportó ecos fijos, así que aseguramos que el enmascaramiento sea efectivo.
-    if pred_physical_cleaned.ndim >= 2 and pred_physical_cleaned.shape[1] >= 3:
-         # Enmascarar niveles 0, 1 y 2 (los más bajos, donde suele haber clutter)
-         pred_physical_cleaned[:, :3, ...] = np.nan
-
+    # 3. Clean Noise
     threshold = DATA_CONFIG.get('physical_threshold_dbz', 30.0)
-    # Aplicar umbral estricto para eliminar ruido de fondo
     pred_physical_cleaned[pred_physical_cleaned < threshold] = np.nan
     
-    # Opcional: Si el ruido persiste, podríamos aumentar el umbral o enmascarar más capas.
-    # Por ahora, confiamos en que el umbral y el mask de capas bajas sea suficiente.
-    
-    logging.info(f"Max dBZ después de umbral: {np.nanmax(pred_physical_cleaned)}")
-    return pred_physical_cleaned.squeeze(2) # Corrigiendo squeeze index: (T, Z, C, H, W) -> C está en index 2
+    # Remove batch dim: (1, T, C, H, W) -> (T, C, H, W)
+    # C=1 (Composite). Post-processing logic expects this.
+    return pred_physical_cleaned[0]
 
 def save_prediction_as_netcdf(output_subdir: str, pred_sequence_cleaned: np.ndarray, data_cfg: dict, start_datetime: datetime):
-    num_pred_steps, num_z, num_y, num_x = pred_sequence_cleaned.shape
-    z_coords = np.arange(1.0, 1.0 + num_z * 1.0, 1.0, dtype=np.float32)
+    # entrada: (T, C, 500, 500). C=1
+    num_pred_steps, num_c, num_y, num_x = pred_sequence_cleaned.shape
+    num_z = 1 # Force 1 level (Max Projection)
+    
+    # --- Grid Preparation ---
     x_coords = np.arange(-249.5, -249.5 + num_x * 1.0, 1.0, dtype=np.float32)
     y_coords = np.arange(-249.5, -249.5 + num_y * 1.0, 1.0, dtype=np.float32)
-    proj = pyproj.Proj(proj="aeqd", lon_0=data_cfg['sensor_longitude'], lat_0=data_cfg['sensor_latitude'], R=data_cfg['earth_radius_m'])
+    z_coords = np.array([1.0], dtype=np.float32)
+
+    proj = pyproj.Proj(
+        proj="aeqd", 
+        lon_0=data_cfg['sensor_longitude'], 
+        lat_0=data_cfg['sensor_latitude'], 
+        R=data_cfg['earth_radius_m']
+    )
     x_grid_m, y_grid_m = np.meshgrid(x_coords * 1000.0, y_coords * 1000.0)
     lon0_grid, lat0_grid = proj(x_grid_m, y_grid_m, inverse=True)
 
     for i in range(num_pred_steps):
         lead_time_minutes = (i + 1) * data_cfg.get('prediction_interval_minutes', 3)
         forecast_dt_utc = start_datetime + timedelta(minutes=lead_time_minutes)
-        output_filename = os.path.join(output_subdir, f"{forecast_dt_utc.strftime('%Y%m%d_%H%M%S')}.nc")
+        
+        file_ts = forecast_dt_utc.strftime("%Y%m%d_%H%M%S")
+        output_filename = os.path.join(output_subdir, f"{file_ts}.nc")
 
         with NCDataset(output_filename, 'w', format='NETCDF3_CLASSIC') as ds_out:
+            # --- Global Attributes ---
             ds_out.Conventions = "CF-1.6"
             ds_out.title = f"SAN_RAFAEL_PRED - Forecast t+{lead_time_minutes}min"
             ds_out.institution = "UM"
             ds_out.source = "ConvLSTM Model Prediction"
             ds_out.history = f"Created {datetime.now(timezone.utc).isoformat()} by pipeline."
-            ds_out.comment = f"Forecast data from model. Lead time: {lead_time_minutes} min."
-            ds_out.sensor_longitude = data_cfg['sensor_longitude']
-            ds_out.sensor_latitude = data_cfg['sensor_latitude']
-            ds_out.sensor_altitude = data_cfg['sensor_altitude_km']
+            ds_out.comment = f"Forecast 2D (Max Projection). Lead time: {lead_time_minutes} min."
 
+            # --- Dimensions ---
             ds_out.createDimension('time', None)
             ds_out.createDimension('bounds', 2)
             ds_out.createDimension('longitude', num_x)
             ds_out.createDimension('latitude', num_y)
             ds_out.createDimension('altitude', num_z)
 
-            time_value = (forecast_dt_utc.replace(tzinfo=None) - datetime(1970, 1, 1)).total_seconds()
+            # --- Variables ---
+            time_value = (forecast_dt_utc.replace(tzinfo=timezone.utc) - datetime(1970, 1, 1, tzinfo=timezone.utc)).total_seconds()
             time_v = ds_out.createVariable('time', 'f8', ('time',))
-            time_v.standard_name = "time"; time_v.long_name = "Data time"
-            time_v.units = "seconds since 1970-01-01T00:00:00Z"; time_v.axis = "T"
+            time_v.standard_name = "time"; time_v.axis = "T"
+            time_v.units = "seconds since 1970-01-01T00:00:00Z"
             time_v[:] = [time_value]
 
-            x_v = ds_out.createVariable('longitude', 'f4', ('longitude',)); x_v.setncatts({'standard_name':"projection_x_coordinate", 'units':"km", 'axis':"X"}); x_v[:] = x_coords
-            y_v = ds_out.createVariable('latitude', 'f4', ('latitude',)); y_v.setncatts({'standard_name':"projection_y_coordinate", 'units':"km", 'axis':"Y"}); y_v[:] = y_coords
-            z_v = ds_out.createVariable('altitude', 'f4', ('altitude',)); z_v.setncatts({'standard_name':"altitude", 'units':"km", 'axis':"Z", 'positive':"up"}); z_v[:] = z_coords
-            
-            lat0_v = ds_out.createVariable('lat0', 'f4', ('latitude', 'longitude',)); lat0_v.setncatts({'standard_name':"latitude", 'units':"degrees_north"}); lat0_v[:] = lat0_grid
-            lon0_v = ds_out.createVariable('lon0', 'f4', ('latitude', 'longitude',)); lon0_v.setncatts({'standard_name':"longitude", 'units':"degrees_east"}); lon0_v[:] = lon0_grid
-            
-            gm_v = ds_out.createVariable('grid_mapping_0', 'i4'); gm_v.setncatts({'grid_mapping_name':"azimuthal_equidistant", 'longitude_of_projection_origin':data_cfg['sensor_longitude'], 'latitude_of_projection_origin':data_cfg['sensor_latitude'], 'false_easting':0.0, 'false_northing':0.0, 'earth_radius':data_cfg['earth_radius_m']})
+            x_v = ds_out.createVariable('longitude', 'f4', ('longitude',))
+            x_v.standard_name = "projection_x_coordinate"; x_v.units = "km"; x_v.axis = "X"
+            x_v[:] = x_coords
 
-            _fill_value_float = -999.0
-            prediction_data_for_nc = pred_sequence_cleaned[i]
-            dbz_v = ds_out.createVariable('DBZ', 'f4', ('time', 'altitude', 'latitude', 'longitude'), fill_value=_fill_value_float)
-            dbz_v.setncatts({'long_name': 'DBZ', 'standard_name': 'reflectivity', 'units': 'dBZ', 'missing_value': _fill_value_float})
-            dbz_v[0, :, :, :] = prediction_data_for_nc
+            y_v = ds_out.createVariable('latitude', 'f4', ('latitude',))
+            y_v.standard_name = "projection_y_coordinate"; y_v.units = "km"; y_v.axis = "Y"
+            y_v[:] = y_coords
+
+            z_v = ds_out.createVariable('altitude', 'f4', ('altitude',))
+            z_v.standard_name = "altitude"; z_v.units = "km"; z_v.axis = "Z"; z_v.positive = "up"
+            z_v[:] = z_coords
+
+            lat0_v = ds_out.createVariable('lat0', 'f4', ('latitude', 'longitude',))
+            lat0_v.standard_name = "latitude"; lat0_v.units = "degrees_north"
+            lat0_v[:] = lat0_grid
+
+            lon0_v = ds_out.createVariable('lon0', 'f4', ('latitude', 'longitude',))
+            lon0_v.standard_name = "longitude"; lon0_v.units = "degrees_east"
+            lon0_v[:] = lon0_grid
+
+            gm_v = ds_out.createVariable('grid_mapping_0', 'i4')
+            gm_v.grid_mapping_name = "azimuthal_equidistant"
+            gm_v.longitude_of_projection_origin = data_cfg['sensor_longitude']
+            gm_v.latitude_of_projection_origin = data_cfg['sensor_latitude']
+            gm_v.false_easting = 0.0; gm_v.false_northing = 0.0
+            gm_v.earth_radius = data_cfg['earth_radius_m']
+
+            # --- Data Variable (Single Level) ---
+            fill_value_float = np.float32(-999.0)
+            dbz_v = ds_out.createVariable('DBZ', 'f4', ('time', 'altitude', 'latitude', 'longitude'), fill_value=fill_value_float)
+            dbz_v.units = "dBZ"; dbz_v.standard_name = "reflectivity"
+            dbz_v.grid_mapping = "grid_mapping_0"
+            dbz_v.coordinates = "lat0 lon0"
+            
+            # Get 2D frame: (C, H, W) -> C=1
+            pred_2d = pred_sequence_cleaned[i] # (1, 500, 500)
+            
+            # Expand to (1, 1, Y, X) for saving
+            pred_final = pred_2d[np.newaxis, :, :, :] 
+            
+            data_final = np.nan_to_num(pred_final, nan=fill_value_float)
+            
+            dbz_v[:] = data_final
 
         logging.info(f"  -> Predicción guardada en: {os.path.basename(output_filename)}")
 
@@ -373,6 +481,22 @@ def main():
             except ValueError:
                 last_input_dt_utc = datetime.now(timezone.utc)
             
+            # --- 2.1 Detect/Validate Interval ---
+            # Calculate interval from the last 2 files to be precise
+            try:
+                t1_str = os.path.splitext(os.path.basename(full_paths[-2]))[0]
+                t2_str = os.path.splitext(os.path.basename(full_paths[-1]))[0]
+                t1 = datetime.strptime(t1_str, '%Y%m%d%H%M%S')
+                t2 = datetime.strptime(t2_str, '%Y%m%d%H%M%S')
+                detected_interval = (t2 - t1).total_seconds() / 60.0
+                if 2.0 <= detected_interval <= 15.0: # Sanity check
+                    DATA_CONFIG['prediction_interval_minutes'] = detected_interval
+                    logging.info(f"Intervalo detectado dinámicamente: {detected_interval:.2f} min")
+                else:
+                    logging.warning(f"Intervalo detectado ({detected_interval}) fuera de rango. Usando config: {DATA_CONFIG['prediction_interval_minutes']}")
+            except Exception as e:
+                logging.warning(f"No se pudo detectar intervalo dinámico: {e}. Usando config: {DATA_CONFIG['prediction_interval_minutes']}")
+
             # --- 3. Guardar predicciones en NetCDF ---
             output_subdir_name = last_input_dt_utc.strftime('%Y%m%d-%H%M%S')
             output_subdir_path = os.path.join(OUTPUT_DIR, output_subdir_name)
@@ -403,8 +527,9 @@ def main():
                         json.dump({"bounds": pred_bounds}, f)
 
             # --- 6. Gestión del buffer (BATCH TRIGGER) ---
-            # Eliminamos los 2 archivos más antiguos para esperar 2 nuevos (ciclo de 2 en 2)
-            files_to_remove = files_to_process[:2]
+            # Eliminamos el archivo más antiguo para esperar 1 nuevo (Windows Stride = 1)
+            # Esto permite ejecutar el modelo cada vez que llega UN archivo nuevo.
+            files_to_remove = files_to_process[:1]
             for file_to_remove in files_to_remove:
                 path_to_archive = os.path.join(INPUT_DIR, file_to_remove)
                 logging.info(f"Ventana deslizante: archivando '{file_to_remove}' para esperar nuevos escaneos.")

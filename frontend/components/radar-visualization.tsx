@@ -142,7 +142,12 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing }
   // But for simplicity in UI, we'll just show "Past" vs "Forecast +X min"
   const getTimeLabel = () => {
     if (currentImage?.target_time) {
-      return `Pronóstico ${currentImage.target_time}`;
+      // Si tenemos hora, distinguimos el tipo
+      if (isPrediction) {
+        return `Pronóstico ${currentImage.target_time}`;
+      } else {
+        return `Observación ${currentImage.target_time}`;
+      }
     }
     if (!isPrediction) {
       return `Radar Pasado (${currentFrameIndex + 1}/${inputFiles.length})`;
@@ -225,8 +230,8 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing }
                 <span className={`text-xs font-bold uppercase tracking-wider ${isPrediction ? 'text-primary' : 'text-muted-foreground'}`}>
                   {isPrediction ? 'Modelo Predictivo' : 'Datos Observados'}
                 </span>
-                <span className="text-2xl font-light text-foreground flex items-center gap-2">
-                  {isPrediction ? <Clock className="w-5 h-5 text-primary" /> : <Calendar className="w-5 h-5 text-muted-foreground" />}
+                <span className="text-2xl font-bold text-white drop-shadow-md flex items-center gap-2 tracking-wide">
+                  {isPrediction ? <Clock className="w-6 h-6 text-white" /> : <Calendar className="w-6 h-6 text-white/80" />}
                   {getTimeLabel()}
                 </span>
               </div>

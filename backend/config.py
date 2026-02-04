@@ -22,7 +22,7 @@ STATUS_FILE_PATH = "/app/status.json"     # Archivo de estado para la API
 DB_PATH = "/app/data/radar_history.db"    # Base de datos SQLite
 
 # --- Parámetros del Watcher ---
-SECUENCE_LENGHT = 12
+SECUENCE_LENGHT = 8
 POLL_INTERVAL_SECONDS = 10
 
 # --- Configuración del Dispositivo ---
@@ -31,14 +31,14 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # --- Configuración del Modelo ---
 MODEL_CONFIG = {
     'input_dim': 1, 'hidden_dims': [128, 128, 128], 'kernel_sizes': [(3, 3), (3, 3), (3, 3)],
-    'num_layers': 3, 'pred_steps': 5, 'use_layer_norm': True,
-    'img_height': 500, 'img_width': 500
+    'num_layers': 3, 'pred_steps': 7, 'use_layer_norm': True,
+    'img_height': 250, 'img_width': 250
 }
 
 # --- Configuración de Datos ---
 DATA_CONFIG = {
     'min_dbz': -29.0, 'max_dbz': 65.0, 'variable_name': 'DBZ',
-    'prediction_interval_minutes': 3,
+    'prediction_interval_minutes': 3.5,
     'physical_threshold_dbz': 30.0,
     'sensor_latitude': -34.64799880981445,
     'sensor_longitude': -68.01699829101562,

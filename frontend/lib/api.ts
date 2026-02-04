@@ -24,7 +24,7 @@ export interface ApiImages {
   prediction_images: ImageWithBounds[];
 }
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 // MOCK DATA FOR LOCAL TESTING
 // We will load this from metadata.json if the API fails

@@ -43,8 +43,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     build-essential \
+    unzip \
     libffi-dev && \
     rm -rf /var/lib/apt/lists/*
+
+# Instalar Rclone (para Ingesta de Datos desde Drive)
+RUN curl https://rclone.org/install.sh | bash
 
 # Instalar Node.js (para servir el frontend)
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
@@ -63,6 +67,7 @@ WORKDIR /app
 COPY backend/requirements.txt .
 RUN pip3 install --default-timeout=1000 --no-cache-dir -r requirements.txt
 COPY ./backend .
+COPY ./tools ./tools
 
 # Copiamos el frontend compilado
 COPY --from=frontend-builder /build/.next /app/frontend/.next

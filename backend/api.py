@@ -141,16 +141,14 @@ def get_images():
             except Exception as e:
                 logging.warning(f"Error parsing filename {f}: {e}")
 
-        # Sort runs by ID (timestamp) and take last 2
+        # Sort runs by ID (timestamp) and take THE LATEST ONE (most recent forecast)
         sorted_run_ids = sorted(runs.keys())
-        last_2_run_ids = sorted_run_ids[-2:]
         
         selected_predictions = []
-        for run_id in last_2_run_ids:
-            run_files = sorted(runs[run_id]) # Sort by filename (which includes forecast time)
-            # Take the last one (t+5)
-            if run_files:
-                selected_predictions.append(run_files[-1])
+        if sorted_run_ids:
+            latest_run_id = sorted_run_ids[-1]
+            # Take ALL frames from the latest run to show full evolution
+            selected_predictions = sorted(runs[latest_run_id])
 
         base_url = "/images/"
         
@@ -189,8 +187,8 @@ def get_images():
                         dt_utc = datetime.strptime(ts_str[:14], "%Y%m%d%H%M%S")
                         # Adjust to UTC-3
                         dt_local = dt_utc - timedelta(hours=3)
-                        # Format as HH:MM
-                        target_time = dt_local.strftime("%H:%M")
+                        # Format as DD/MM HH:MM for context
+                        target_time = dt_local.strftime("%d/%m %H:%M")
                         
                 except Exception as e:
                     logging.warning(f"Error parsing time for {filename}: {e}")

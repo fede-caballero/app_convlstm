@@ -44,42 +44,19 @@ class ModelPredictor:
     
     # En backend/model/predict.py
 
-    def predict(self, input_volume: torch.Tensor) -> torch.Tensor:
+    def predict(self, input_tensor: torch.Tensor) -> torch.Tensor:
         """
-        Realiza una predicción en un volumen de datos de entrada.
-
+        Realiza una predicción.
         Args:
-            input_volume (torch.Tensor): El tensor de entrada pre-procesado.
-                                        Shape: (Z, T, H, W, C).
-
+            input_tensor (torch.Tensor): Tensor de entrada (B, T, C, H, W).
         Returns:
-            torch.Tensor: El tensor de predicción.
+            torch.Tensor: Tensor de predicción (B, T, C, H, W).
         """
-        x_to_model_full = input_volume.permute(0, 1, 4, 2, 3).to(DEVICE)
-        num_z_levels = x_to_model_full.shape[0]
-        
-        # --- CORRECCIÓN CLAVE AQUÍ ---
-        # La lista se llamará 'all_predictions_chunks' de principio a fin.
-        all_predictions_chunks = []
-
-        logging.info(f"Iniciando predicción para {num_z_levels} niveles de altura...")
-
-        for z_start in range(0, num_z_levels, Z_BATCH_SIZE):
-            z_end = min(z_start + Z_BATCH_SIZE, num_z_levels)
-            x_chunk = x_to_model_full[z_start:z_end, ...]
-
-            with torch.no_grad(), torch.amp.autocast(device_type="cuda"):
-                prediction_chunk = self.model(x_chunk)
-
-            # Usamos el nombre correcto de la lista
-            all_predictions_chunks.append(prediction_chunk.cpu())
-
-        # Concatenamos los resultados
-        prediction_norm = torch.cat(all_predictions_chunks, dim=0)
-        logging.info(f"Predicción completada. Input shape: {x_to_model_full.shape}, Output shape: {prediction_norm.shape}")
-
-        # Liberamos memoria
-        del x_to_model_full, all_predictions_chunks, x_chunk
-        torch.cuda.empty_cache()
-
-        return prediction_norm
+        self.model.eval()
+        with torch.no_grad():
+            x = input_tensor.to(DEVICE)
+            # El modelo espera (B, T, C, H, W)
+            # Ya no hacemos slicing en Z porque el worker entrega el tensor listo (Max Composite).
+            prediction = self.model(x)
+            
+        return prediction.cpu()

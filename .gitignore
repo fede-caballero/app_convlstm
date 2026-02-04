@@ -16,4 +16,6 @@ node_modules/
 
 *.deb
 
-
+# Modelos entrenados
+training/trained_models/
+*.pth

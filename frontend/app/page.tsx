@@ -40,10 +40,11 @@ export default function RadarPredictionRealtime() {
     return () => clearInterval(interval) // Cleanup on component unmount
   }, [])
 
-  const bufferSize = status?.buffer_status?.current_size ?? 0
-  const bufferMaxSize = status?.buffer_status?.max_size ?? 12
-  const lastPredictionTime = status?.last_prediction?.timestamp
-    ? new Date(status.last_prediction.timestamp).toLocaleTimeString()
+  // Adjusted for flat backend status structure
+  const bufferSize = status?.files_in_buffer ?? 0
+  const bufferMaxSize = status?.files_needed_for_run ?? 8
+  const lastPredictionTime = status?.last_update
+    ? new Date(status.last_update).toLocaleTimeString()
     : "--:--"
 
   return (
@@ -121,7 +122,7 @@ export default function RadarPredictionRealtime() {
                       title="Estado del Worker"
                       icon={<Server className="h-4 w-4 text-muted-foreground" />}
                       value={status?.status ?? "..."}
-                      subtext={status?.message}
+                      subtext={status?.status}
                       statusColor={status?.status === "IDLE" ? "text-green-600 dark:text-green-400" : "text-blue-600 dark:text-blue-400"}
                     />
 

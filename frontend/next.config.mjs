@@ -11,18 +11,20 @@ const nextConfig = {
   },
   output: 'standalone',
   async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    console.log("Rewriting to API URL:", apiUrl);
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:8000/api/:path*',
+        destination: `${apiUrl}/api/:path*`,
       },
       {
         source: '/images/:path*',
-        destination: 'http://localhost:8000/images/:path*',
+        destination: `${apiUrl}/images/:path*`,
       },
       {
         source: '/auth/:path*',
-        destination: 'http://localhost:8000/auth/:path*',
+        destination: `${apiUrl}/auth/:path*`,
       },
     ]
   },

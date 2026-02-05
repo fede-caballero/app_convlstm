@@ -1,14 +1,8 @@
 export interface ApiStatus {
   status: string;
-  message: string;
-  buffer_status?: {
-    current_size: number;
-    max_size: number;
-  };
-  last_prediction?: {
-    timestamp: string;
-    sequence_end: string;
-  };
+  files_in_buffer?: number;
+  files_needed_for_run?: number;
+  last_update?: string;
 }
 
 // Nueva interfaz para una imagen con sus coordenadas
@@ -45,10 +39,10 @@ async function getMockData(): Promise<ImageWithBounds[]> {
 }
 
 const MOCK_STATUS: ApiStatus = {
-  status: "MOCK_MODE",
-  message: "Running with local converted NC data",
-  buffer_status: { current_size: 15, max_size: 15 },
-  last_prediction: { timestamp: new Date().toISOString(), sequence_end: "T+5" }
+  status: "OFFLINE",
+  files_in_buffer: 0,
+  files_needed_for_run: 8,
+  last_update: undefined
 };
 
 async function fetchApi<T>(endpoint: string): Promise<T> {
@@ -68,6 +62,11 @@ async function fetchApi<T>(endpoint: string): Promise<T> {
       const images = await getMockData();
       // Split images for demo: first 10 as input, last 5 as prediction
       const splitIndex = Math.max(0, images.length - 5);
+      const bufferSize = MOCK_STATUS?.files_in_buffer ?? 0
+      const bufferMaxSize = MOCK_STATUS?.files_needed_for_run ?? 8
+      const lastPredictionTime = MOCK_STATUS?.last_update
+        ? new Date(MOCK_STATUS.last_update).toLocaleTimeString()
+        : "--:--"
       return {
         input_images: images.slice(0, splitIndex),
         prediction_images: images.slice(splitIndex)

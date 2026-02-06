@@ -5,7 +5,7 @@ import sqlite3
 from flask import Flask, jsonify, send_from_directory, request
 from flask_cors import CORS
 from config import STATUS_FILE_PATH, IMAGE_OUTPUT_DIR, DB_PATH
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import auth
 
 app = Flask(__name__)
@@ -289,7 +289,8 @@ def create_comment():
         return jsonify({"error": "Content required"}), 400
 
     author_id = payload.get('id')
-    created_at = datetime.now().isoformat()
+    # Use timezone-aware UTC timestamp
+    created_at = datetime.now(timezone.utc).isoformat()
 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()

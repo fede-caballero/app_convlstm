@@ -164,14 +164,9 @@ export default function RadarPredictionRealtime() {
       {/* Floating Navbar & Alerts - Z-Index Higher than Map */}
       <div className="absolute top-0 left-0 right-0 z-50 pointer-events-none flex flex-col items-center">
 
-        {/* Admin Alerts Bar (Offset from left to avoid map controls) */}
-        <div className="pointer-events-auto w-full max-w-4xl mt-4 px-4 pl-16 md:pl-4">
-          <AdminCommentBar />
-        </div>
-
         {/* Storm Proximity Alert */}
         {nearestStorm && (
-          <div className="pointer-events-auto w-full max-w-lg mb-2 animate-in slide-in-from-top-4 fade-in duration-500">
+          <div className="pointer-events-auto w-full max-w-lg mb-2 mt-20 md:mt-4 px-4 animate-in slide-in-from-top-4 fade-in duration-500">
             <Alert className={`${nearestStorm.distance < 10
               ? "bg-red-950/90 border-red-500 text-red-50"
               : nearestStorm.distance < 50

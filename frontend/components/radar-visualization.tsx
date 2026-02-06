@@ -187,19 +187,6 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing }
           </Source>
         )}
 
-        {/* Logo Overlay */}
-        <div className="absolute top-4 left-4 z-10 pointer-events-none flex flex-col items-center">
-          <img src="/logo.png" alt="Hailcast Logo" className="w-24 h-24 object-contain drop-shadow-lg opacity-90" />
-          <p className="text-[10px] text-white/90 font-medium mt-1 drop-shadow-md bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm tracking-wide">
-            Sistema de Predicción Meteorológica
-          </p>
-          {distanceToStorm && (
-            <div className="mt-2 bg-red-500/80 text-white px-3 py-1 rounded-md text-xs font-bold backdrop-blur-md shadow-lg animate-pulse">
-              Distancia al Centro de Tormenta: {distanceToStorm} km
-            </div>
-          )}
-        </div>
-
 
 
         {currentImage && imageCoordinates && (

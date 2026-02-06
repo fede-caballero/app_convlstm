@@ -164,43 +164,17 @@ export default function RadarPredictionRealtime() {
       {/* Floating Navbar & Alerts - Z-Index Higher than Map */}
       <div className="absolute top-0 left-0 right-0 z-50 pointer-events-none flex flex-col items-center">
 
-        {/* Storm Proximity Alert */}
-        {nearestStorm && (
-          <div className="pointer-events-auto w-full max-w-lg mb-2 mt-20 md:mt-4 px-4 animate-in slide-in-from-top-4 fade-in duration-500">
-            <Alert className={`${nearestStorm.distance < 10
-              ? "bg-red-950/90 border-red-500 text-red-50"
-              : nearestStorm.distance < 50
-                ? "bg-orange-950/90 border-orange-500 text-orange-50"
-                : "bg-green-950/90 border-green-500 text-green-50"
-              } backdrop-blur-md shadow-2xl border`}>
-              {nearestStorm.distance < 10 ? <AlertCircle className="h-5 w-5 !text-red-400" /> : <Navigation className="h-5 w-5" />}
-              <div className="ml-2">
-                <AlertTitle className="text-lg font-bold flex justify-between items-center w-full">
-                  <span>{nearestStorm.distance < 10 ? "¡ALERTA DE TORMENTA!" : "Proximidad de Tormenta"}</span>
-                  <span className="text-2xl font-mono">{nearestStorm.distance.toFixed(1)} km</span>
-                </AlertTitle>
-                <AlertDescription className="text-sm opacity-90 font-light mt-1">
-                  Se detectó un núcleo de <strong>{nearestStorm.cell.type}</strong> ({nearestStorm.cell.max_dbz} dBZ) cerca de su ubicación.
-                  {nearestStorm.distance < 10 && " ¡Tome precauciones!"}
-                </AlertDescription>
-              </div>
-            </Alert>
-          </div>
-        )}
+        {/* TOP BAR: Alerts (Left) -- Login/Menu (Right) */}
+        <div className="w-full max-w-[1700px] mx-auto flex justify-between items-center pointer-events-auto p-4 z-50">
 
-        <div className="w-full max-w-[1700px] mx-auto flex flex-wrap justify-between items-start pointer-events-auto p-4 md:p-6 gap-y-2">
-
-          {/* Logo & Title - Hidden on mobile potentially */}
-          <div className="hidden md:block"></div>
-
-          {/* Right Actions: Alerts | Login | Menu */}
-          {/* Mobile: Pushed down (mt-24) to sit BELOW the centered Logo */}
-          <div className="w-full md:w-auto flex justify-center md:justify-end items-center gap-3 mt-24 md:mt-0">
-
-            {/* Alerts Center (Bell) */}
+          {/* LEFT: Alerts Center */}
+          <div className="flex items-center">
             <AdminCommentBar />
+          </div>
 
-            {/* System Status Indicator (Admin Only) */}
+          {/* RIGHT: Status | Auth | Menu */}
+          <div className="flex items-center gap-3">
+            {/* System Status (Admin Only) */}
             {user?.role === 'admin' && (
               <div className="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 h-9">
                 <div className={`w-2 h-2 rounded-full ${status ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`} />
@@ -213,7 +187,6 @@ export default function RadarPredictionRealtime() {
             {/* Auth Buttons */}
             {user ? (
               <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md border border-white/10 p-1.5 rounded-xl">
-                {/* Username hidden on small mobile to save space */}
                 <span className="text-xs text-gray-300 px-2 hidden sm:inline-block">Hola, {user.username}</span>
                 <Button variant="ghost" size="sm" onClick={logout} className="h-6 text-xs hover:bg-white/10 text-white">
                   Salir
@@ -237,15 +210,23 @@ export default function RadarPredictionRealtime() {
                 </SheetTrigger>
                 <SheetContent className="bg-background/95 backdrop-blur-xl border-l border-border w-[400px] sm:w-[540px] overflow-y-auto">
                   <SheetHeader className="mb-6">
-                    <div className="flex justify-between items-center">
-                      <SheetTitle className="text-2xl font-bold text-primary">Panel de Control</SheetTitle>
-                      {/* Location Status in Sidebar */}
+                    {/* LOGO IN SIDEBAR */}
+                    <div className="flex flex-col items-center justify-center mb-6 pt-4">
+                      <img src="/logo.png" alt="Hailcast Logo" className="w-24 h-24 object-contain drop-shadow-lg" />
+                      <h2 className="text-xl font-bold mt-2 text-center text-primary">HAILCAST</h2>
+                      <p className="text-xs text-muted-foreground font-medium bg-secondary/50 px-2 py-0.5 rounded-full mt-1">
+                        Sistema de Predicción Meteorológica
+                      </p>
+                    </div>
+
+                    <div className="flex justify-between items-center bg-muted/30 p-2 rounded-lg">
+                      <SheetTitle className="text-xl font-bold">Panel de Control</SheetTitle>
                       <Badge variant={userLocation ? "outline" : "destructive"}>
                         {userLocation ? "GPS Activo" : "Sin GPS"}
                       </Badge>
                     </div>
-                    <SheetDescription>
-                      Estado del sistema y métricas en tiempo real.
+                    <SheetDescription className="text-center mt-2">
+                      Métricas y estado del sistema.
                     </SheetDescription>
                   </SheetHeader>
 
@@ -258,7 +239,6 @@ export default function RadarPredictionRealtime() {
                       subtext={status?.status}
                       statusColor={status?.status === "IDLE" ? "text-green-600 dark:text-green-400" : "text-blue-600 dark:text-blue-400"}
                     />
-
                     {/* Buffer Status */}
                     <Card className="bg-card border-border">
                       <CardHeader className="pb-2">

@@ -166,9 +166,10 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing }
         mapStyle={MAP_STYLE}
         attributionControl={false}
       >
-        <NavigationControl position="top-right" />
+        <NavigationControl position="top-right" style={{ marginTop: '100px', marginRight: '10px' }} />
         <GeolocateControl
           position="top-right"
+          style={{ marginRight: '10px' }}
           trackUserLocation={true}
           showUserLocation={true}
           onGeolocate={(evt) => {

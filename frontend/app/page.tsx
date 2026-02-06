@@ -1,18 +1,36 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Download, Zap, Clock, MapPin, RefreshCw, AlertCircle, CheckCircle, Folder, Server, Activity, Database, Menu, X } from 'lucide-react'
+import { Download, Zap, Clock, MapPin, RefreshCw, AlertCircle, CheckCircle, Folder, Server, Activity, Database, Menu, X, Navigation } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { RadarVisualization } from "@/components/radar-visualization"
 import { AdminCommentBar } from "@/components/admin-comment-bar"
-import { fetchImages, fetchStatus, ApiStatus, ApiImages } from "@/lib/api"
+import { fetchImages, fetchStatus, ApiStatus, ApiImages, StormCell } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import Link from "next/link"
+
+function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  var R = 6371; // Radius of the earth in km
+  var dLat = deg2rad(lat2 - lat1);  // deg2rad below
+  var dLon = deg2rad(lon2 - lon1);
+  var a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2)
+    ;
+  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  var d = R * c; // Distance in km
+  return d;
+}
+
+function deg2rad(deg: number) {
+  return deg * (Math.PI / 180)
+}
 
 export default function RadarPredictionRealtime() {
   const [status, setStatus] = useState<ApiStatus | null>(null)
@@ -20,6 +38,78 @@ export default function RadarPredictionRealtime() {
   const [error, setError] = useState<string | null>(null)
   const { user, logout } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  // Geolocation & Storm Logic
+  const [userLocation, setUserLocation] = useState<{ lat: number, lon: number } | null>(null)
+  const [nearestStorm, setNearestStorm] = useState<{ distance: number, cell: StormCell } | null>(null)
+  const [locationError, setLocationError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lon: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.warn("Geolocation denied or failed:", error);
+          setLocationError("Ubicación no disponible");
+        }
+      );
+    } else {
+      setLocationError("Navegador sin soporte GPS");
+    }
+  }, []);
+
+  // Update nearest storm when images or userLocation changes
+  useEffect(() => {
+    if (!userLocation) return;
+
+    // Combine cells from latest input (Observed) and latest prediction (Forecast)
+    // We prioritize detected cells in the latest Input for immediate reality
+    // But also check recent predictions if input is old? Let's stick to latest Input for now to be safe.
+    // Or better: Check the LATEST available image (Input or Pred).
+
+    let allCells: StormCell[] = [];
+
+    // Get cells from latest input image
+    const lastInput = images.input_images[images.input_images.length - 1];
+    if (lastInput?.cells) {
+      allCells.push(...lastInput.cells);
+    }
+
+    // Get cells from latest prediction frames (to see approaching storms)
+    const latestPreds = images.prediction_images;
+    latestPreds.forEach(img => {
+      if (img.cells) allCells.push(...img.cells);
+    });
+
+    if (allCells.length === 0) {
+      setNearestStorm(null);
+      return;
+    }
+
+    let minDist = Infinity;
+    let closestCell: StormCell | null = null;
+
+    allCells.forEach(cell => {
+      const d = getDistanceFromLatLonInKm(userLocation.lat, userLocation.lon, cell.lat, cell.lon);
+      if (d < minDist) {
+        minDist = d;
+        closestCell = cell;
+      }
+    });
+
+    if (closestCell) {
+      setNearestStorm({
+        distance: minDist,
+        cell: closestCell
+      });
+    }
+
+  }, [images, userLocation]);
 
   const fetchData = async () => {
     try {
@@ -67,9 +157,34 @@ export default function RadarPredictionRealtime() {
           <AdminCommentBar />
         </div>
 
+        {/* Storm Proximity Alert */}
+        {nearestStorm && (
+          <div className="pointer-events-auto w-full max-w-lg mb-2 animate-in slide-in-from-top-4 fade-in duration-500">
+            <Alert className={`${nearestStorm.distance < 10
+                ? "bg-red-950/90 border-red-500 text-red-50"
+                : nearestStorm.distance < 50
+                  ? "bg-orange-950/90 border-orange-500 text-orange-50"
+                  : "bg-green-950/90 border-green-500 text-green-50"
+              } backdrop-blur-md shadow-2xl border`}>
+              {nearestStorm.distance < 10 ? <AlertCircle className="h-5 w-5 !text-red-400" /> : <Navigation className="h-5 w-5" />}
+              <div className="ml-2">
+                <AlertTitle className="text-lg font-bold flex justify-between items-center w-full">
+                  <span>{nearestStorm.distance < 10 ? "¡ALERTA DE TORMENTA!" : "Proximidad de Tormenta"}</span>
+                  <span className="text-2xl font-mono">{nearestStorm.distance.toFixed(1)} km</span>
+                </AlertTitle>
+                <AlertDescription className="text-sm opacity-90 font-light mt-1">
+                  Se detectó un núcleo de <strong>{nearestStorm.cell.type}</strong> ({nearestStorm.cell.max_dbz} dBZ) cerca de su ubicación.
+                  {nearestStorm.distance < 10 && " ¡Tome precauciones!"}
+                </AlertDescription>
+              </div>
+            </Alert>
+          </div>
+        )}
+
         <div className="max-w-[1600px] w-full mx-auto flex justify-between items-start pointer-events-auto">
 
-          {/* Logo & Title */}
+          {/* Logo & Title - Hidden on mobile potentially */}
+          <div className="hidden md:block"></div>
 
 
           {/* Right Actions */}
@@ -110,7 +225,13 @@ export default function RadarPredictionRealtime() {
                 </SheetTrigger>
                 <SheetContent className="bg-background/95 backdrop-blur-xl border-l border-border w-[400px] sm:w-[540px] overflow-y-auto">
                   <SheetHeader className="mb-6">
-                    <SheetTitle className="text-2xl font-bold text-primary">Panel de Control</SheetTitle>
+                    <div className="flex justify-between items-center">
+                      <SheetTitle className="text-2xl font-bold text-primary">Panel de Control</SheetTitle>
+                      {/* Location Status in Sidebar */}
+                      <Badge variant={userLocation ? "outline" : "destructive"}>
+                        {userLocation ? "GPS Activo" : "Sin GPS"}
+                      </Badge>
+                    </div>
                     <SheetDescription>
                       Estado del sistema y métricas en tiempo real.
                     </SheetDescription>

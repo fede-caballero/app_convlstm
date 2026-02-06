@@ -14,6 +14,7 @@ import glob
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import sqlite3
+from scipy.ndimage import label, center_of_mass
 
 
 # Importamos desde nuestros módulos
@@ -25,6 +26,73 @@ from model.predict import ModelPredictor
 
 # --- Configuración del Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
+def detect_storm_cells(dbz_data, x_vals, y_vals, projection):
+    """
+    Detecta celdas de tormenta (>50 dBZ) y calcula sus centroides.
+    Clasificación:
+      - > 50 dBZ: Lluvia Torrencial
+      - > 55 dBZ: Probable Granizo
+      - > 58 dBZ: Granizo / Lluvia Torrencial Extrema
+    """
+    cells = []
+    # Thresholding: Solo interesa > 50 dBZ
+    mask = dbz_data > 50.0
+    
+    if not np.any(mask):
+        return []
+
+    # Connected Components
+    labeled_array, num_features = label(mask)
+    
+    geo_proj = ccrs.Geodetic()
+
+    for label_idx in range(1, num_features + 1):
+        # Mask para esta celda
+        cell_mask = (labeled_array == label_idx)
+        
+        # Max dBZ en la celda
+        max_dbz = float(np.max(dbz_data[cell_mask]))
+        
+        # Clasificación
+        hazard_type = "Lluvia Torrencial"
+        if max_dbz > 58:
+            hazard_type = "Granizo Confirmado"
+        elif max_dbz > 55:
+            hazard_type = "Probable Granizo"
+            
+        # Centroide (Weighted by intensity could be better, but geometric is simpler/faster)
+        # Coordinates in array indices (y, x)
+        cy, cx = center_of_mass(cell_mask)
+        
+        # Convertir indices a coordenadas proyectadas (metros/km)
+        # Asumimos que x_vals y y_vals coinciden con los índices
+        # Interpolación simple:
+        # x_val = x_vals[int(cx)] (aprox) o interpolado
+        
+        # Usamos int para simplificar, ya que la resolución es ~1km
+        px_x = int(round(cx))
+        px_y = int(round(cy))
+        
+        # Bounds check
+        px_x = max(0, min(px_x, len(x_vals) - 1))
+        px_y = max(0, min(px_y, len(y_vals) - 1))
+        
+        real_x = x_vals[px_x] * 1000 # a metros
+        real_y = y_vals[px_y] * 1000 # a metros
+        
+        # Transformar a Lat/Lon
+        geo_point = geo_proj.transform_point(real_x, real_y, projection)
+        lon, lat = geo_point[0], geo_point[1]
+        
+        cells.append({
+            "type": hazard_type,
+            "max_dbz": round(max_dbz, 1),
+            "lat": round(lat, 5),
+            "lon": round(lon, 5)
+        })
+        
+    return cells
 
 def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: str, skip_levels: int = 2):
     """
@@ -86,10 +154,14 @@ def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: s
         
         bounds = [[float(sw_corner[1]), float(sw_corner[0])], [float(ne_corner[1]), float(ne_corner[0])]] # Formato: [[lat_min, lon_min], [lat_max, lon_max]]
 
+        # --- 5. Detectar Celdas y Centroides ---
+        storm_cells = detect_storm_cells(composite_data_2d, x, y, projection)
+
         logging.info(f"  -> Imagen transparente guardada en: {output_image_path}")
         logging.info(f"  -> Coordenadas calculadas: {bounds}")
+        logging.info(f"  -> Celdas detectadas: {len(storm_cells)}")
         
-        return bounds
+        return bounds, storm_cells
 
     except Exception as e:
         logging.error(f"No se pudo generar la imagen para {nc_file_path}: {e}", exc_info=True)
@@ -465,10 +537,10 @@ def main():
                 # Solo generar si no existe (optimización)
                 if not os.path.exists(input_image_path):
                     # Aumentamos skip_levels a 3 para enmascarar indices 0, 1 y 2 (clutter)
-                    bounds = generar_imagen_transparente_y_bounds(input_nc_path, input_image_path, skip_levels=3)
+                    bounds, cells = generar_imagen_transparente_y_bounds(input_nc_path, input_image_path, skip_levels=3)
                     if bounds:
                         with open(f"{input_image_path}.json", 'w') as f:
-                            json.dump({"bounds": bounds}, f)
+                            json.dump({"bounds": bounds, "cells": cells}, f)
                 else:
                     logging.info(f"Imagen de input ya existe: {input_image_filename}")
 
@@ -521,10 +593,10 @@ def main():
                 pred_image_filename = f"PRED_{output_subdir_name}_{pred_filename_base}.png"
                 pred_image_path = os.path.join(IMAGE_OUTPUT_DIR, pred_image_filename)
                 # Aumentamos skip_levels a 3 para enmascarar indices 0, 1 y 2 (clutter)
-                pred_bounds = generar_imagen_transparente_y_bounds(nc_file, pred_image_path, skip_levels=3)
+                pred_bounds, pred_cells = generar_imagen_transparente_y_bounds(nc_file, pred_image_path, skip_levels=3)
                 if pred_bounds:
                     with open(f"{pred_image_path}.json", 'w') as f:
-                        json.dump({"bounds": pred_bounds}, f)
+                        json.dump({"bounds": pred_bounds, "cells": pred_cells}, f)
 
             # --- 6. Gestión del buffer (BATCH TRIGGER) ---
             # Eliminamos el archivo más antiguo para esperar 1 nuevo (Windows Stride = 1)

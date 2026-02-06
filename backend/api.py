@@ -244,15 +244,6 @@ def upload_mdv():
     else:
         return jsonify({"error": "Invalid file type. Only .mdv allowed"}), 400
 
-if __name__ == "__main__":
-    from database import init_db
-    init_db() # Asegurar que la DB existe al iniciar la API
-    
-
-
-    logging.info("Iniciando servidor Flask API en modo de desarrollo...")
-    app.run(host='0.0.0.0', port=8000, debug=True)
-
 # --- Comments Endpoints ---
 
 @app.route('/api/comments', methods=['POST'])
@@ -325,3 +316,14 @@ def get_latest_comment():
         return jsonify({"error": "Internal error"}), 500
     finally:
         conn.close()
+
+if __name__ == "__main__":
+    from database import init_db
+    init_db() # Asegurar que la DB existe al iniciar la API
+    
+
+
+    logging.info("Iniciando servidor Flask API en modo de desarrollo...")
+    app.run(host='0.0.0.0', port=8000, debug=True)
+
+# End of file

@@ -5,11 +5,20 @@ export interface ApiStatus {
   last_update?: string;
 }
 
+// Interface for a detected storm cell
+export interface StormCell {
+  lat: number;
+  lon: number;
+  max_dbz: number;
+  type: string;
+}
+
 // Nueva interfaz para una imagen con sus coordenadas
 export interface ImageWithBounds {
   url: string;
   bounds: [[number, number], [number, number]];
   target_time?: string;
+  cells?: StormCell[];
 }
 
 // Actualizamos la interfaz principal de imágenes

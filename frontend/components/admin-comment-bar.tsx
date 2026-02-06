@@ -5,6 +5,7 @@ import { AlertCircle, Edit, Send, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { useAuth } from '@/lib/auth-context' // Import auth hook
 
 interface Comment {
     content: string
@@ -13,11 +14,14 @@ interface Comment {
 }
 
 export function AdminCommentBar() {
+    const { user, token } = useAuth() // Use context
     const [comment, setComment] = useState<Comment | null>(null)
-    const [isAdmin, setIsAdmin] = useState(false)
     const [isEditing, setIsEditing] = useState(false)
     const [newContent, setNewContent] = useState('')
     const [isLoading, setIsLoading] = useState(false)
+
+    // Check admin role from Context, not localStorage
+    const isAdmin = user?.role === 'admin'
 
     const fetchLatestComment = async () => {
         try {
@@ -32,19 +36,14 @@ export function AdminCommentBar() {
     }
 
     useEffect(() => {
-        // 1. Fetch current comment
         fetchLatestComment()
-
-        // 2. Check Role (Simple check from localStorage, ideally use a Context)
-        const role = localStorage.getItem('role')
-        setIsAdmin(role === 'admin')
     }, [])
 
     const handlePost = async () => {
         if (!newContent.trim()) return
 
         setIsLoading(true)
-        const token = localStorage.getItem('access_token')
+        // Token comes from context
 
         try {
             const res = await fetch('/api/comments', {

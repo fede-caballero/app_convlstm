@@ -8,6 +8,13 @@
 
 # 1. Rclone Configuration
 # ----------------------------------------------------------------------------------
+# Install Rclone if missing
+if ! command -v rclone &> /dev/null; then
+    echo "Installing Rclone..."
+    curl https://rclone.org/install.sh | bash
+fi
+
+# Configure Rclone (Inject Config)
 # IMPORTANT: Replace the token below with your own from 'rclone config' (cat ~/.config/rclone/rclone.conf)
 echo "Configuring Rclone..."
 mkdir -p /root/.config/rclone
@@ -17,6 +24,12 @@ type = drive
 scope = drive
 token = {"access_token":"YOUR_ACCESS_TOKEN","token_type":"Bearer","refresh_token":"YOUR_REFRESH_TOKEN","expiry":"2026-01-01T00:00:00.000000000-00:00"}
 EOF
+
+# Restore Database (Optional)
+if [ -f "/app/scripts/restore_db.sh" ]; then
+    echo "♻️  Attempting to restore database..."
+    /app/scripts/restore_db.sh || echo "⚠️ Restore skipped or failed."
+fi
 
 # 2. Download Trained Model
 # ----------------------------------------------------------------------------------

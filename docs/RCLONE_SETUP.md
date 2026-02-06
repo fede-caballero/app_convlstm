@@ -59,3 +59,32 @@ Ejecuta esto **inmediatamente después** de levantar una nueva instancia limpia:
 
 > [!WARNING]
 > Restaurar sobrescribirá cualquier dato nuevo que hayas creado en la instancia actual. Hazlo siempre al principio.
+
+## 4. Automatización Total (Nivel Experto)
+
+Si quieres que todo esto ocurra **automáticamente** cada vez que inicias una instancia en Vast.ai, puedes añadir esto a tu "On-start script":
+
+1.  **Instalar Rclone**: Para asegurarte de que existe.
+    ```bash
+    curl https://rclone.org/install.sh | sudo bash
+    ```
+
+2.  **Inyectar Configuración**: Copia el contenido de tu archivo local `~/.config/rclone/rclone.conf` y pégalo en el script de Vast.ai así:
+    ```bash
+    mkdir -p ~/.config/rclone
+    cat <<EOF > ~/.config/rclone/rclone.conf
+    [gdrive]
+    type = drive
+    ... (tu contenido del config aquí) ...
+    EOF
+    ```
+
+3.  **Restaurar Automáticamente**:
+    Añade esto al final del script, justo antes de arrancar los servicios:
+    ```bash
+    # Restaurar DB si existe
+    echo "Recuperando base de datos..."
+    /app/scripts/restore_db.sh || echo "⚠️ No se pudo restaurar DB (¿es la primera vez?)"
+    ```
+
+Con esto, tu instancia será "inmortal": nace, se descarga su cerebro (DB) de la nube y empieza a trabajar. 🧠☁️

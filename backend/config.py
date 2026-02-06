@@ -51,5 +51,14 @@ DATA_CONFIG = {
     'output_nc_fill_value': -128, # _FillValue para el tipo byte
 }
 
-# --- Parámetros de Inferencia ---
+# --- Configuración de Inferencia ---
 Z_BATCH_SIZE = 2
+
+# --- Seguridad ---
+# IMPORTANTE: En producción, SECRET_KEY debe estar en variables de entorno
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-this-in-prod")
+if not os.getenv("SECRET_KEY"):
+    print("⚠️  WARNING: Using insecure default SECRET_KEY. Set 'SECRET_KEY' env var in production.")
+
+# CORS / Frontend Domain
+FRONTEND_URL = os.getenv("FRONTEND_URL", "*") # En prod: "https://tudominio.vercel.app"

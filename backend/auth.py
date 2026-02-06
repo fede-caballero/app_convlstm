@@ -4,7 +4,8 @@ import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Configuración
-SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-dev-key-change-in-prod")
+from config import SECRET_KEY
+# SECRET_KEY is now imported from config.py
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 24 horas
 

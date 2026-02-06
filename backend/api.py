@@ -4,12 +4,13 @@ import logging
 import sqlite3
 from flask import Flask, jsonify, send_from_directory, request
 from flask_cors import CORS
-from config import STATUS_FILE_PATH, IMAGE_OUTPUT_DIR, DB_PATH
+from config import STATUS_FILE_PATH, IMAGE_OUTPUT_DIR, DB_PATH, FRONTEND_URL
 from datetime import datetime, timedelta, timezone
 import auth
 
 app = Flask(__name__)
-CORS(app) # Habilitar CORS para todas las rutas
+# Security: Restrict CORS to frontend domain
+CORS(app, origins=[FRONTEND_URL])
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 

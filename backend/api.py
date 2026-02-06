@@ -246,6 +246,30 @@ def upload_mdv():
 
 # --- Comments Endpoints ---
 
+@app.route('/api/comments', methods=['GET'])
+def get_comments():
+    limit = request.args.get('limit', default=5, type=int)
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row # Return dict-like rows
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            SELECT comments.id, content, created_at, username as author
+            FROM comments 
+            JOIN users ON comments.author_id = users.id 
+            WHERE is_active = 1 
+            ORDER BY created_at DESC 
+            LIMIT ?
+        ''', (limit,))
+        rows = cursor.fetchall()
+        comments = [dict(row) for row in rows]
+        return jsonify(comments), 200
+    except Exception as e:
+        logging.error(f"Error fetching comments: {e}")
+        return jsonify({"error": "Internal error"}), 500
+    finally:
+        conn.close()
+
 @app.route('/api/comments', methods=['POST'])
 def create_comment():
     # 1. Verificar Auth & Rol Admin
@@ -271,8 +295,7 @@ def create_comment():
     cursor = conn.cursor()
     
     try:
-        # 3. Desactivar comentarios anteriores (solo 1 activo a la vez)
-        cursor.execute("UPDATE comments SET is_active = 0 WHERE is_active = 1")
+        # NO des-activamos comentarios anteriores. Permitimos historial.
         
         # 4. Insertar nuevo
         cursor.execute('''
@@ -288,34 +311,49 @@ def create_comment():
     finally:
         conn.close()
 
-@app.route('/api/comments/latest', methods=['GET'])
-def get_latest_comment():
+@app.route('/api/comments/<int:comment_id>', methods=['PUT', 'DELETE'])
+def manage_comment(comment_id):
+    # 1. Verificar Auth & Rol Admin
+    token = request.headers.get('Authorization')
+    if not token or not token.startswith("Bearer "):
+        return jsonify({"error": "Missing token"}), 401
+    
+    token = token.split(" ")[1]
+    payload = auth.decode_access_token(token)
+    if not payload or payload.get('role') != 'admin':
+        return jsonify({"error": "Unauthorized: Admins only"}), 403
+
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+
     try:
-        cursor.execute('''
-            SELECT content, created_at, username 
-            FROM comments 
-            JOIN users ON comments.author_id = users.id 
-            WHERE is_active = 1 
-            ORDER BY created_at DESC 
-            LIMIT 1
-        ''')
-        row = cursor.fetchone()
-        
-        if row:
-            return jsonify({
-                "content": row[0],
-                "created_at": row[1],
-                "author": row[2]
-            })
-        else:
-            return jsonify(None), 200 # No content, return null (handled by frontend)
+        if request.method == 'DELETE':
+            # Soft Delete
+            cursor.execute("UPDATE comments SET is_active = 0 WHERE id = ?", (comment_id,))
+            if cursor.rowcount == 0:
+                return jsonify({"error": "Comment not found"}), 404
+            conn.commit()
+            return jsonify({"message": "Comment deleted"}), 200
+
+        elif request.method == 'PUT':
+            data = request.get_json()
+            content = data.get('content')
+            if not content:
+                return jsonify({"error": "Content required"}), 400
+            
+            cursor.execute("UPDATE comments SET content = ? WHERE id = ? AND is_active = 1", (content, comment_id))
+            if cursor.rowcount == 0:
+                 return jsonify({"error": "Comment not found or inactive"}), 404
+            conn.commit()
+            return jsonify({"message": "Comment updated"}), 200
+
     except Exception as e:
-        logging.error(f"Error fetching comment: {e}")
+        logging.error(f"Error managing comment {comment_id}: {e}")
         return jsonify({"error": "Internal error"}), 500
     finally:
         conn.close()
+
+
 
 if __name__ == "__main__":
     from database import init_db

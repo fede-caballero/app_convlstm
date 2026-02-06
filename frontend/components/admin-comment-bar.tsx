@@ -1,137 +1,194 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { AlertCircle, Edit, Send, X } from 'lucide-react'
+import { AlertCircle, Edit, Send, X, Trash2, Bell, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { useAuth } from '@/lib/auth-context' // Import auth hook
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { useAuth } from '@/lib/auth-context'
 
 interface Comment {
+    id: number
     content: string
     created_at: string
     author: string
 }
 
 export function AdminCommentBar() {
-    const { user, token } = useAuth() // Use context
-    const [comment, setComment] = useState<Comment | null>(null)
-    const [isEditing, setIsEditing] = useState(false)
+    const { user, token } = useAuth()
+    const [comments, setComments] = useState<Comment[]>([])
+    const [visible, setVisible] = useState(true)
     const [newContent, setNewContent] = useState('')
-    const [isLoading, setIsLoading] = useState(false)
+    const [editingId, setEditingId] = useState<number | null>(null)
+    const [editContent, setEditContent] = useState('')
+    const [loading, setLoading] = useState(false)
+    const [isOpen, setIsOpen] = useState(false) // Dropdown open state
 
-    // Check admin role from Context, not localStorage
     const isAdmin = user?.role === 'admin'
 
-    const fetchLatestComment = async () => {
+    const fetchComments = async () => {
         try {
-            const res = await fetch('/api/comments/latest')
+            // Admins get last 5 to manage, Users get last 5 to filter
+            const res = await fetch('/api/comments?limit=5')
             if (res.ok) {
-                const data = await res.json()
-                setComment(data)
+                const data: Comment[] = await res.json()
+                setComments(data)
             }
         } catch (error) {
-            console.error("Failed to fetch comments", error)
+            console.error("Failed comments", error)
         }
     }
 
     useEffect(() => {
-        fetchLatestComment()
+        fetchComments()
+        const interval = setInterval(fetchComments, 10000)
+        return () => clearInterval(interval)
     }, [])
+
+    // Filter Logic
+    const getVisibleComments = () => {
+        if (isAdmin) return comments.slice(0, 3) // Admin sees top 3
+
+        // User: Filter out old alerts (> 10 mins)
+        const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000)
+        return comments.filter(c => new Date(c.created_at) > tenMinsAgo)
+    }
+
+    const visibleComments = getVisibleComments()
+    const hasActiveAlerts = visibleComments.length > 0;
 
     const handlePost = async () => {
         if (!newContent.trim()) return
-
-        setIsLoading(true)
-        // Token comes from context
-
+        setLoading(true)
         try {
-            const res = await fetch('/api/comments', {
+            await fetch('/api/comments', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ content: newContent })
             })
-
-            if (res.ok) {
-                setNewContent('')
-                setIsEditing(false)
-                fetchLatestComment() // Refresh
-            } else {
-                alert("Error posting comment")
-            }
-        } catch (error) {
-            console.error("Error posting", error)
-        } finally {
-            setIsLoading(false)
-        }
+            setNewContent('')
+            fetchComments()
+        } finally { setLoading(false) }
     }
 
-    // If no comment and not admin, show nothing
-    if (!comment && !isAdmin) return null
+    const handleDelete = async (id: number) => {
+        if (!confirm("¿Eliminar alerta?")) return
+        try {
+            await fetch(`/api/comments/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            fetchComments()
+        } catch (e) { console.error(e) }
+    }
 
+    const handleUpdate = async (id: number) => {
+        if (!editContent.trim()) return
+        try {
+            await fetch(`/api/comments/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ content: editContent })
+            })
+            setEditingId(null)
+            fetchComments()
+        } catch (e) { console.error(e) }
+    }
+
+    // Interactive UI
     return (
-        <div className="w-full max-w-4xl mx-auto mb-4 px-4 sticky top-4 z-50">
-            {/* Active Alert Display */}
-            {comment && (
-                <Alert variant="destructive" className="bg-red-950/90 border-red-900 text-red-100 shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-top-4">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle className="font-bold flex justify-between items-center">
-                        ⚠️ Alerta Meteorológica
-                        <span className='text-[10px] font-normal opacity-70'>
-                            {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Por {comment.author}
-                        </span>
-                    </AlertTitle>
-                    <AlertDescription className="mt-1 text-sm font-medium">
-                        {comment.content}
-                    </AlertDescription>
-                </Alert>
-            )}
+        <div className="w-full max-w-4xl mx-auto px-4 z-50 pointer-events-auto flex flex-col items-center">
 
-            {/* Admin Controls */}
-            {isAdmin && (
-                <div className="mt-2 flex justify-end">
-                    {!isEditing ? (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsEditing(true)}
-                            className="bg-black/50 text-white border-white/20 hover:bg-white/10 text-xs backdrop-blur-sm"
-                        >
-                            <Edit className="w-3 h-3 mr-2" />
-                            {comment ? 'Actualizar Alerta' : 'Publicar Alerta'}
-                        </Button>
-                    ) : (
-                        <div className="flex gap-2 w-full max-w-md bg-black/80 p-2 rounded-lg border border-white/10 backdrop-blur-md shadow-xl">
-                            <Input
-                                placeholder="Escribe la alerta aquí..."
-                                value={newContent}
-                                onChange={(e) => setNewContent(e.target.value)}
-                                className="bg-white/10 border-none text-white placeholder:text-white/50 focus-visible:ring-1 focus-visible:ring-white/30"
-                                autoFocus
-                            />
+            {/* 1. Toggle / Bell Trigger (Always visible if alerts exist or is admin) */}
+            {(hasActiveAlerts || isAdmin) && (
+                <div className="mb-2 w-full flex justify-end">
+                    <Popover open={isOpen} onOpenChange={setIsOpen}>
+                        <PopoverTrigger asChild>
                             <Button
-                                size="icon"
-                                onClick={handlePost}
-                                className="bg-green-600 hover:bg-green-700"
-                                disabled={isLoading}
+                                variant={hasActiveAlerts ? "destructive" : "secondary"}
+                                className="rounded-full shadow-lg backdrop-blur-md border border-white/20"
+                                size="sm"
                             >
-                                <Send className="w-4 h-4" />
+                                <Bell className={`w-4 h-4 mr-2 ${hasActiveAlerts ? 'animate-pulse' : ''}`} />
+                                Alertas
+                                {hasActiveAlerts && <Badge variant="secondary" className="ml-2 h-5 min-w-[1.25rem] px-1 bg-white/20 text-white">{visibleComments.length}</Badge>}
                             </Button>
-                            <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => setIsEditing(false)}
-                                className="hover:bg-white/10 text-white/70"
-                            >
-                                <X className="w-4 h-4" />
-                            </Button>
-                        </div>
-                    )}
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[400px] p-0 bg-black/90 backdrop-blur-xl border-white/10 text-white" align="end">
+                            <div className="p-4 space-y-4">
+                                <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                                    <h4 className="font-semibold text-lg">Centro de Alertas</h4>
+                                    {isAdmin && <Badge variant="outline" className="text-xs">Admin Mode</Badge>}
+                                </div>
+
+                                {/* ADMIN: Create New */}
+                                {isAdmin && (
+                                    <div className="flex gap-2">
+                                        <Input
+                                            placeholder="Nueva alerta..."
+                                            value={newContent}
+                                            onChange={e => setNewContent(e.target.value)}
+                                            className="h-8 bg-white/10 border-none text-white text-xs"
+                                        />
+                                        <Button size="sm" onClick={handlePost} disabled={loading} className="h-8 bg-blue-600 hover:bg-blue-700">
+                                            <Send className="w-3 h-3" />
+                                        </Button>
+                                    </div>
+                                )}
+
+                                {/* List */}
+                                <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+                                    {visibleComments.length === 0 ? (
+                                        <p className="text-center text-sm text-gray-400 py-4">No hay alertas activas recientes.</p>
+                                    ) : (
+                                        visibleComments.map(comment => (
+                                            <div key={comment.id} className="relative bg-white/5 rounded-lg p-3 border-l-4 border-red-500">
+                                                {editingId === comment.id ? (
+                                                    <div className="flex flex-col gap-2">
+                                                        <Input
+                                                            value={editContent}
+                                                            onChange={e => setEditContent(e.target.value)}
+                                                            className="h-8 bg-black/40 text-white text-xs"
+                                                        />
+                                                        <div className="flex justify-end gap-2">
+                                                            <Button size="icon" className="h-6 w-6 bg-green-600" onClick={() => handleUpdate(comment.id)}><Send className="w-3 h-3" /></Button>
+                                                            <Button size="icon" className="h-6 w-6 bg-gray-600" onClick={() => setEditingId(null)}><X className="w-3 h-3" /></Button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <div className="flex justify-between items-start">
+                                                            <span className="text-[10px] text-gray-400 font-mono">
+                                                                {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                            {isAdmin && (
+                                                                <div className="flex gap-1">
+                                                                    <button onClick={() => { setEditingId(comment.id); setEditContent(comment.content) }} className="text-gray-400 hover:text-white"><Edit className="w-3 h-3" /></button>
+                                                                    <button onClick={() => handleDelete(comment.id)} className="text-red-400 hover:text-red-300"><Trash2 className="w-3 h-3" /></button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-sm font-medium mt-1 leading-snug">{comment.content}</p>
+                                                        <p className="text-[10px] text-gray-500 mt-1 text-right">Autor: {comment.author}</p>
+                                                    </>
+                                                )}
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
                 </div>
             )}
+
+            {/* 2. Top Banner (Most Recent Only) - Optional or user preference 
+                Currently we moved everything to the dropdown to be cleaner.
+                But maybe we want ONE sticky alert if it's very new?
+                Let's stick to the Bell approach for now as requested ("Menú desplegable").
+            */}
         </div>
     )
 }

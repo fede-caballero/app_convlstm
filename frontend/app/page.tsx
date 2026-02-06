@@ -46,19 +46,31 @@ export default function RadarPredictionRealtime() {
 
   useEffect(() => {
     if ("geolocation" in navigator) {
+      console.log("Requesting geolocation...");
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          console.log("Geolocation success:", position.coords);
           setUserLocation({
             lat: position.coords.latitude,
             lon: position.coords.longitude
           });
         },
         (error) => {
-          console.warn("Geolocation denied or failed:", error);
-          setLocationError("Ubicación no disponible");
+          console.error("Geolocation error:", error);
+          let msg = "Ubicación no disponible";
+          if (error.code === 1) msg = "Permiso de GPS denegado";
+          if (error.code === 2) msg = "Posición no disponible (red/satélite)";
+          if (error.code === 3) msg = "Tiempo de espera agotado";
+          setLocationError(msg);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
         }
       );
     } else {
+      console.error("Geolocation not supported by browser");
       setLocationError("Navegador sin soporte GPS");
     }
   }, []);
@@ -150,10 +162,10 @@ export default function RadarPredictionRealtime() {
       </div>
 
       {/* Floating Navbar & Alerts - Z-Index Higher than Map */}
-      <div className="absolute top-0 left-0 right-0 z-50 p-4 pointer-events-none flex flex-col items-center">
+      <div className="absolute top-0 left-0 right-0 z-50 pointer-events-none flex flex-col items-center">
 
-        {/* Admin Alerts Bar */}
-        <div className="pointer-events-auto w-full max-w-4xl mb-2">
+        {/* Admin Alerts Bar (Offset from left to avoid map controls) */}
+        <div className="pointer-events-auto w-full max-w-4xl mt-4 px-4 pl-16 md:pl-4">
           <AdminCommentBar />
         </div>
 
@@ -161,10 +173,10 @@ export default function RadarPredictionRealtime() {
         {nearestStorm && (
           <div className="pointer-events-auto w-full max-w-lg mb-2 animate-in slide-in-from-top-4 fade-in duration-500">
             <Alert className={`${nearestStorm.distance < 10
-                ? "bg-red-950/90 border-red-500 text-red-50"
-                : nearestStorm.distance < 50
-                  ? "bg-orange-950/90 border-orange-500 text-orange-50"
-                  : "bg-green-950/90 border-green-500 text-green-50"
+              ? "bg-red-950/90 border-red-500 text-red-50"
+              : nearestStorm.distance < 50
+                ? "bg-orange-950/90 border-orange-500 text-orange-50"
+                : "bg-green-950/90 border-green-500 text-green-50"
               } backdrop-blur-md shadow-2xl border`}>
               {nearestStorm.distance < 10 ? <AlertCircle className="h-5 w-5 !text-red-400" /> : <Navigation className="h-5 w-5" />}
               <div className="ml-2">
@@ -181,7 +193,7 @@ export default function RadarPredictionRealtime() {
           </div>
         )}
 
-        <div className="max-w-[1600px] w-full mx-auto flex justify-between items-start pointer-events-auto">
+        <div className="w-full max-w-[1700px] mx-auto flex flex-wrap justify-between items-start pointer-events-auto p-4 md:p-6 gap-y-2">
 
           {/* Logo & Title - Hidden on mobile potentially */}
           <div className="hidden md:block"></div>

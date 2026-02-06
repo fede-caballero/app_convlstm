@@ -44,35 +44,49 @@ export default function RadarPredictionRealtime() {
   const [nearestStorm, setNearestStorm] = useState<{ distance: number, cell: StormCell } | null>(null)
   const [locationError, setLocationError] = useState<string | null>(null)
 
+  // Geolocation with Fallback Strategy
   useEffect(() => {
-    if ("geolocation" in navigator) {
-      console.log("Requesting geolocation...");
+    const getLocation = (highAccuracy = true) => {
+      if (!("geolocation" in navigator)) {
+        setLocationError("Navegador sin soporte GPS");
+        return;
+      }
+
+      console.log(`Requesting geolocation (High Accuracy: ${highAccuracy})...`);
+
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          console.log("Geolocation success:", position.coords);
+          console.log(`Geolocation success (${highAccuracy ? 'High' : 'Low'}):`, position.coords);
           setUserLocation({
             lat: position.coords.latitude,
             lon: position.coords.longitude
           });
+          setLocationError(null);
         },
         (error) => {
-          console.error("Geolocation error:", error);
-          let msg = "Ubicación no disponible";
-          if (error.code === 1) msg = "Permiso de GPS denegado";
-          if (error.code === 2) msg = "Posición no disponible (red/satélite)";
-          if (error.code === 3) msg = "Tiempo de espera agotado";
-          setLocationError(msg);
+          console.warn(`Geolocation error (${highAccuracy ? 'High' : 'Low'}):`, error.message);
+
+          // Fallback: If High Accuracy fails (Timeout/Error), try Low Accuracy
+          if (highAccuracy) {
+            console.log("Retrying with Low Accuracy...");
+            getLocation(false);
+          } else {
+            // Final failure
+            let msg = "Ubicación no disponible";
+            if (error.code === 1) msg = "Permiso de GPS denegado";
+            if (error.code === 3) msg = "Tiempo de espera agotado (GPS)";
+            setLocationError(msg);
+          }
         },
         {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
+          enableHighAccuracy: highAccuracy,
+          timeout: highAccuracy ? 5000 : 15000, // Short timeout for High, longer for Low
+          maximumAge: highAccuracy ? 0 : 600000 // Accept cached low accuracy (10 mins)
         }
       );
-    } else {
-      console.error("Geolocation not supported by browser");
-      setLocationError("Navegador sin soporte GPS");
     }
+
+    getLocation(true); // Start with High Accuracy
   }, []);
 
   // Update nearest storm when images or userLocation changes

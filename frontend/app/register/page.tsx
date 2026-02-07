@@ -7,10 +7,15 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import Link from "next/link"
 import { API_BASE_URL } from "@/lib/api"
+import { GoogleLoginButton } from "@/components/google-login-button"
 
 export default function RegisterPage() {
     const [username, setUsername] = useState("")
     const [password, setPassword] = useState("")
+    const [email, setEmail] = useState("")
+    const [firstName, setFirstName] = useState("")
+    const [lastName, setLastName] = useState("")
+
     const [error, setError] = useState("")
     const router = useRouter()
 
@@ -22,7 +27,13 @@ export default function RegisterPage() {
             const res = await fetch(`${API_BASE_URL}/auth/register`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username, password }),
+                body: JSON.stringify({
+                    username,
+                    password,
+                    email,
+                    first_name: firstName,
+                    last_name: lastName
+                }),
             })
 
             const data = await res.json()
@@ -48,12 +59,43 @@ export default function RegisterPage() {
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-2">
+                                <Input
+                                    type="text"
+                                    placeholder="Nombre"
+                                    value={firstName}
+                                    onChange={(e) => setFirstName(e.target.value)}
+                                    className="bg-muted border-input"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Input
+                                    type="text"
+                                    placeholder="Apellido"
+                                    value={lastName}
+                                    onChange={(e) => setLastName(e.target.value)}
+                                    className="bg-muted border-input"
+                                />
+                            </div>
+                        </div>
+
                         <div className="space-y-2">
                             <Input
                                 type="text"
                                 placeholder="Usuario"
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
+                                required
+                                className="bg-muted border-input"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Input
+                                type="email"
+                                placeholder="Correo Electrónico"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
                                 required
                                 className="bg-muted border-input"
                             />
@@ -72,7 +114,14 @@ export default function RegisterPage() {
                         <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
                             Registrarse
                         </Button>
-                        <div className="text-center text-sm text-muted-foreground">
+
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-background px-2 text-muted-foreground">O continúa con</span>
+                        </div>
+
+                        <GoogleLoginButton />
+
+                        <div className="text-center text-sm text-muted-foreground mt-4">
                             ¿Ya tienes cuenta?{" "}
                             <Link href="/login" className="text-primary hover:underline">
                                 Inicia Sesión

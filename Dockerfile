@@ -68,6 +68,7 @@ COPY backend/requirements.txt .
 RUN pip3 install --default-timeout=1000 --no-cache-dir -r requirements.txt
 COPY ./backend .
 COPY ./tools ./tools
+COPY ./scripts ./scripts
 
 # Copiamos el frontend compilado
 COPY --from=frontend-builder /build/.next /app/frontend/.next

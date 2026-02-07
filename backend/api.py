@@ -15,34 +15,128 @@ CORS(app, origins=[FRONTEND_URL])
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Auth Endpoints ---
+import auth
+import email_service
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+
+# --- Auth Endpoints ---
 @app.route('/auth/register', methods=['POST'])
 def register():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
+    email = data.get('email')
+    first_name = data.get('first_name', '')
+    last_name = data.get('last_name', '')
+    
     # Por seguridad, solo permitimos crear 'visitor' por defecto. 
-    # Admin se debe crear manualmente o con un token especial (simplificado para este caso)
     role = data.get('role', 'visitor') 
 
-    if not username or not password:
-        return jsonify({"error": "Username and password required"}), 400
+    if not username or not password or not email:
+        return jsonify({"error": "Username, password and email required"}), 400
 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     try:
         hashed_pw = auth.get_password_hash(password)
-        cursor.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", (username, hashed_pw, role))
+        cursor.execute("""
+            INSERT INTO users (username, password_hash, email, first_name, last_name, role) 
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (username, hashed_pw, email, first_name, last_name, role))
         conn.commit()
+        
+        # Send Welcome Email
+        email_service.send_welcome_email(email, first_name or username)
+        
         return jsonify({"message": "User created successfully"}), 201
-    except sqlite3.IntegrityError:
-        logging.warning(f"Intento de registro duplicado para usuario: {username}")
+    except sqlite3.IntegrityError as e:
+        logging.warning(f"Intento de registro duplicado: {e}")
+        if "email" in str(e):
+            return jsonify({"error": "Email already exists"}), 400
         return jsonify({"error": "Username already exists"}), 400
     except Exception as e:
         logging.error(f"Error CRÍTICO en registro: {e}", exc_info=True)
-        return jsonify({"error": "Internal error"}), 500
+        return jsonify({"error": f"Internal error: {str(e)}"}), 500
     finally:
         conn.close()
+
+@app.route('/auth/google', methods=['POST'])
+def google_login():
+    data = request.get_json()
+    token = data.get('credential')
+    client_id = data.get('client_id') # Provided by frontend
+
+    if not token:
+        return jsonify({"error": "No token provided"}), 400
+
+    try:
+        # Verify token
+        idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), client_id)
+        
+        # Get user info
+        google_id = idinfo['sub']
+        email = idinfo['email']
+        name = idinfo.get('name', '')
+        picture = idinfo.get('picture', '')
+        given_name = idinfo.get('given_name', '')
+        family_name = idinfo.get('family_name', '')
+        
+        # Check if user exists
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT id, role, username FROM users WHERE google_id = ? OR email = ?", (google_id, email))
+        user_row = cursor.fetchone()
+        
+        if user_row:
+            # Login existing user
+            user_id, role, username = user_row
+            
+            # Link google_id if matched by email but no google_id yet
+            cursor.execute("UPDATE users SET google_id = ?, picture = ? WHERE id = ?", (google_id, picture, user_id))
+            conn.commit()
+            
+        else:
+            # Register new user
+            username = email.split('@')[0] # Default username from email
+            # Check if username exists, append if so
+            cursor.execute("SELECT 1 FROM users WHERE username = ?", (username,))
+            if cursor.fetchone():
+                username = f"{username}_{google_id[:4]}"
+            
+            cursor.execute("""
+                INSERT INTO users (username, email, google_id, first_name, last_name, picture, role, password_hash)
+                VALUES (?, ?, ?, ?, ?, ?, 'visitor', 'GOOGLE_OAUTH')
+            """, (username, email, google_id, given_name, family_name, picture))
+            conn.commit()
+            
+            user_id = cursor.lastrowid
+            role = 'visitor'
+            
+            # Send welcome email for new google users too
+            email_service.send_welcome_email(email, given_name or name)
+
+        conn.close()
+        
+        # Generate our JWT
+        access_token = auth.create_access_token(data={"sub": username, "role": role, "id": user_id})
+        return jsonify({
+            "access_token": access_token, 
+            "token_type": "bearer", 
+            "role": role, 
+            "username": username,
+            "picture": picture
+        })
+
+    except ValueError as e:
+        # Invalid token
+        logging.error(f"Google Token Verification Error: {e}")
+        return jsonify({"error": "Invalid token"}), 401
+    except Exception as e:
+        logging.error(f"Google Login Error: {e}")
+        return jsonify({"error": "Internal error"}), 500
 
 @app.route('/auth/login', methods=['POST'])
 def login():

@@ -61,4 +61,5 @@ if not os.getenv("SECRET_KEY"):
     print("⚠️  WARNING: Using insecure default SECRET_KEY. Set 'SECRET_KEY' env var in production.")
 
 # CORS / Frontend Domain
-FRONTEND_URL = os.getenv("FRONTEND_URL", "*") # En prod: "https://tudominio.vercel.app"
+# Remove trailing slash to match Browser Origin header format
+FRONTEND_URL = os.getenv("FRONTEND_URL", "*").rstrip("/")

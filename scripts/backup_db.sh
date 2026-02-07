@@ -1,8 +1,9 @@
 #!/bin/bash
 
 # Configuration
-LOCAL_DB_PATH="./backend/app.db"
-REMOTE_NAME="gdrive"
+# Configuration
+LOCAL_DB_PATH="/app/data/radar_history.db"  # As per config.py
+REMOTE_NAME="mydrive"                       # As per on_start_inference.sh
 REMOTE_FOLDER="convlstm_backups"
 
 echo "=== Backup Database to Google Drive ==="
@@ -11,6 +12,7 @@ echo "Remote: $REMOTE_NAME:$REMOTE_FOLDER"
 
 if [ ! -f "$LOCAL_DB_PATH" ]; then
     echo "❌ Error: Local database not found at $LOCAL_DB_PATH"
+    echo "Check if pipeline has initialized it yet."
     exit 1
 fi
 

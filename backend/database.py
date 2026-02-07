@@ -25,11 +25,43 @@ def init_db():
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
+                username TEXT UNIQUE,
+                email TEXT UNIQUE,
+                password_hash TEXT,
+                first_name TEXT,
+                last_name TEXT,
+                google_id TEXT UNIQUE,
+                picture TEXT,
                 role TEXT NOT NULL DEFAULT 'visitor'
             )
         ''')
+
+        # Migraciones: Agregar columnas si no existen (para bases de datos existentes)
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN email TEXT UNIQUE")
+        except sqlite3.OperationalError:
+            pass # Ya existe
+
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN first_name TEXT")
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN last_name TEXT")
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN google_id TEXT UNIQUE")
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN picture TEXT")
+        except sqlite3.OperationalError:
+            pass
+
 
         # Tabla de comentarios de administrador
         cursor.execute('''

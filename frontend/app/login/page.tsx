@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import Link from "next/link"
 import { API_BASE_URL } from "@/lib/api"
 
+import { GoogleLoginButton } from "@/components/google-login-button"
+
 export default function LoginPage() {
     const [username, setUsername] = useState("")
     const [password, setPassword] = useState("")
@@ -72,7 +74,14 @@ export default function LoginPage() {
                         <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
                             Iniciar Sesión
                         </Button>
-                        <div className="text-center text-sm text-muted-foreground">
+
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-background px-2 text-muted-foreground">O continúa con</span>
+                        </div>
+
+                        <GoogleLoginButton />
+
+                        <div className="text-center text-sm text-muted-foreground mt-4">
                             ¿No tienes cuenta?{" "}
                             <Link href="/register" className="text-primary hover:underline">
                                 Regístrate

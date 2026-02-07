@@ -28,7 +28,7 @@ EOF
 # Restore Database (Optional)
 if [ -f "/app/scripts/restore_db.sh" ]; then
     echo "♻️  Attempting to restore database..."
-    /app/scripts/restore_db.sh || echo "⚠️ Restore skipped or failed."
+    /app/scripts/restore_db.sh --force || echo "⚠️ Restore skipped or failed."
 fi
 
 # 2. Download Trained Model

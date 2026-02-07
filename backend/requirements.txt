@@ -17,3 +17,5 @@ pyart-mch
 matplotlib
 cartopy
 PyJWT
+google-auth
+requests

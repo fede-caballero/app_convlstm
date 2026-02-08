@@ -18,6 +18,7 @@ export function GoogleLoginButton() {
 
     const handleCallback = async (response: any) => {
         try {
+            console.log("Sending credential to backend...")
             const res = await fetch(`${API_BASE_URL}/auth/google`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -28,7 +29,10 @@ export function GoogleLoginButton() {
             })
 
             const data = await res.json()
+            console.log("Backend response:", data)
+
             if (res.ok) {
+                console.log("Login success, redirecting...")
                 login(data.access_token, data.role, data.username)
             } else {
                 console.error("Google Login Backend Error:", data.error)

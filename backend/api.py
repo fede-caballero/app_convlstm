@@ -10,7 +10,23 @@ import auth
 
 app = Flask(__name__)
 # Security: Restrict CORS to frontend domain
-CORS(app, origins=[FRONTEND_URL])
+# If FRONTEND_URL is "*", allow all. Otherwise, allow specified origins.
+origins_list = [FRONTEND_URL]
+if FRONTEND_URL == "*":
+    origins_list = "*"
+else:
+    # Add localhost for dev and Vercel app for prod
+    origins_list = [
+        "http://localhost:3000",
+        "https://app-convlstm.vercel.app",
+        FRONTEND_URL
+    ]
+
+CORS(app, origins=origins_list, supports_credentials=True)
+
+# Initialize DB on module load (ensures migrations run in production/gunicorn)
+from database import init_db
+init_db()
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -136,7 +152,7 @@ def google_login():
         return jsonify({"error": "Invalid token"}), 401
     except Exception as e:
         logging.error(f"Google Login Error: {e}")
-        return jsonify({"error": "Internal error"}), 500
+        return jsonify({"error": f"Internal error: {str(e)}"}), 500
 
 @app.route('/auth/login', methods=['POST'])
 def login():
@@ -168,6 +184,9 @@ def me():
         return jsonify({"error": "Invalid token"}), 401
         
     return jsonify(payload)
+
+
+
 
 # Endpoint para servir las imágenes generadas
 @app.route('/images/<path:filename>')
@@ -431,20 +450,96 @@ def manage_comment(comment_id):
             conn.commit()
             return jsonify({"message": "Comment deleted"}), 200
 
-        elif request.method == 'PUT':
-            data = request.get_json()
-            content = data.get('content')
-            if not content:
-                return jsonify({"error": "Content required"}), 400
-            
-            cursor.execute("UPDATE comments SET content = ? WHERE id = ? AND is_active = 1", (content, comment_id))
-            if cursor.rowcount == 0:
-                 return jsonify({"error": "Comment not found or inactive"}), 404
-            conn.commit()
-            return jsonify({"message": "Comment updated"}), 200
+    finally:
+        conn.close()
 
+# --- Reports Endpoints (Crowdsourcing) ---
+
+@app.route('/api/reports', methods=['GET'])
+def get_reports():
+    # Retrieve reports for the current operational day (8AM to 8AM)
+    
+    # Calculate "start of current operational day"
+    # If now is before 8AM, start is yesterday 8AM.
+    # If now is after 8AM, start is today 8AM.
+    
+    now_utc = datetime.now(timezone.utc)
+    # Adjust to Local Time (UTC-3) for logic, then convert back to UTC for query if needed?
+    # Actually, the user likely means 8AM Local Time.
+    # Let's assume server ensures UTC in DB.
+    # 8AM Argentina (UTC-3) = 11AM UTC.
+    
+    # Let's stick to UTC-3 logic for "Operational Day"
+    now_local = now_utc - timedelta(hours=3)
+    
+    if now_local.hour < 8:
+        start_local = now_local.replace(hour=8, minute=0, second=0, microsecond=0) - timedelta(days=1)
+    else:
+        start_local = now_local.replace(hour=8, minute=0, second=0, microsecond=0)
+        
+    start_utc = start_local + timedelta(hours=3)
+    cutoff_time = start_utc.isoformat()
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        # Join with users to get username of reporter? Maybe useful.
+        cursor.execute('''
+            SELECT r.id, r.report_type, r.latitude, r.longitude, r.timestamp, r.description, u.username
+            FROM weather_reports r
+            LEFT JOIN users u ON r.user_id = u.id
+            WHERE r.timestamp >= ?
+            ORDER BY r.timestamp DESC
+        ''', (cutoff_time,))
+        
+        rows = cursor.fetchall()
+        reports = [dict(row) for row in rows]
+        return jsonify(reports), 200
     except Exception as e:
-        logging.error(f"Error managing comment {comment_id}: {e}")
+        logging.error(f"Error fetching reports: {e}")
+        return jsonify({"error": "Internal error"}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/reports', methods=['POST'])
+def create_report():
+    # 1. Verify Auth
+    token = request.headers.get('Authorization')
+    if not token or not token.startswith("Bearer "):
+        return jsonify({"error": "Missing token"}), 401
+    
+    token = token.split(" ")[1]
+    payload = auth.decode_access_token(token)
+    if not payload:
+        return jsonify({"error": "Invalid token"}), 401
+
+    user_id = payload.get('id')
+    
+    # 2. Get Data
+    data = request.get_json()
+    report_type = data.get('report_type')
+    latitude = data.get('latitude')
+    longitude = data.get('longitude')
+    description = data.get('description', '')
+
+    if not all([report_type, latitude, longitude]):
+        return jsonify({"error": "Missing required fields (type, lat, lon)"}), 400
+
+    # 3. Save
+    timestamp = datetime.now(timezone.utc).isoformat()
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            INSERT INTO weather_reports (user_id, report_type, latitude, longitude, timestamp, description)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (user_id, report_type, latitude, longitude, timestamp, description))
+        conn.commit()
+        return jsonify({"message": "Report submitted successfully"}), 201
+    except Exception as e:
+        logging.error(f"Error submitting report: {e}")
         return jsonify({"error": "Internal error"}), 500
     finally:
         conn.close()
@@ -452,11 +547,6 @@ def manage_comment(comment_id):
 
 
 if __name__ == "__main__":
-    from database import init_db
-    init_db() # Asegurar que la DB existe al iniciar la API
-    
-
-
     logging.info("Iniciando servidor Flask API en modo de desarrollo...")
     app.run(host='0.0.0.0', port=8000, debug=True)
 

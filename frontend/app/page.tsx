@@ -322,6 +322,19 @@ export default function RadarPredictionRealtime() {
           </Alert>
         </div>
       )}
+
+      {/* Storm Distance Alert (Floating) */}
+      {nearestStorm && (
+        <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-40 w-auto">
+          <div className="flex items-center gap-3 px-4 py-2 bg-red-600/90 backdrop-blur-md text-white rounded-full shadow-lg border border-red-400/50 animate-in slide-in-from-bottom-5">
+            <Zap className="h-5 w-5 text-yellow-300 fill-yellow-300 animate-pulse" />
+            <div className="flex flex-col">
+              <span className="text-xs font-bold uppercase tracking-wider text-red-100">Tormenta Detectada</span>
+              <span className="text-sm font-bold">A {nearestStorm.distance.toFixed(1)} km</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

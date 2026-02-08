@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Play, Pause, RotateCcw, Calendar, Clock } from "lucide-react"
-import { ImageWithBounds } from "@/lib/api"
+import { ImageWithBounds, WeatherReport } from "@/lib/api"
 import Map, { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, GeolocateControl, MapRef } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
@@ -12,6 +12,7 @@ interface RadarVisualizationProps {
   inputFiles: ImageWithBounds[]
   predictionFiles: ImageWithBounds[]
   isProcessing: boolean
+  reports?: WeatherReport[]
 }
 
 const INITIAL_VIEW_STATE = {
@@ -35,7 +36,7 @@ function haversineDistance(coords1: { lat: number, lon: number }, coords2: { lat
   return R * c;
 }
 
-export function RadarVisualization({ inputFiles, predictionFiles, isProcessing }: RadarVisualizationProps) {
+export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, reports }: RadarVisualizationProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [boundariesData, setBoundariesData] = useState<any>(null)
@@ -157,6 +158,64 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing }
     }
   };
 
+  // --- Reports Layer Logic ---
+  const reportsGeoJSON = useMemo(() => {
+    if (!reports || reports.length === 0) return null;
+    return {
+      type: "FeatureCollection",
+      features: reports.map(r => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [r.longitude, r.latitude] },
+        properties: {
+          type: r.report_type,
+          description: r.description,
+          username: r.username,
+          time: new Date(r.timestamp!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      }))
+    };
+  }, [reports]);
+
+  const reportLayerStyle = {
+    id: 'reports-layer',
+    type: 'circle',
+    paint: {
+      'circle-radius': 8,
+      'circle-color': [
+        'match',
+        ['get', 'type'],
+        'lluvia_debil', '#60a5fa', // Blue
+        'lluvia_fuerte', '#4f46e5', // Indigo
+        'granizo_pequeno', '#06b6d4', // Cyan
+        'granizo_grande', '#dc2626', // Red
+        'cielo_despejado', '#eab308', // Yellow
+        '#ffffff' // Default white
+      ],
+      'circle-stroke-width': 2,
+      'circle-stroke-color': '#ffffff',
+      'circle-opacity': 0.9
+    }
+  } as const;
+
+  // Optional: Text labels for reports
+  const reportLabelStyle = {
+    id: 'reports-labels',
+    type: 'symbol',
+    layout: {
+      'text-field': ['get', 'type'], // Or use icon if we load sprite
+      'text-size': 10,
+      'text-offset': [0, 1.5],
+      'text-variable-anchor': ['top', 'bottom', 'left', 'right'],
+    },
+    paint: {
+      'text-color': '#ffffff',
+      'text-halo-color': '#000000',
+      'text-halo-width': 2
+    }
+  } as const;
+
+
+
   return (
     <div className="relative w-full h-full bg-black">
       <Map
@@ -188,7 +247,13 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing }
           </Source>
         )}
 
-
+        {/* Reports Layer (Crowdsourcing) */}
+        {reportsGeoJSON && (
+          <Source id="reports-source" type="geojson" data={reportsGeoJSON as any}>
+            <Layer {...reportLayerStyle as any} />
+            {/* Labels disabled for cleaner look, hover tooltip could be better */}
+          </Source>
+        )}
 
         {currentImage && imageCoordinates && (
           <Source

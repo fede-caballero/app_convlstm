@@ -111,3 +111,38 @@ export const fetchImages = async (): Promise<ApiImages> => {
     prediction_images: processImages(data.prediction_images),
   };
 };
+
+// --- Reporting API ---
+
+export interface WeatherReport {
+  id?: number;
+  report_type: string;
+  latitude: number;
+  longitude: number;
+  timestamp?: string; // ISO
+  description?: string;
+  username?: string; // enriched by backend
+}
+
+export const submitReport = async (report: WeatherReport, token: string): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/api/reports`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(report)
+  });
+  if (!res.ok) throw new Error("Failed to submit report");
+};
+
+export const fetchReports = async (hours: number = 24): Promise<WeatherReport[]> => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/reports?hours=${hours}`, { cache: 'no-store' }); // Ensure fresh data
+    if (!res.ok) throw new Error("Failed to fetch reports");
+    return await res.json();
+  } catch (e) {
+    console.error(e);
+    return [];
+  }
+};

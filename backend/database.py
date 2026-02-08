@@ -36,31 +36,36 @@ def init_db():
             )
         ''')
 
-        # Migraciones: Agregar columnas si no existen (para bases de datos existentes)
-        try:
-            cursor.execute("ALTER TABLE users ADD COLUMN email TEXT UNIQUE")
-        except sqlite3.OperationalError:
-            pass # Ya existe
+        # Helper to safely add columns
+        def add_column_if_not_exists(table, column, definition):
+            cursor.execute(f"PRAGMA table_info({table})")
+            columns = [info[1] for info in cursor.fetchall()]
+            if column not in columns:
+                try:
+                    # SQLite 'ALTER TABLE' has limitations with UNIQUE.
+                    # workaround: Add column without UNIQUE, then create index if needed.
+                    is_unique = "UNIQUE" in definition.upper()
+                    clean_definition = definition.replace("UNIQUE", "").replace("unique", "")
+                    
+                    cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {clean_definition}")
+                    logging.info(f"Columna '{column}' agregada a '{table}'")
+                    
+                    if is_unique:
+                        index_name = f"idx_{table}_{column}"
+                        cursor.execute(f"CREATE UNIQUE INDEX IF NOT EXISTS {index_name} ON {table}({column})")
+                        logging.info(f"Índice UNIQUE '{index_name}' creado")
+                        
+                except Exception as e:
+                    logging.error(f"Error agregando columna '{column}' a '{table}': {e}")
+            else:
+                pass # Column already exists
 
-        try:
-            cursor.execute("ALTER TABLE users ADD COLUMN first_name TEXT")
-        except sqlite3.OperationalError:
-            pass
-
-        try:
-            cursor.execute("ALTER TABLE users ADD COLUMN last_name TEXT")
-        except sqlite3.OperationalError:
-            pass
-
-        try:
-            cursor.execute("ALTER TABLE users ADD COLUMN google_id TEXT UNIQUE")
-        except sqlite3.OperationalError:
-            pass
-
-        try:
-            cursor.execute("ALTER TABLE users ADD COLUMN picture TEXT")
-        except sqlite3.OperationalError:
-            pass
+        # Migrations
+        add_column_if_not_exists("users", "email", "TEXT UNIQUE") # Will create index
+        add_column_if_not_exists("users", "first_name", "TEXT")
+        add_column_if_not_exists("users", "last_name", "TEXT")
+        add_column_if_not_exists("users", "google_id", "TEXT UNIQUE") # Will create index
+        add_column_if_not_exists("users", "picture", "TEXT")
 
 
         # Tabla de comentarios de administrador
@@ -72,6 +77,20 @@ def init_db():
                 created_at TEXT NOT NULL,
                 is_active BOOLEAN DEFAULT 1,
                 FOREIGN KEY(author_id) REFERENCES users(id)
+            )
+        ''')
+
+        # Tabla de reportes meteorológicos (Crowdsourcing)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS weather_reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                report_type TEXT NOT NULL,
+                latitude REAL NOT NULL,
+                longitude REAL NOT NULL,
+                timestamp TEXT NOT NULL,
+                description TEXT,
+                FOREIGN KEY(user_id) REFERENCES users(id)
             )
         ''')
         

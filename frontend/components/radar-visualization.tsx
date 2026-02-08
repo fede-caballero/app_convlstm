@@ -148,7 +148,7 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, 
     return currentImage.cells.find(c => c.max_dbz >= 50);
   }, [currentImage]);
 
-  const showHazardAlert = severeStorm && distanceToStorm && distanceToStorm < 50;
+  const showHazardAlert = severeStorm && distanceToStorm && distanceToStorm < 100;
 
   const severeStormSource = useMemo(() => {
     if (!severeStorm) return null;

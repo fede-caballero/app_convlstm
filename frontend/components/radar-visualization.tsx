@@ -269,13 +269,12 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, 
           }}
         />
         <ScaleControl />
-        <ScaleControl />
         <FullscreenControl position="top-right" />
 
         {/* Location Hint Overlay */}
         {showLocationHint && !userLocation && (
           <div
-            className="absolute top-[14px] right-[50px] z-50 animate-bounce cursor-pointer flex items-center gap-2"
+            className="absolute top-[210px] right-[50px] z-50 animate-bounce cursor-pointer flex items-center gap-2"
             onClick={() => setShowLocationHint(false)}
           >
             <div className="bg-primary text-primary-foreground text-xs font-bold px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(255,255,255,0.3)] flex items-center gap-2 border border-white/20">

@@ -121,7 +121,6 @@ export interface WeatherReport {
   longitude: number;
   timestamp?: string; // ISO
   description?: string;
-  description?: string;
   username?: string; // enriched by backend
   image?: File | null; // For upload
   image_url?: string; // From backend

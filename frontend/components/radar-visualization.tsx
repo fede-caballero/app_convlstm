@@ -139,8 +139,33 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, 
     return haversineDistance(
       { lat: userLocation.latitude, lon: userLocation.longitude },
       stormCenter
-    ).toFixed(1);
+    );
   }, [userLocation, stormCenter]);
+
+  // Check for severe weather (max_dbz > 50)
+  const severeStorm = useMemo(() => {
+    if (!currentImage?.cells) return null;
+    return currentImage.cells.find(c => c.max_dbz >= 50);
+  }, [currentImage]);
+
+  const showHazardAlert = severeStorm && distanceToStorm && distanceToStorm < 50;
+
+  const severeStormSource = useMemo(() => {
+    if (!severeStorm) return null;
+    return {
+      type: "FeatureCollection",
+      features: [{
+        type: "Feature",
+        geometry: {
+          type: "Point",
+          coordinates: [severeStorm.lon, severeStorm.lat]
+        },
+        properties: {
+          max_dbz: severeStorm.max_dbz
+        }
+      }]
+    };
+  }, [severeStorm]);
 
   const boundaryLayerStyle = {
     id: 'boundaries-layer',
@@ -286,70 +311,120 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, 
           </div>
         )}
 
-        {boundariesData && (
-          <Source id="boundaries-source" type="geojson" data={boundariesData}>
-            <Layer {...boundaryLayerStyle} />
-          </Source>
-        )}
+        {/* Hazard Alert Overlay */}
+        {
+          showHazardAlert && (
+            <div className="absolute top-24 left-1/2 -translate-x-1/2 z-40 bg-red-600/90 text-white px-4 py-2 rounded-lg shadow-lg border border-red-500 flex items-center gap-3 animate-pulse pointer-events-none">
+              <AlertTriangle className="h-6 w-6 text-yellow-300" />
+              <div className="flex flex-col">
+                <span className="font-bold uppercase text-sm">¡Alerta de Tormenta Severa!</span>
+                <span className="text-xs">Granizo probable (&gt;50 dBZ) a {Math.round(distanceToStorm || 0)} km</span>
+              </div>
+            </div>
+          )
+        }
+
+        {/* Severe Storm Marker Layer */}
+        {
+          severeStormSource && (
+            <Source id="severe-storm-source" type="geojson" data={severeStormSource as any}>
+              <Layer
+                id="severe-storm-highlight"
+                type="circle"
+                paint={{
+                  'circle-radius': 15,
+                  'circle-color': 'rgba(255, 0, 0, 0.5)',
+                  'circle-stroke-color': '#ff0000',
+                  'circle-stroke-width': 2,
+                  'circle-blur': 0.5
+                }}
+              />
+              <Layer
+                id="severe-storm-center"
+                type="circle"
+                paint={{
+                  'circle-radius': 5,
+                  'circle-color': '#ffffff',
+                  'circle-stroke-color': '#ff0000',
+                  'circle-stroke-width': 1
+                }}
+              />
+            </Source>
+          )
+        }
+
+        {
+          boundariesData && (
+            <Source id="boundaries-source" type="geojson" data={boundariesData}>
+              <Layer {...boundaryLayerStyle} />
+            </Source>
+          )
+        }
 
         {/* Reports Layer (Crowdsourcing) */}
-        {reportsGeoJSON && (
-          <Source id="reports-source" type="geojson" data={reportsGeoJSON as any}>
-            <Layer {...reportLayerStyle as any} />
-            {/* Labels disabled for cleaner look, hover tooltip could be better */}
-          </Source>
-        )}
+        {
+          reportsGeoJSON && (
+            <Source id="reports-source" type="geojson" data={reportsGeoJSON as any}>
+              <Layer {...reportLayerStyle as any} />
+              {/* Labels disabled for cleaner look, hover tooltip could be better */}
+            </Source>
+          )
+        }
 
         {/* Report Popup */}
-        {selectedReport && (
-          <Popup
-            longitude={selectedReport.longitude}
-            latitude={selectedReport.latitude}
-            anchor="bottom"
-            onClose={() => setSelectedReport(null)}
-            closeOnClick={false}
-            className="z-50 text-black"
-          >
-            <div className="p-2 min-w-[200px] max-w-[250px]">
-              {selectedReport.properties.image_url && (
-                <div className="mb-2 rounded-md overflow-hidden h-32 w-full bg-gray-100 relative">
-                  <img
-                    src={`${process.env.NEXT_PUBLIC_API_URL || ''}${selectedReport.properties.image_url}`}
-                    alt="Reporte"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      // Fallback if image fails
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                </div>
-              )}
-              <h3 className="font-bold text-sm uppercase mb-1">{selectedReport.properties.type.replace('_', ' ')}</h3>
-              <p className="text-xs text-gray-500 mb-2">{selectedReport.properties.time} - {selectedReport.properties.username}</p>
-              {selectedReport.properties.description && (
-                <p className="text-sm border-t pt-2 mt-1">{selectedReport.properties.description}</p>
-              )}
-            </div>
-          </Popup>
-        )}
+        {
+          selectedReport && (
+            <Popup
+              longitude={selectedReport.longitude}
+              latitude={selectedReport.latitude}
+              anchor="bottom"
+              onClose={() => setSelectedReport(null)}
+              closeOnClick={false}
+              className="z-50 text-black"
+            >
+              <div className="p-2 min-w-[200px] max-w-[250px]">
+                {selectedReport.properties.image_url && (
+                  <div className="mb-2 rounded-md overflow-hidden h-32 w-full bg-gray-100 relative">
+                    <img
+                      src={`${process.env.NEXT_PUBLIC_API_URL || ''}${selectedReport.properties.image_url}`}
+                      alt="Reporte"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Fallback if image fails
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+                <h3 className="font-bold text-sm uppercase mb-1">{selectedReport.properties.type.replace('_', ' ')}</h3>
+                <p className="text-xs text-gray-500 mb-2">{selectedReport.properties.time} - {selectedReport.properties.username}</p>
+                {selectedReport.properties.description && (
+                  <p className="text-sm border-t pt-2 mt-1">{selectedReport.properties.description}</p>
+                )}
+              </div>
+            </Popup>
+          )
+        }
 
-        {currentImage && imageCoordinates && (
-          <Source
-            id="radar-source"
-            type="image"
-            url={currentImage.url}
-            coordinates={imageCoordinates}
-          >
-            <Layer
-              id="radar-layer"
-              type="raster"
-              paint={{
-                "raster-opacity": 0.8,
-                "raster-fade-duration": 0
-              }}
-            />
-          </Source>
-        )}
+        {
+          currentImage && imageCoordinates && (
+            <Source
+              id="radar-source"
+              type="image"
+              url={currentImage.url}
+              coordinates={imageCoordinates}
+            >
+              <Layer
+                id="radar-layer"
+                type="raster"
+                paint={{
+                  "raster-opacity": 0.8,
+                  "raster-fade-duration": 0
+                }}
+              />
+            </Source>
+          )
+        }
 
         {/* Unified Timeline Control Bar */}
         <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/60 to-transparent pb-8 pt-12">
@@ -419,7 +494,7 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, 
 
           </div>
         </div>
-      </Map>
-    </div>
+      </Map >
+    </div >
   )
 }

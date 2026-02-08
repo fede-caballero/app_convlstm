@@ -13,13 +13,15 @@ import {
     DialogClose
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
-import { CloudRain, CloudLightning, CloudHail, Sun, AlertTriangle } from "lucide-react" // Icons
+import { CloudRain, CloudLightning, CloudHail, Sun, AlertTriangle, MapPin } from "lucide-react" // Icons
+import { submitReport, WeatherReport } from "@/lib/api"
+import { useAuth } from "@/lib/auth-context"
+import { useToast } from "@/components/ui/use-toast" // Assuming we have toast, otherwise alert/console
 
 interface ReportDialogProps {
-    isOpen: boolean
+    open: boolean
     onOpenChange: (open: boolean) => void
-    onSubmit: (type: string, description: string) => void
-    isSubmitting: boolean
+    userLocation: { lat: number, lon: number } | null
 }
 
 // Report Types Configuration
@@ -31,22 +33,40 @@ const REPORT_TYPES = [
     { id: 'cielo_despejado', label: 'Cielo Despejado', icon: Sun, color: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50' },
 ]
 
-export function ReportDialog({ isOpen, onOpenChange, onSubmit, isSubmitting }: ReportDialogProps) {
+export function ReportDialog({ open, onOpenChange, userLocation }: ReportDialogProps) {
     const [selectedType, setSelectedType] = useState<string | null>(null)
     const [description, setDescription] = useState("")
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const { token } = useAuth()
 
-    const handleSubmit = () => {
-        if (selectedType) {
-            onSubmit(selectedType, description)
-            // Reset
-            setSelectedType(null)
-            setDescription("")
-            onOpenChange(false)
+    const handleSubmit = async () => {
+        if (!selectedType || !userLocation || !token) return;
+
+        setIsSubmitting(true);
+        try {
+            const report: WeatherReport = {
+                report_type: selectedType,
+                description: description,
+                latitude: userLocation.lat,
+                longitude: userLocation.lon
+            };
+            await submitReport(report, token);
+
+            // Success
+            setSelectedType(null);
+            setDescription("");
+            onOpenChange(false);
+            alert("Reporte enviado con éxito. ¡Gracias por colaborar!"); // Simple feedback
+        } catch (error) {
+            console.error("Error submitting report:", error);
+            alert("Error al enviar el reporte. Inténtalo de nuevo.");
+        } finally {
+            setIsSubmitting(false);
         }
     }
 
     return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md bg-zinc-950 border-zinc-800 text-zinc-100">
                 <DialogHeader>
                     <DialogTitle>Reportar Clima</DialogTitle>
@@ -88,8 +108,10 @@ export function ReportDialog({ isOpen, onOpenChange, onSubmit, isSubmitting }: R
                     </DialogClose>
                     <Button
                         type="button"
+                    <Button
+                        type="button"
                         onClick={handleSubmit}
-                        disabled={!selectedType || isSubmitting}
+                        disabled={!selectedType || isSubmitting || !userLocation}
                         className="bg-primary hover:bg-primary/90 text-white"
                     >
                         {isSubmitting ? "Enviando..." : "Enviar Reporte"}

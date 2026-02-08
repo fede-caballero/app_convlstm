@@ -352,7 +352,11 @@ export default function RadarPredictionRealtime() {
       )}
 
       {/* Report Dialog */}
-      <ReportDialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen} />
+      <ReportDialog
+        open={isReportDialogOpen}
+        onOpenChange={setIsReportDialogOpen}
+        userLocation={userLocation}
+      />
     </div>
   )
 }

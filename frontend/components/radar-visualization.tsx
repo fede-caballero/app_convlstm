@@ -3,10 +3,11 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { Play, Pause, RotateCcw, Calendar, Clock } from "lucide-react"
-import { ImageWithBounds, WeatherReport } from "@/lib/api"
+import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X } from "lucide-react"
+import { ImageWithBounds, WeatherReport, deleteReport } from "@/lib/api"
 import Map, { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, GeolocateControl, MapRef, Popup } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import { useAuth } from "@/lib/auth-context"
 
 interface RadarVisualizationProps {
   inputFiles: ImageWithBounds[]
@@ -47,6 +48,14 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, 
     properties: any
   } | null>(null)
   const mapRef = useRef<MapRef>(null)
+  const { user, token } = useAuth()
+  const [showLocationHint, setShowLocationHint] = useState(true)
+
+  useEffect(() => {
+    if (userLocation) {
+      setShowLocationHint(false);
+    }
+  }, [userLocation]);
 
   // Merge frames: Inputs + Predictions
   const frames = useMemo(() => {
@@ -173,6 +182,7 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, 
         geometry: { type: "Point", coordinates: [r.longitude, r.latitude] },
         properties: {
           type: r.report_type,
+          id: r.id,
           description: r.description,
           username: r.username,
           image_url: r.image_url,
@@ -259,7 +269,23 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, 
           }}
         />
         <ScaleControl />
+        <ScaleControl />
         <FullscreenControl position="top-right" />
+
+        {/* Location Hint Overlay */}
+        {showLocationHint && !userLocation && (
+          <div
+            className="absolute top-[14px] right-[50px] z-50 animate-bounce cursor-pointer flex items-center gap-2"
+            onClick={() => setShowLocationHint(false)}
+          >
+            <div className="bg-primary text-primary-foreground text-xs font-bold px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(255,255,255,0.3)] flex items-center gap-2 border border-white/20">
+              <span>¿Activar tu ubicación?</span>
+              <MapPin className="h-3 w-3 animate-pulse" />
+            </div>
+            {/* Arrow pointing right towards the geolocation button */}
+            <div className="w-0 h-0 border-t-[6px] border-t-transparent border-l-[8px] border-l-primary border-b-[6px] border-b-transparent drop-shadow-sm"></div>
+          </div>
+        )}
 
         {boundariesData && (
           <Source id="boundaries-source" type="geojson" data={boundariesData}>

@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Switch } from "@/components/ui/switch"
 import { RadarVisualization } from "@/components/radar-visualization"
 import { AdminCommentBar } from "@/components/admin-comment-bar"
 import { fetchImages, fetchStatus, ApiStatus, ApiImages, StormCell, fetchReports, WeatherReport } from "@/lib/api"
@@ -193,15 +194,15 @@ export default function RadarPredictionRealtime() {
             <AdminCommentBar />
 
             {/* Reports Toggle */}
-            <Button
-              variant={showReports ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setShowReports(!showReports)}
-              className={`ml-4 h-8 border ${showReports ? 'bg-primary/20 border-primary/50 text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
-            >
-              <MapPin className="h-4 w-4 mr-2" />
-              <span className="ml-1 text-xs">Reportes</span>
-            </Button>
+            <div className="flex items-center gap-2 ml-4 bg-black/40 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-full shadow-sm">
+              <Switch
+                checked={showReports}
+                onCheckedChange={setShowReports}
+                className="data-[state=checked]:bg-primary h-5 w-9"
+              />
+              <span className="text-xs text-gray-300 font-medium hidden sm:inline-block">Reportes</span>
+              <MapPin className={`h-3 w-3 ${showReports ? 'text-primary' : 'text-gray-500'}`} />
+            </div>
           </div>
 
           {/* RIGHT: Status | Auth | Menu */}

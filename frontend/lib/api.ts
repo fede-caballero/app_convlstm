@@ -165,3 +165,16 @@ export const fetchReports = async (hours: number = 24): Promise<WeatherReport[]>
     return [];
   }
 };
+
+export const deleteReport = async (reportId: number, token: string): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/api/reports/${reportId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to delete report");
+  }
+};

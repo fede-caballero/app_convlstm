@@ -578,6 +578,37 @@ def create_report():
     finally:
         conn.close()
 
+@app.route('/api/reports/<int:report_id>', methods=['DELETE'])
+def delete_report(report_id):
+    # 1. Verify Auth & Admin Role
+    token = request.headers.get('Authorization')
+    if not token or not token.startswith("Bearer "):
+        return jsonify({"error": "Missing token"}), 401
+    
+    token = token.split(" ")[1]
+    payload = auth.decode_access_token(token)
+    if not payload or payload.get('role') != 'admin':
+        return jsonify({"error": "Unauthorized: Admins only"}), 403
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        # Check if report exists
+        cursor.execute("SELECT id FROM weather_reports WHERE id = ?", (report_id,))
+        if not cursor.fetchone():
+             return jsonify({"error": "Report not found"}), 404
+
+        # Delete (Hard delete for now, or could be soft delete if we added is_active)
+        # Given user request "borrar", hard delete is acceptable for this MVP context.
+        cursor.execute("DELETE FROM weather_reports WHERE id = ?", (report_id,))
+        conn.commit()
+        return jsonify({"message": "Report deleted successfully"}), 200
+    except Exception as e:
+        logging.error(f"Error deleting report: {e}")
+        return jsonify({"error": "Internal error"}), 500
+    finally:
+        conn.close()
+
 
 
 if __name__ == "__main__":

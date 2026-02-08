@@ -108,8 +108,6 @@ export function ReportDialog({ open, onOpenChange, userLocation }: ReportDialogP
                     </DialogClose>
                     <Button
                         type="button"
-                    <Button
-                        type="button"
                         onClick={handleSubmit}
                         disabled={!selectedType || isSubmitting || !userLocation}
                         className="bg-primary hover:bg-primary/90 text-white"

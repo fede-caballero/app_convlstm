@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Play, Pause, RotateCcw, Calendar, Clock } from "lucide-react"
 import { ImageWithBounds, WeatherReport } from "@/lib/api"
-import Map, { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, GeolocateControl, MapRef } from 'react-map-gl/maplibre'
+import Map, { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, GeolocateControl, MapRef, Popup } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 interface RadarVisualizationProps {
@@ -41,6 +41,11 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, 
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [boundariesData, setBoundariesData] = useState<any>(null)
   const [userLocation, setUserLocation] = useState<{ latitude: number, longitude: number } | null>(null)
+  const [selectedReport, setSelectedReport] = useState<{
+    longitude: number,
+    latitude: number,
+    properties: any
+  } | null>(null)
   const mapRef = useRef<MapRef>(null)
 
   // Merge frames: Inputs + Predictions
@@ -224,6 +229,20 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, 
         style={{ width: '100%', height: '100%' }}
         mapStyle={MAP_STYLE}
         attributionControl={false}
+        onClick={(event) => {
+          const feature = event.features?.[0];
+          if (feature && feature.layer.id === 'reports-layer') {
+            // Prevent map click from closing immediately if we just clicked a feature
+            setSelectedReport({
+              longitude: event.lngLat.lng,
+              latitude: event.lngLat.lat,
+              properties: feature.properties
+            });
+          } else {
+            setSelectedReport(null);
+          }
+        }}
+        interactiveLayerIds={['reports-layer']}
       >
         <NavigationControl position="top-right" style={{ marginTop: '100px', marginRight: '10px' }} />
         <GeolocateControl
@@ -253,6 +272,26 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, 
             <Layer {...reportLayerStyle as any} />
             {/* Labels disabled for cleaner look, hover tooltip could be better */}
           </Source>
+        )}
+
+        {/* Report Popup */}
+        {selectedReport && (
+          <Popup
+            longitude={selectedReport.longitude}
+            latitude={selectedReport.latitude}
+            anchor="bottom"
+            onClose={() => setSelectedReport(null)}
+            closeOnClick={false}
+            className="z-50 text-black"
+          >
+            <div className="p-2 min-w-[200px]">
+              <h3 className="font-bold text-sm uppercase mb-1">{selectedReport.properties.type.replace('_', ' ')}</h3>
+              <p className="text-xs text-gray-500 mb-2">{selectedReport.properties.time} - {selectedReport.properties.username}</p>
+              {selectedReport.properties.description && (
+                <p className="text-sm border-t pt-2 mt-1">{selectedReport.properties.description}</p>
+              )}
+            </div>
+          </Popup>
         )}
 
         {currentImage && imageCoordinates && (

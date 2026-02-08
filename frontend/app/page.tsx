@@ -10,7 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { RadarVisualization } from "@/components/radar-visualization"
 import { AdminCommentBar } from "@/components/admin-comment-bar"
-import { fetchImages, fetchStatus, ApiStatus, ApiImages, StormCell } from "@/lib/api"
+import { fetchImages, fetchStatus, ApiStatus, ApiImages, StormCell, fetchReports, WeatherReport } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { ReportDialog } from "@/components/report-dialog"
 import Link from "next/link"
@@ -40,6 +40,8 @@ export default function RadarPredictionRealtime() {
   const { user, logout } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false)
+  const [reports, setReports] = useState<WeatherReport[]>([])
+  const [showReports, setShowReports] = useState(true)
 
   // Geolocation & Storm Logic
   const [userLocation, setUserLocation] = useState<{ lat: number, lon: number } | null>(null)
@@ -143,8 +145,10 @@ export default function RadarPredictionRealtime() {
     try {
       const statusData = await fetchStatus()
       const imagesData = await fetchImages()
+      const reportsData = await fetchReports()
       setStatus(statusData)
       setImages(imagesData)
+      setReports(reportsData)
       setError(null)
     } catch (e) {
       setError("Failed to connect to the backend API. Is it running?")
@@ -174,6 +178,7 @@ export default function RadarPredictionRealtime() {
           inputFiles={images.input_images}
           predictionFiles={images.prediction_images}
           isProcessing={!!(status?.status?.includes("PROCESSING") || status?.status?.includes("PREDICTING"))}
+          reports={showReports ? reports : undefined}
         />
       </div>
 
@@ -186,6 +191,17 @@ export default function RadarPredictionRealtime() {
           {/* LEFT: Alerts Center */}
           <div className="flex items-center">
             <AdminCommentBar />
+
+            {/* Reports Toggle */}
+            <Button
+              variant={showReports ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setShowReports(!showReports)}
+              className={`ml-4 h-8 border ${showReports ? 'bg-primary/20 border-primary/50 text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+            >
+              <MapPin className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Reportes</span>
+            </Button>
           </div>
 
           {/* RIGHT: Status | Auth | Menu */}

@@ -3,12 +3,16 @@ import json
 import logging
 import sqlite3
 from flask import Flask, jsonify, send_from_directory, request
+from werkzeug.utils import secure_filename
 from flask_cors import CORS
 from config import STATUS_FILE_PATH, IMAGE_OUTPUT_DIR, DB_PATH, FRONTEND_URL
 from datetime import datetime, timedelta, timezone
 import auth
 
 app = Flask(__name__)
+REPORTS_UPLOAD_DIR = os.path.join(os.path.dirname(DB_PATH), 'uploads')
+os.makedirs(REPORTS_UPLOAD_DIR, exist_ok=True)
+
 # Security: Restrict CORS to frontend domain
 # If FRONTEND_URL is "*", allow all. Otherwise, allow specified origins.
 origins_list = [FRONTEND_URL]
@@ -192,6 +196,10 @@ def me():
 @app.route('/images/<path:filename>')
 def serve_image(filename):
     return send_from_directory(IMAGE_OUTPUT_DIR, filename)
+
+@app.route('/api/uploads/<path:filename>')
+def serve_upload(filename):
+    return send_from_directory(REPORTS_UPLOAD_DIR, filename)
 
 # Endpoints de la API
 @app.route("/api/status")
@@ -486,7 +494,7 @@ def get_reports():
     try:
         # Join with users to get username of reporter? Maybe useful.
         cursor.execute('''
-            SELECT r.id, r.report_type, r.latitude, r.longitude, r.timestamp, r.description, u.username
+            SELECT r.id, r.report_type, r.latitude, r.longitude, r.timestamp, r.description, r.image_url, u.username
             FROM weather_reports r
             LEFT JOIN users u ON r.user_id = u.id
             WHERE r.timestamp >= ?
@@ -517,11 +525,37 @@ def create_report():
     user_id = payload.get('id')
     
     # 2. Get Data
-    data = request.get_json()
-    report_type = data.get('report_type')
-    latitude = data.get('latitude')
-    longitude = data.get('longitude')
-    description = data.get('description', '')
+    # 2. Get Data (supports multipart/form-data)
+    if 'report_type' not in request.form and not request.is_json:
+        return jsonify({"error": "Content-Type must be application/json or multipart/form-data"}), 400
+
+    report_type = request.form.get('report_type') or (request.json.get('report_type') if request.is_json else None)
+    try:
+        latitude = float(request.form.get('latitude') or (request.json.get('latitude') if request.is_json else 0))
+        longitude = float(request.form.get('longitude') or (request.json.get('longitude') if request.is_json else 0))
+    except (ValueError, TypeError):
+        return jsonify({"error": "Latitude/Longitude must be numbers"}), 400
+
+    description = request.form.get('description', '') if not request.is_json else request.json.get('description', '')
+
+    image_url = None
+    if 'image' in request.files:
+        file = request.files['image']
+        if file and file.filename != '':
+            filename = secure_filename(file.filename)
+            unique_filename = f"{int(datetime.now().timestamp())}_{filename}"
+            save_path = os.path.join(REPORTS_UPLOAD_DIR, unique_filename)
+            file.save(save_path)
+            image_url = f"/api/uploads/{unique_filename}" # Use /api/uploads because vercel rewrites might handle it differently but let's stick to simple relative path?
+            # Wait, api.py handles /uploads/*, but frontend usually proxies /api/* to api.py
+            # If standard route is /uploads/..., let's check.
+            # Usually users see /uploads/foo.png.
+            # But api.py is usually behind /api reverse proxy or handles everything under /api.
+            # Let's map it to /api/uploads/ in Flask and define route accordingly?
+            # The route added above is @app.route('/uploads/<path:filename>').
+            # If frontend calls /uploads/foo.png, it might not hit backend unless configured.
+            # Let's use /api/uploads/ to be safe with standard proxy setups.
+            image_url = f"/api/uploads/{unique_filename}"
 
     if not all([report_type, latitude, longitude]):
         return jsonify({"error": "Missing required fields (type, lat, lon)"}), 400
@@ -533,11 +567,11 @@ def create_report():
     cursor = conn.cursor()
     try:
         cursor.execute('''
-            INSERT INTO weather_reports (user_id, report_type, latitude, longitude, timestamp, description)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (user_id, report_type, latitude, longitude, timestamp, description))
+            INSERT INTO weather_reports (user_id, report_type, latitude, longitude, timestamp, description, image_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (user_id, report_type, latitude, longitude, timestamp, description, image_url))
         conn.commit()
-        return jsonify({"message": "Report submitted successfully"}), 201
+        return jsonify({"message": "Report submitted successfully", "image_url": image_url}), 201
     except Exception as e:
         logging.error(f"Error submitting report: {e}")
         return jsonify({"error": "Internal error"}), 500

@@ -13,7 +13,7 @@ import {
     DialogClose
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
-import { CloudRain, CloudLightning, CloudHail, Sun, AlertTriangle, MapPin } from "lucide-react" // Icons
+import { CloudRain, CloudLightning, CloudHail, Sun, AlertTriangle, MapPin, Camera, X } from "lucide-react" // Icons
 import { submitReport, WeatherReport } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/components/ui/use-toast" // Assuming we have toast, otherwise alert/console
@@ -36,6 +36,8 @@ const REPORT_TYPES = [
 export function ReportDialog({ open, onOpenChange, userLocation }: ReportDialogProps) {
     const [selectedType, setSelectedType] = useState<string | null>(null)
     const [description, setDescription] = useState("")
+    const [selectedImage, setSelectedImage] = useState<File | null>(null)
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const { token } = useAuth()
 
@@ -48,13 +50,16 @@ export function ReportDialog({ open, onOpenChange, userLocation }: ReportDialogP
                 report_type: selectedType,
                 description: description,
                 latitude: userLocation.lat,
-                longitude: userLocation.lon
+                longitude: userLocation.lon,
+                image: selectedImage
             };
             await submitReport(report, token);
 
             // Success
             setSelectedType(null);
             setDescription("");
+            setSelectedImage(null);
+            setPreviewUrl(null);
             onOpenChange(false);
             alert("Reporte enviado con éxito. ¡Gracias por colaborar!"); // Simple feedback
         } catch (error) {
@@ -99,8 +104,50 @@ export function ReportDialog({ open, onOpenChange, userLocation }: ReportDialogP
                     placeholder="Comentario opcional (ej. tamaño del granizo)"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="bg-zinc-900 border-zinc-800 resize-none h-20 text-sm"
+                    className="bg-zinc-900 border-zinc-800 resize-none h-20 text-sm mb-3"
                 />
+
+                {/* Image Upload */}
+                <div className="mb-4">
+                    {!previewUrl ? (
+                        <div className="flex items-center gap-3">
+                            <input
+                                type="file"
+                                accept="image/*"
+                                id="report-image-upload"
+                                className="hidden"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        setSelectedImage(file);
+                                        setPreviewUrl(URL.createObjectURL(file));
+                                    }
+                                }}
+                            />
+                            <label
+                                htmlFor="report-image-upload"
+                                className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg cursor-pointer text-sm text-zinc-300 transition-colors border border-zinc-700"
+                            >
+                                <Camera className="w-4 h-4" />
+                                <span>Adjuntar Foto</span>
+                            </label>
+                            <span className="text-xs text-zinc-500 italic">Opcional</span>
+                        </div>
+                    ) : (
+                        <div className="relative w-full h-32 bg-zinc-900 rounded-lg overflow-hidden border border-zinc-700 group">
+                            <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                            <button
+                                onClick={() => {
+                                    setSelectedImage(null);
+                                    setPreviewUrl(null);
+                                }}
+                                className="absolute top-2 right-2 p-1 bg-black/50 hover:bg-black/80 rounded-full text-white transition-colors"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                    )}
+                </div>
 
                 <DialogFooter className="sm:justify-between gap-2">
                     <DialogClose asChild>

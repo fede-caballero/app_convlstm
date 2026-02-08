@@ -121,17 +121,36 @@ export interface WeatherReport {
   longitude: number;
   timestamp?: string; // ISO
   description?: string;
+  description?: string;
   username?: string; // enriched by backend
+  image?: File | null; // For upload
+  image_url?: string; // From backend
 }
 
 export const submitReport = async (report: WeatherReport, token: string): Promise<void> => {
+  let body: any;
+  let headers: HeadersInit = {
+    'Authorization': `Bearer ${token}`
+  };
+
+  if (report.image) {
+    const formData = new FormData();
+    formData.append('report_type', report.report_type);
+    formData.append('latitude', report.latitude.toString());
+    formData.append('longitude', report.longitude.toString());
+    formData.append('description', report.description || '');
+    formData.append('image', report.image);
+    body = formData;
+    // Content-Type header is not set manually for FormData, browser sets it with boundary
+  } else {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify(report);
+  }
+
   const res = await fetch(`${API_BASE_URL}/api/reports`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify(report)
+    headers: headers,
+    body: body
   });
   if (!res.ok) throw new Error("Failed to submit report");
 };

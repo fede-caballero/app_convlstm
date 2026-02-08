@@ -66,6 +66,7 @@ def init_db():
         add_column_if_not_exists("users", "last_name", "TEXT")
         add_column_if_not_exists("users", "google_id", "TEXT UNIQUE") # Will create index
         add_column_if_not_exists("users", "picture", "TEXT")
+        add_column_if_not_exists("weather_reports", "image_url", "TEXT")
 
 
         # Tabla de comentarios de administrador

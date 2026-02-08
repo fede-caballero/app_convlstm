@@ -284,7 +284,20 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, 
             closeOnClick={false}
             className="z-50 text-black"
           >
-            <div className="p-2 min-w-[200px]">
+            <div className="p-2 min-w-[200px] max-w-[250px]">
+              {selectedReport.properties.image_url && (
+                <div className="mb-2 rounded-md overflow-hidden h-32 w-full bg-gray-100 relative">
+                  <img
+                    src={`${process.env.NEXT_PUBLIC_API_URL || ''}${selectedReport.properties.image_url}`}
+                    alt="Reporte"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Fallback if image fails
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
               <h3 className="font-bold text-sm uppercase mb-1">{selectedReport.properties.type.replace('_', ' ')}</h3>
               <p className="text-xs text-gray-500 mb-2">{selectedReport.properties.time} - {selectedReport.properties.username}</p>
               {selectedReport.properties.description && (

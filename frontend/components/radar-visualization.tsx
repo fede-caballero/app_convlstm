@@ -186,7 +186,7 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, 
         ['get', 'type'],
         'lluvia_debil', '#60a5fa', // Blue
         'lluvia_fuerte', '#4f46e5', // Indigo
-        'granizo_pequeno', '#06b6d4', // Cyan
+        'granizo_pequeno', '#f97316', // Orange
         'granizo_grande', '#dc2626', // Red
         'cielo_despejado', '#eab308', // Yellow
         '#ffffff' // Default white

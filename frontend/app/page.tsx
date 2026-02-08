@@ -200,7 +200,7 @@ export default function RadarPredictionRealtime() {
               className={`ml-4 h-8 border ${showReports ? 'bg-primary/20 border-primary/50 text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
             >
               <MapPin className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">Reportes</span>
+              <span className="ml-1 text-xs">Reportes</span>
             </Button>
           </div>
 
@@ -354,9 +354,9 @@ export default function RadarPredictionRealtime() {
         </div>
       )}
 
-      {/* FAB - Report Button (Bottom Left) */}
+      {/* FAB - Report Button (Bottom Left) - Moved up to avoid text overlap */}
       {user && (
-        <div className="absolute bottom-32 left-4 z-50">
+        <div className="absolute bottom-48 left-4 z-50">
           <Button
             onClick={() => setIsReportDialogOpen(true)}
             className="h-14 w-14 rounded-full bg-red-600 hover:bg-red-700 shadow-[0_0_20px_rgba(220,38,38,0.5)] border-2 border-red-400/50 flex flex-col items-center justify-center gap-0.5"

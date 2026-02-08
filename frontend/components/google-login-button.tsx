@@ -14,7 +14,7 @@ declare global {
 export function GoogleLoginButton() {
     const { login } = useAuth()
     const buttonRef = useRef<HTMLDivElement>(null)
-    const CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com" // TODO: Replace with real ID
+    const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""
 
     const handleCallback = async (response: any) => {
         try {

@@ -12,6 +12,7 @@ import { RadarVisualization } from "@/components/radar-visualization"
 import { AdminCommentBar } from "@/components/admin-comment-bar"
 import { fetchImages, fetchStatus, ApiStatus, ApiImages, StormCell } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
+import { ReportDialog } from "@/components/report-dialog"
 import Link from "next/link"
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -38,6 +39,7 @@ export default function RadarPredictionRealtime() {
   const [error, setError] = useState<string | null>(null)
   const { user, logout } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false)
 
   // Geolocation & Storm Logic
   const [userLocation, setUserLocation] = useState<{ lat: number, lon: number } | null>(null)
@@ -335,6 +337,22 @@ export default function RadarPredictionRealtime() {
           </div>
         </div>
       )}
+
+      {/* FAB - Report Button (Bottom Left) */}
+      {user && (
+        <div className="absolute bottom-32 left-4 z-50">
+          <Button
+            onClick={() => setIsReportDialogOpen(true)}
+            className="h-14 w-14 rounded-full bg-red-600 hover:bg-red-700 shadow-[0_0_20px_rgba(220,38,38,0.5)] border-2 border-red-400/50 flex flex-col items-center justify-center gap-0.5"
+          >
+            <AlertCircle className="h-6 w-6 text-white animate-pulse" />
+            <span className="text-[9px] font-bold text-white uppercase">Reportar</span>
+          </Button>
+        </div>
+      )}
+
+      {/* Report Dialog */}
+      <ReportDialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen} />
     </div>
   )
 }

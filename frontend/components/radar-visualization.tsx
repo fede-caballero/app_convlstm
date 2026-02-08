@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X } from "lucide-react"
+import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle } from "lucide-react"
 import { ImageWithBounds, WeatherReport, deleteReport } from "@/lib/api"
 import Map, { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, GeolocateControl, MapRef, Popup } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'

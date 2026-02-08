@@ -175,6 +175,7 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, 
           type: r.report_type,
           description: r.description,
           username: r.username,
+          image_url: r.image_url,
           time: new Date(r.timestamp!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       }))

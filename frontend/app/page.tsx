@@ -248,7 +248,7 @@ export default function RadarPredictionRealtime() {
                     <Menu className="h-5 w-5" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent className="bg-background/95 backdrop-blur-xl border-l border-border w-[400px] sm:w-[540px] overflow-y-auto">
+                <SheetContent className="bg-black/80 backdrop-blur-xl border-l border-white/10 w-[400px] sm:w-[540px] overflow-y-auto text-white">
                   <SheetHeader className="mb-6">
                     {/* LOGO IN SIDEBAR */}
                     <div className="flex flex-col items-center justify-center mb-6 pt-4">
@@ -280,7 +280,7 @@ export default function RadarPredictionRealtime() {
                       statusColor={status?.status === "IDLE" ? "text-green-600 dark:text-green-400" : "text-blue-600 dark:text-blue-400"}
                     />
                     {/* Buffer Status */}
-                    <Card className="bg-card border-border">
+                    <Card className="bg-white/5 border-white/10 text-white">
                       <CardHeader className="pb-2">
                         <div className="flex justify-between items-center">
                           <CardTitle className="text-sm font-medium text-muted-foreground">Buffer de Entrada</CardTitle>
@@ -297,7 +297,7 @@ export default function RadarPredictionRealtime() {
                     </Card>
 
                     {/* Pipeline Steps */}
-                    <Card className="bg-card border-border">
+                    <Card className="bg-white/5 border-white/10 text-white">
                       <CardHeader>
                         <CardTitle className="text-sm font-medium text-muted-foreground">Pipeline Activo</CardTitle>
                       </CardHeader>
@@ -403,7 +403,7 @@ export default function RadarPredictionRealtime() {
 
 function MetricCard({ title, icon, value, subtext, statusColor = "text-slate-100" }: any) {
   return (
-    <Card className="bg-card border-border">
+    <Card className="bg-white/5 border-white/10 text-white">
       <CardHeader className="pb-2">
         <div className="flex justify-between items-center">
           <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
@@ -420,7 +420,7 @@ function MetricCard({ title, icon, value, subtext, statusColor = "text-slate-100
 
 function PipelineStep({ label, active, icon }: any) {
   return (
-    <div className={`flex items-center justify-between p-2 rounded-lg transition-colors ${active ? 'bg-primary/10 border border-primary/20' : 'bg-transparent'}`}>
+    <div className={`flex items-center justify-between p-2 rounded-lg transition-colors ${active ? 'bg-primary/20 border border-primary/40' : 'bg-transparent'}`}>
       <div className="flex items-center space-x-3">
         <div className={`p-1.5 rounded-md ${active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
           {icon}

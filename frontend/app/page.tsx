@@ -253,19 +253,19 @@ export default function RadarPredictionRealtime() {
                     {/* LOGO IN SIDEBAR */}
                     <div className="flex flex-col items-center justify-center mb-6 pt-4">
                       <img src="/logo.png" alt="Hailcast Logo" className="w-24 h-24 object-contain drop-shadow-lg" />
-                      <h2 className="text-xl font-bold mt-2 text-center text-primary">HAILCAST</h2>
-                      <p className="text-xs text-muted-foreground font-medium bg-secondary/50 px-2 py-0.5 rounded-full mt-1">
+                      <h2 className="text-xl font-bold mt-2 text-center text-red-500">HAILCAST</h2>
+                      <p className="text-xs text-red-200 font-medium bg-red-900/30 px-2 py-0.5 rounded-full mt-1 border border-red-500/20">
                         Sistema de Predicción Meteorológica
                       </p>
                     </div>
 
-                    <div className="flex justify-between items-center bg-muted/30 p-2 rounded-lg">
-                      <SheetTitle className="text-xl font-bold">Panel de Control</SheetTitle>
-                      <Badge variant={userLocation ? "outline" : "destructive"}>
+                    <div className="flex justify-between items-center bg-red-950/30 p-2 rounded-lg border border-red-500/10">
+                      <SheetTitle className="text-xl font-bold text-red-100">Panel de Control</SheetTitle>
+                      <Badge variant={userLocation ? "outline" : "destructive"} className="border-red-500/50 text-red-200">
                         {userLocation ? "GPS Activo" : "Sin GPS"}
                       </Badge>
                     </div>
-                    <SheetDescription className="text-center mt-2">
+                    <SheetDescription className="text-center mt-2 text-red-300">
                       Métricas y estado del sistema.
                     </SheetDescription>
                   </SheetHeader>
@@ -274,17 +274,17 @@ export default function RadarPredictionRealtime() {
                     {/* Worker Status */}
                     <MetricCard
                       title="Estado del Worker"
-                      icon={<Server className="h-4 w-4 text-muted-foreground" />}
+                      icon={<Server className="h-4 w-4" />} // Icon color handled in component
                       value={status?.status ?? "..."}
                       subtext={status?.status}
-                      statusColor={status?.status === "IDLE" ? "text-green-600 dark:text-green-400" : "text-blue-600 dark:text-blue-400"}
+                      statusColor={status?.status === "IDLE" ? "text-green-400" : "text-blue-400"}
                     />
                     {/* Buffer Status */}
                     <Card className="bg-white/5 border-white/10 text-white">
                       <CardHeader className="pb-2">
                         <div className="flex justify-between items-center">
-                          <CardTitle className="text-sm font-medium text-muted-foreground">Buffer de Entrada</CardTitle>
-                          <Database className="h-4 w-4 text-muted-foreground" />
+                          <CardTitle className="text-sm font-medium text-red-200">Buffer de Entrada</CardTitle>
+                          <Database className="h-4 w-4 text-red-400" />
                         </div>
                       </CardHeader>
                       <CardContent>
@@ -299,7 +299,7 @@ export default function RadarPredictionRealtime() {
                     {/* Pipeline Steps */}
                     <Card className="bg-white/5 border-white/10 text-white">
                       <CardHeader>
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Pipeline Activo</CardTitle>
+                        <CardTitle className="text-sm font-medium text-red-200">Pipeline Activo</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <PipelineStep
@@ -406,13 +406,15 @@ function MetricCard({ title, icon, value, subtext, statusColor = "text-slate-100
     <Card className="bg-white/5 border-white/10 text-white">
       <CardHeader className="pb-2">
         <div className="flex justify-between items-center">
-          <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-          {icon}
+          <CardTitle className="text-sm font-medium text-red-200">{title}</CardTitle>
+          <div className="text-red-400">
+            {icon}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className={`text-2xl font-bold ${statusColor}`}>{value}</div>
-        {subtext && <p className="text-xs text-muted-foreground mt-1 truncate">{subtext}</p>}
+        {subtext && <p className="text-xs text-red-300 mt-1 truncate">{subtext}</p>}
       </CardContent>
     </Card>
   )
@@ -420,14 +422,14 @@ function MetricCard({ title, icon, value, subtext, statusColor = "text-slate-100
 
 function PipelineStep({ label, active, icon }: any) {
   return (
-    <div className={`flex items-center justify-between p-2 rounded-lg transition-colors ${active ? 'bg-primary/20 border border-primary/40' : 'bg-transparent'}`}>
+    <div className={`flex items-center justify-between p-2 rounded-lg transition-colors ${active ? 'bg-red-500/20 border border-red-500/40' : 'bg-transparent'}`}>
       <div className="flex items-center space-x-3">
-        <div className={`p-1.5 rounded-md ${active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+        <div className={`p-1.5 rounded-md ${active ? 'bg-red-600 text-white' : 'bg-white/10 text-red-300'}`}>
           {icon}
         </div>
-        <span className={`text-sm ${active ? 'text-primary font-medium' : 'text-muted-foreground'}`}>{label}</span>
+        <span className={`text-sm ${active ? 'text-red-100 font-bold' : 'text-red-400/80'}`}>{label}</span>
       </div>
-      {active && <Activity className="h-3 w-3 text-primary animate-pulse" />}
+      {active && <Activity className="h-3 w-3 text-red-500 animate-pulse" />}
     </div>
   )
 }

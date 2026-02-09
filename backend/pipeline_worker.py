@@ -12,6 +12,7 @@ from netCDF4 import Dataset as NCDataset
 import pyproj
 import glob
 import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap, BoundaryNorm
 import cartopy.crs as ccrs
 import sqlite3
 from scipy.ndimage import label, center_of_mass
@@ -129,15 +130,39 @@ def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: s
         lat_0 = proj_info['latitude_of_projection_origin']
         projection = ccrs.AzimuthalEquidistant(central_longitude=lon_0, central_latitude=lat_0)
 
-        # --- 3. Creación del gráfico transparente ---
+        # --- 3. Creación del gráfico transparente (TITAN Color Scale) ---
         fig = plt.figure(figsize=(10, 10), dpi=150)
         ax = fig.add_subplot(1, 1, 1)
         fig.patch.set_alpha(0)
         ax.patch.set_alpha(0)
         ax.set_axis_off()
 
-        # Dibujar la imagen de reflectividad
-        ax.imshow(composite_data_2d, cmap='jet', origin='lower', vmin=0, vmax=70)
+        # Configuración de Colores TITAN
+        titan_bounds = [5, 10, 20, 30, 35, 36, 39, 42, 45, 48, 51, 54, 57, 60, 65, 70, 80]
+        titan_colors = [
+            '#483d8b', # 5-10
+            '#005a00', # 10-20
+            '#007000', # 20-30
+            '#087fdb', # 30-35
+            '#1c47e8', # 35-36
+            '#6e0dc6', # 36-39
+            '#c80f86', # 39-42
+            '#c06487', # 42-45
+            '#d2883b', # 45-48
+            '#fac431', # 48-51
+            '#fefa03', # 51-54
+            '#fe9a58', # 54-57
+            '#fe5f05', # 57-60
+            '#fd341c', # 60-65
+            '#bebebe', # 65-70
+            '#d3d3d3'  # 70-80
+        ]
+        cmap = ListedColormap(titan_colors)
+        cmap.set_under('none') # Transparente por debajo de 5 dbz
+        norm = BoundaryNorm(titan_bounds, cmap.N)
+
+        # Dibujar la imagen de reflectividad con escala TITAN
+        ax.imshow(composite_data_2d, cmap=cmap, norm=norm, origin='lower')
         
         plt.tight_layout(pad=0)
         plt.savefig(output_image_path, dpi=150, transparent=True, bbox_inches='tight', pad_inches=0)

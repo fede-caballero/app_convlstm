@@ -15,6 +15,7 @@ interface RadarVisualizationProps {
   predictionFiles: ImageWithBounds[]
   isProcessing: boolean
   reports?: WeatherReport[]
+  userLocation?: { lat: number, lon: number } | null
   onReportUpdate?: () => void
 }
 
@@ -44,12 +45,12 @@ export function RadarVisualization({
   predictionFiles,
   isProcessing = false,
   reports,
+  userLocation,
   onReportUpdate
 }: RadarVisualizationProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [boundariesData, setBoundariesData] = useState<any>(null)
-  const [userLocation, setUserLocation] = useState<{ latitude: number, longitude: number } | null>(null)
   const [selectedReport, setSelectedReport] = useState<{
     longitude: number,
     latitude: number,
@@ -147,7 +148,7 @@ export function RadarVisualization({
   const distanceToStorm = useMemo(() => {
     if (!userLocation || !stormCenter) return null;
     return haversineDistance(
-      { lat: userLocation.latitude, lon: userLocation.longitude },
+      { lat: userLocation.lat, lon: userLocation.lon },
       stormCenter
     );
   }, [userLocation, stormCenter]);
@@ -273,12 +274,6 @@ export function RadarVisualization({
           style={{ marginRight: '10px' }}
           trackUserLocation={true}
           showUserLocation={true}
-          onGeolocate={(evt) => {
-            setUserLocation({
-              latitude: evt.coords.latitude,
-              longitude: evt.coords.longitude
-            });
-          }}
         />
         <ScaleControl />
         <FullscreenControl position="top-right" />
@@ -495,7 +490,7 @@ export function RadarVisualization({
           setIsReportOpen(open);
           if (!open) setEditingReport(null);
         }}
-        userLocation={userLocation ? { lat: userLocation.latitude, lon: userLocation.longitude } : null}
+        userLocation={userLocation ?? null}
         existingReport={editingReport}
       />
     </div >

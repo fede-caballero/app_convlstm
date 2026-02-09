@@ -4,15 +4,19 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #fcfcf9; /* Cream-ish White */
-  --foreground: #262920; /* Dark Olive */
+  --background: #fcfcf9;
+  /* Cream-ish White */
+  --foreground: #262920;
+  /* Dark Olive */
   --card: #ffffff;
   --card-foreground: #262920;
   --popover: #ffffff;
   --popover-foreground: #262920;
-  --primary: #859933; /* Olive Green */
+  --primary: #859933;
+  /* Olive Green */
   --primary-foreground: #ffffff;
-  --secondary: #e0D0A3; /* Cream/Beige */
+  --secondary: #e0D0A3;
+  /* Cream/Beige */
   --secondary-foreground: #262920;
   --muted: #f3f0e6;
   --muted-foreground: #787c70;
@@ -35,15 +39,20 @@
 }
 
 .dark {
-  --background: #1a1c15; /* Warm Dark */
-  --foreground: #e0D0A3; /* Cream Text */
-  --card: #262920; /* Lighter Warm Dark */
+  --background: #1a1c15;
+  /* Warm Dark */
+  --foreground: #e0D0A3;
+  /* Cream Text */
+  --card: #262920;
+  /* Lighter Warm Dark */
   --card-foreground: #e0D0A3;
   --popover: #262920;
   --popover-foreground: #e0D0A3;
-  --primary: #859933; /* Olive Green */
+  --primary: #859933;
+  /* Olive Green */
   --primary-foreground: #ffffff;
-  --secondary: #3a3d34; /* Dark Olive Secondary */
+  --secondary: #3a3d34;
+  /* Dark Olive Secondary */
   --secondary-foreground: #e0D0A3;
   --muted: #3a3d34;
   --muted-foreground: #9ca38f;
@@ -107,6 +116,7 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -115,20 +125,22 @@
 /* Dark Mapbox Popup Customization */
 .dark-popup .maplibregl-popup-content,
 .dark-popup .mapboxgl-popup-content {
-  @apply bg-zinc-950 border border-zinc-800 text-zinc-100 shadow-xl rounded-lg p-0 !important;
+  @apply bg-zinc-950 border border-zinc-800 text-zinc-100 shadow-xl rounded-lg p-0;
 }
 
 .dark-popup .maplibregl-popup-tip,
 .dark-popup .mapboxgl-popup-tip {
-  @apply border-t-zinc-950 !important;
+  @apply border-t-zinc-950;
 }
 
 .dark-popup .maplibregl-popup-close-button,
 .dark-popup .mapboxgl-popup-close-button {
-  @apply text-zinc-400 hover:text-white items-center justify-center hidden; /* Hide default close, use custom if needed or just styling */
+  @apply text-zinc-400 hover:text-white items-center justify-center hidden;
+  /* Hide default close, use custom if needed or just styling */
 }
+
 /* Re-enable close button with better style */
 .dark-popup .maplibregl-popup-close-button,
 .dark-popup .mapboxgl-popup-close-button {
-  @apply flex w-6 h-6 text-xl top-1 right-1 rounded-full hover:bg-white/10 !important;
+  @apply flex w-6 h-6 text-xl top-1 right-1 rounded-full hover:bg-white/10;
 }

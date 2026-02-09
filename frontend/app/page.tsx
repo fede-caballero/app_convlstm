@@ -182,7 +182,7 @@ export default function RadarPredictionRealtime() {
           isProcessing={!!(status?.status?.includes("PROCESSING") || status?.status?.includes("PREDICTING"))}
           reports={showReports ? reports : undefined}
           userLocation={userLocation}
-          onReportUpdate={loadReports}
+          onReportUpdate={fetchData}
         />
 
         {/* Weather Sidebar */}

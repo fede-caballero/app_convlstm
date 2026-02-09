@@ -3,17 +3,19 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle } from "lucide-react"
+import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle, Pencil } from "lucide-react"
 import { ImageWithBounds, WeatherReport, deleteReport } from "@/lib/api"
 import Map, { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, GeolocateControl, MapRef, Popup } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useAuth } from "@/lib/auth-context"
+import { ReportDialog } from "./report-dialog"
 
 interface RadarVisualizationProps {
   inputFiles: ImageWithBounds[]
   predictionFiles: ImageWithBounds[]
   isProcessing: boolean
   reports?: WeatherReport[]
+  onReportUpdate?: () => void
 }
 
 const INITIAL_VIEW_STATE = {
@@ -37,7 +39,13 @@ function haversineDistance(coords1: { lat: number, lon: number }, coords2: { lat
   return R * c;
 }
 
-export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, reports }: RadarVisualizationProps) {
+export function RadarVisualization({
+  inputFiles,
+  predictionFiles,
+  isProcessing = false,
+  reports,
+  onReportUpdate
+}: RadarVisualizationProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [boundariesData, setBoundariesData] = useState<any>(null)
@@ -47,6 +55,8 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, 
     latitude: number,
     properties: any
   } | null>(null)
+  const [editingReport, setEditingReport] = useState<WeatherReport | null>(null)
+  const [isReportOpen, setIsReportOpen] = useState(false)
   const mapRef = useRef<MapRef>(null)
   const { user, token } = useAuth()
   const [showLocationHint, setShowLocationHint] = useState(true)
@@ -142,30 +152,7 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, 
     );
   }, [userLocation, stormCenter]);
 
-  // Check for severe weather (max_dbz > 50)
-  const severeStorm = useMemo(() => {
-    if (!currentImage?.cells) return null;
-    return currentImage.cells.find(c => c.max_dbz >= 50);
-  }, [currentImage]);
 
-  const showHazardAlert = severeStorm && distanceToStorm && distanceToStorm < 100;
-
-  const severeStormSource = useMemo(() => {
-    if (!severeStorm) return null;
-    return {
-      type: "FeatureCollection",
-      features: [{
-        type: "Feature",
-        geometry: {
-          type: "Point",
-          coordinates: [severeStorm.lon, severeStorm.lat]
-        },
-        properties: {
-          max_dbz: severeStorm.max_dbz
-        }
-      }]
-    };
-  }, [severeStorm]);
 
   const boundaryLayerStyle = {
     id: 'boundaries-layer',
@@ -311,47 +298,7 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, 
           </div>
         )}
 
-        {/* Hazard Alert Overlay */}
-        {
-          showHazardAlert && (
-            <div className="absolute top-24 left-1/2 -translate-x-1/2 z-40 bg-red-600/90 text-white px-4 py-2 rounded-lg shadow-lg border border-red-500 flex items-center gap-3 animate-pulse pointer-events-none">
-              <AlertTriangle className="h-6 w-6 text-yellow-300" />
-              <div className="flex flex-col">
-                <span className="font-bold uppercase text-sm">¡Alerta de Tormenta Severa!</span>
-                <span className="text-xs">Granizo probable (&gt;50 dBZ) a {Math.round(distanceToStorm || 0)} km</span>
-              </div>
-            </div>
-          )
-        }
 
-        {/* Severe Storm Marker Layer */}
-        {
-          severeStormSource && (
-            <Source id="severe-storm-source" type="geojson" data={severeStormSource as any}>
-              <Layer
-                id="severe-storm-highlight"
-                type="circle"
-                paint={{
-                  'circle-radius': 15,
-                  'circle-color': 'rgba(255, 0, 0, 0.5)',
-                  'circle-stroke-color': '#ff0000',
-                  'circle-stroke-width': 2,
-                  'circle-blur': 0.5
-                }}
-              />
-              <Layer
-                id="severe-storm-center"
-                type="circle"
-                paint={{
-                  'circle-radius': 5,
-                  'circle-color': '#ffffff',
-                  'circle-stroke-color': '#ff0000',
-                  'circle-stroke-width': 1
-                }}
-              />
-            </Source>
-          )
-        }
 
         {
           boundariesData && (
@@ -380,11 +327,11 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, 
               anchor="bottom"
               onClose={() => setSelectedReport(null)}
               closeOnClick={false}
-              className="z-50 text-black"
+              className="z-50 dark-popup"
             >
-              <div className="p-2 min-w-[200px] max-w-[250px]">
+              <div className="p-2 min-w-[200px] max-w-[250px] text-zinc-100">
                 {selectedReport.properties.image_url && (
-                  <div className="mb-2 rounded-md overflow-hidden h-32 w-full bg-gray-100 relative">
+                  <div className="mb-2 rounded-md overflow-hidden h-32 w-full bg-zinc-800 relative">
                     <img
                       src={`${process.env.NEXT_PUBLIC_API_URL || ''}${selectedReport.properties.image_url}`}
                       alt="Reporte"
@@ -396,10 +343,55 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, 
                     />
                   </div>
                 )}
-                <h3 className="font-bold text-sm uppercase mb-1">{selectedReport.properties.type.replace('_', ' ')}</h3>
-                <p className="text-xs text-gray-500 mb-2">{selectedReport.properties.time} - {selectedReport.properties.username}</p>
+                <div className="flex justify-between items-start">
+                  <h3 className="font-bold text-sm uppercase mb-1 text-zinc-100">{selectedReport.properties.type.replace('_', ' ')}</h3>
+                  <div className="flex gap-1">
+                    {user?.username === selectedReport.properties.username && (
+                      <button
+                        onClick={() => {
+                          const reportToEdit: WeatherReport = {
+                            id: selectedReport.properties.id,
+                            report_type: selectedReport.properties.type,
+                            description: selectedReport.properties.description,
+                            image_url: selectedReport.properties.image_url,
+                            latitude: selectedReport.latitude,
+                            longitude: selectedReport.longitude,
+                            username: selectedReport.properties.username
+                          };
+                          setEditingReport(reportToEdit);
+                          setIsReportOpen(true);
+                          setSelectedReport(null); // Close popup
+                        }}
+                        className="text-zinc-400 hover:text-white p-1"
+                        title="Editar Reporte"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    )}
+                    {user?.role === 'admin' && (
+                      <button
+                        onClick={async () => {
+                          if (confirm("¿Eliminar este reporte permanentemente?")) {
+                            try {
+                              await deleteReport(selectedReport.properties.id, token!);
+                              if (onReportUpdate) onReportUpdate();
+                              setSelectedReport(null);
+                            } catch (e) {
+                              alert("Error al eliminar");
+                            }
+                          }
+                        }}
+                        className="text-red-500 hover:text-red-400 p-1"
+                        title="Eliminar Reporte (Admin)"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p className="text-xs text-zinc-400 mb-2">{selectedReport.properties.time} - {selectedReport.properties.username}</p>
                 {selectedReport.properties.description && (
-                  <p className="text-sm border-t pt-2 mt-1">{selectedReport.properties.description}</p>
+                  <p className="text-sm border-t border-zinc-800 pt-2 mt-1 text-zinc-300">{selectedReport.properties.description}</p>
                 )}
               </div>
             </Popup>
@@ -495,6 +487,17 @@ export function RadarVisualization({ inputFiles, predictionFiles, isProcessing, 
           </div>
         </div>
       </Map >
+
+      {/* Report Dialog */}
+      <ReportDialog
+        open={isReportOpen}
+        onOpenChange={(open) => {
+          setIsReportOpen(open);
+          if (!open) setEditingReport(null);
+        }}
+        userLocation={userLocation ? { lat: userLocation.latitude, lon: userLocation.longitude } : null}
+        existingReport={editingReport}
+      />
     </div >
   )
 }

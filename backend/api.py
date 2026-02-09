@@ -496,7 +496,7 @@ def get_reports():
     try:
         # Join with users to get username of reporter? Maybe useful.
         cursor.execute('''
-            SELECT r.id, r.report_type, r.latitude, r.longitude, r.timestamp, r.description, r.image_url, u.username
+            SELECT r.id, r.user_id, r.report_type, r.latitude, r.longitude, r.timestamp, r.description, r.image_url, u.username
             FROM weather_reports r
             LEFT JOIN users u ON r.user_id = u.id
             WHERE r.timestamp >= ?
@@ -598,15 +598,99 @@ def delete_report(report_id):
         # Check if report exists
         cursor.execute("SELECT id FROM weather_reports WHERE id = ?", (report_id,))
         if not cursor.fetchone():
-             return jsonify({"error": "Report not found"}), 404
+            return jsonify({"error": "Report not found"}), 404
 
-        # Delete (Hard delete for now, or could be soft delete if we added is_active)
-        # Given user request "borrar", hard delete is acceptable for this MVP context.
+        # Delete
         cursor.execute("DELETE FROM weather_reports WHERE id = ?", (report_id,))
         conn.commit()
         return jsonify({"message": "Report deleted successfully"}), 200
     except Exception as e:
         logging.error(f"Error deleting report: {e}")
+        return jsonify({"error": "Internal error"}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/reports/<int:report_id>', methods=['PUT'])
+def update_report(report_id):
+    # 1. Verify Auth
+    token = request.headers.get('Authorization')
+    if not token or not token.startswith("Bearer "):
+        return jsonify({"error": "Missing token"}), 401
+    
+    token = token.split(" ")[1]
+    payload = auth.decode_access_token(token)
+    if not payload:
+        return jsonify({"error": "Invalid token"}), 401
+
+    user_id = payload.get('id')
+    user_role = payload.get('role')
+
+    # 2. Get Data
+    description = request.form.get('description') or (request.json.get('description') if request.is_json else None)
+
+    image_url = None
+    if 'image' in request.files:
+        file = request.files['image']
+        if file and file.filename != '':
+            filename = secure_filename(file.filename)
+            unique_filename = f"{int(datetime.now().timestamp())}_{filename}"
+            save_path = os.path.join(REPORTS_UPLOAD_DIR, unique_filename)
+            file.save(save_path)
+            image_url = f"/api/uploads/{unique_filename}"
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        # 3. Check Ownership
+        cursor.execute("SELECT user_id, image_url FROM weather_reports WHERE id = ?", (report_id,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({"error": "Report not found"}), 404
+        
+        owner_id, current_image_url = row
+
+        # Only owner can edit (Admins can delete, but maybe not edit content? Let's restrict to owner for now)
+        if owner_id != user_id:
+             return jsonify({"error": "Unauthorized: You can only edit your own reports"}), 403
+
+        # 4. Update
+        # If new image, use it. If not, keep old (unless maybe explicitly cleared? MVP: overwrite if new provided)
+        final_image_url = image_url if image_url else current_image_url
+        
+        # If description is None (not provided), keep old? Or allow clearing?
+        # If frontend sends description="", it means clear. If it sends nothing, maybe keep old.
+        # Let's assume frontend sends strictly what it wants to set.
+        # But wait, multipart/form-data might not send 'description' key if empty?
+        # Let's update description ONLY if it's not None. If it's empty string, we set it to empty string.
+        
+        query_parts = []
+        params = []
+
+        if description is not None:
+             query_parts.append("description = ?")
+             params.append(description)
+        
+        if image_url is not None:
+             query_parts.append("image_url = ?")
+             params.append(image_url)
+
+        if not query_parts:
+             return jsonify({"message": "No changes detected"}), 200
+
+        params.append(report_id)
+        sql = f"UPDATE weather_reports SET {', '.join(query_parts)} WHERE id = ?"
+        
+        cursor.execute(sql, tuple(params))
+        conn.commit()
+        
+        return jsonify({
+            "message": "Report updated successfully", 
+            "image_url": final_image_url,
+            "description": description 
+        }), 200
+
+    except Exception as e:
+        logging.error(f"Error updating report: {e}")
         return jsonify({"error": "Internal error"}), 500
     finally:
         conn.close()

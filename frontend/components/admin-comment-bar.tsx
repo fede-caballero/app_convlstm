@@ -115,11 +115,11 @@ export function AdminCommentBar() {
                             {hasActiveAlerts && <Badge variant="secondary" className="ml-2 h-5 min-w-[1.25rem] px-1 bg-white/20 text-white">{visibleComments.length}</Badge>}
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[340px] sm:w-[400px] p-0 bg-black/90 backdrop-blur-xl border-white/10 text-white" align="center" side="bottom">
+                    <PopoverContent className="w-[340px] sm:w-[400px] p-0 bg-black/40 backdrop-blur-md border-white/10 text-white shadow-2xl" align="center" side="bottom">
                         <div className="p-4 space-y-4">
                             <div className="flex justify-between items-center border-b border-white/10 pb-2">
                                 <h4 className="font-semibold text-lg">Centro de Alertas</h4>
-                                {isAdmin && <Badge variant="outline" className="text-xs">Admin Mode</Badge>}
+                                {isAdmin && <Badge variant="outline" className="text-xs border-white/20 text-white">Admin Mode</Badge>}
                             </div>
 
                             {/* ADMIN: Create New */}

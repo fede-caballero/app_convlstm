@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import Link from "next/link"
 import { API_BASE_URL } from "@/lib/api"
 
+import { LightningBackground } from "@/components/lightning-background"
+
 import { GoogleLoginButton } from "@/components/google-login-button"
 
 export default function LoginPage() {
@@ -19,77 +21,90 @@ export default function LoginPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError("")
-
         try {
             const res = await fetch(`${API_BASE_URL}/auth/login`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username, password }),
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
             })
 
-            const data = await res.json()
-
-            if (!res.ok) {
-                throw new Error(data.error || "Login failed")
+            if (res.ok) {
+                const data = await res.json()
+                login(data.access_token, data.role, data.username)
+            } else {
+                const errData = await res.json()
+                setError(errData.detail || "Error al iniciar sesión")
             }
-
-            login(data.access_token, data.role, data.username)
-        } catch (err: any) {
-            setError(err.message)
+        } catch (error) {
+            setError("Error de conexión")
         }
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-background p-4">
-            <Card className="w-full max-w-md border-border shadow-lg">
+        <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4 font-sans text-zinc-100 relative overflow-hidden">
+            <LightningBackground />
+            <Card className="w-full max-w-md border-zinc-800 bg-zinc-900/80 backdrop-blur-md shadow-2xl z-10">
                 <CardHeader className="space-y-1">
-                    <CardTitle className="text-2xl font-bold text-center text-primary">Sistema Radar</CardTitle>
-                    <CardDescription className="text-center">
+                    <CardTitle className="text-2xl font-bold text-center text-primary tracking-wide">Sistema Radar</CardTitle>
+                    <CardDescription className="text-center text-zinc-400">
                         Ingresa tus credenciales para acceder
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">
+                            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="username">Usuario</label>
                             <Input
+                                id="username"
                                 type="text"
-                                placeholder="Usuario"
+                                placeholder="usuario"
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
                                 required
-                                className="bg-muted border-input"
+                                className="bg-zinc-800 border-zinc-700 text-zinc-100 focus:ring-primary focus:border-primary placeholder:text-zinc-500"
                             />
                         </div>
                         <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="password">Contraseña</label>
+                            </div>
                             <Input
+                                id="password"
                                 type="password"
-                                placeholder="Contraseña"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
-                                className="bg-muted border-input"
+                                className="bg-zinc-800 border-zinc-700 text-zinc-100 focus:ring-primary focus:border-primary"
                             />
                         </div>
-                        {error && <p className="text-sm text-destructive text-center">{error}</p>}
-                        <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+
+                        {error && <div className="text-red-400 text-sm text-center bg-red-900/20 p-2 rounded border border-red-900/50">{error}</div>}
+
+                        <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-lg shadow-primary/20">
                             Iniciar Sesión
                         </Button>
 
-                        <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-background px-2 text-muted-foreground">O continúa con</span>
+                        <div className="relative my-4">
+                            <div className="absolute inset-0 flex items-center">
+                                <span className="w-full border-t border-zinc-700" />
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-zinc-900 px-2 text-zinc-400">O continuar con</span>
+                            </div>
                         </div>
 
                         <GoogleLoginButton />
-
-                        <div className="text-center text-sm text-muted-foreground mt-4">
-                            ¿No tienes cuenta?{" "}
-                            <Link href="/register" className="text-primary hover:underline">
-                                Regístrate
-                            </Link>
-                        </div>
                     </form>
+
+                    <div className="mt-4 text-center text-sm">
+                        ¿No tienes una cuenta?{" "}
+                        <Link className="underline hover:text-primary transition-colors" href="/register">
+                            Regístrate
+                        </Link>
+                    </div>
                 </CardContent>
             </Card>
         </div>
     )
 }
+

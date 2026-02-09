@@ -111,3 +111,24 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Dark Mapbox Popup Customization */
+.dark-popup .maplibregl-popup-content,
+.dark-popup .mapboxgl-popup-content {
+  @apply bg-zinc-950 border border-zinc-800 text-zinc-100 shadow-xl rounded-lg p-0 !important;
+}
+
+.dark-popup .maplibregl-popup-tip,
+.dark-popup .mapboxgl-popup-tip {
+  @apply border-t-zinc-950 !important;
+}
+
+.dark-popup .maplibregl-popup-close-button,
+.dark-popup .mapboxgl-popup-close-button {
+  @apply text-zinc-400 hover:text-white items-center justify-center hidden; /* Hide default close, use custom if needed or just styling */
+}
+/* Re-enable close button with better style */
+.dark-popup .maplibregl-popup-close-button,
+.dark-popup .mapboxgl-popup-close-button {
+  @apply flex w-6 h-6 text-xl top-1 right-1 rounded-full hover:bg-white/10 !important;
+}

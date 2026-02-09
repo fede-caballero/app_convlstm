@@ -14,6 +14,7 @@ import { AdminCommentBar } from "@/components/admin-comment-bar"
 import { fetchImages, fetchStatus, ApiStatus, ApiImages, StormCell, fetchReports, WeatherReport } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { ReportDialog } from "@/components/report-dialog"
+import { WeatherSidebar } from "@/components/weather-sidebar"
 import Link from "next/link"
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -180,7 +181,12 @@ export default function RadarPredictionRealtime() {
           predictionFiles={images.prediction_images}
           isProcessing={!!(status?.status?.includes("PROCESSING") || status?.status?.includes("PREDICTING"))}
           reports={showReports ? reports : undefined}
+          userLocation={userLocation}
+          onReportUpdate={loadReports}
         />
+
+        {/* Weather Sidebar */}
+        <WeatherSidebar />
       </div>
 
       {/* Floating Navbar & Alerts - Z-Index Higher than Map */}

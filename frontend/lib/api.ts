@@ -177,3 +177,21 @@ export const deleteReport = async (reportId: number, token: string): Promise<voi
     throw new Error("Failed to delete report");
   }
 };
+
+export const updateReport = async (reportId: number, data: { description?: string, image?: File }, token: string): Promise<void> => {
+  const formData = new FormData();
+  if (data.description !== undefined) formData.append('description', data.description);
+  if (data.image) formData.append('image', data.image);
+
+  const res = await fetch(`${API_BASE_URL}/api/reports/${reportId}`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+    body: formData
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to update report");
+  }
+};

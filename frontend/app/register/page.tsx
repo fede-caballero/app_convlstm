@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import Link from "next/link"
 import { API_BASE_URL } from "@/lib/api"
 import { GoogleLoginButton } from "@/components/google-login-button"
+import { LightningBackground } from "@/components/lightning-background"
 
 export default function RegisterPage() {
     const [username, setUsername] = useState("")
@@ -25,109 +26,104 @@ export default function RegisterPage() {
 
         try {
             const res = await fetch(`${API_BASE_URL}/auth/register`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     username,
-                    password,
+                    password, // Note: In a real app we should validate password strength
                     email,
                     first_name: firstName,
-                    last_name: lastName
-                }),
+                    last_name: lastName,
+                    role: 'viewer' // Default role
+                })
             })
 
-            const data = await res.json()
-
-            if (!res.ok) {
-                throw new Error(data.error || "Registration failed")
+            if (res.ok) {
+                // Auto login or redirect to login
+                router.push('/login?registered=true')
+            } else {
+                const errData = await res.json()
+                setError(errData.detail || "Error al registrarse")
             }
-
-            router.push('/login')
-        } catch (err: any) {
-            setError(err.message)
+        } catch (error) {
+            setError("Error de conexión con el servidor")
         }
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-background p-4">
-            <Card className="w-full max-w-md border-border shadow-lg">
+        <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4 font-sans text-zinc-100 relative overflow-hidden">
+            <LightningBackground />
+            <Card className="w-full max-w-md border-zinc-800 bg-zinc-900/80 backdrop-blur-md shadow-2xl z-10">
                 <CardHeader className="space-y-1">
-                    <CardTitle className="text-2xl font-bold text-center text-primary">Crear Cuenta</CardTitle>
-                    <CardDescription className="text-center">
+                    <CardTitle className="text-2xl font-bold text-center text-primary tracking-wide">Crear Cuenta</CardTitle>
+                    <CardDescription className="text-center text-zinc-400">
                         Regístrate para acceder al sistema
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Input
-                                    type="text"
-                                    placeholder="Nombre"
-                                    value={firstName}
-                                    onChange={(e) => setFirstName(e.target.value)}
-                                    className="bg-muted border-input"
+                                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="first-name">Nombre</label>
+                                <Input id="first-name" placeholder="Juan" required
+                                    value={firstName} onChange={(e) => setFirstName(e.target.value)}
+                                    className="bg-zinc-800 border-zinc-700 text-zinc-100 focus:ring-primary focus:border-primary placeholder:text-zinc-500"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Input
-                                    type="text"
-                                    placeholder="Apellido"
-                                    value={lastName}
-                                    onChange={(e) => setLastName(e.target.value)}
-                                    className="bg-muted border-input"
+                                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="last-name">Apellido</label>
+                                <Input id="last-name" placeholder="Pérez" required
+                                    value={lastName} onChange={(e) => setLastName(e.target.value)}
+                                    className="bg-zinc-800 border-zinc-700 text-zinc-100 focus:ring-primary focus:border-primary placeholder:text-zinc-500"
                                 />
                             </div>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="email">Email</label>
+                            <Input id="email" type="email" placeholder="m@ejemplo.com" required
+                                value={email} onChange={(e) => setEmail(e.target.value)}
+                                className="bg-zinc-800 border-zinc-700 text-zinc-100 focus:ring-primary focus:border-primary placeholder:text-zinc-500"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="username">Usuario</label>
+                            <Input id="username" placeholder="juanperez" required
+                                value={username} onChange={(e) => setUsername(e.target.value)}
+                                className="bg-zinc-800 border-zinc-700 text-zinc-100 focus:ring-primary focus:border-primary placeholder:text-zinc-500"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="password">Contraseña</label>
+                            <Input id="password" type="password" required
+                                value={password} onChange={(e) => setPassword(e.target.value)}
+                                className="bg-zinc-800 border-zinc-700 text-zinc-100 focus:ring-primary focus:border-primary"
+                            />
                         </div>
 
-                        <div className="space-y-2">
-                            <Input
-                                type="text"
-                                placeholder="Usuario"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                required
-                                className="bg-muted border-input"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Input
-                                type="email"
-                                placeholder="Correo Electrónico"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                                className="bg-muted border-input"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Input
-                                type="password"
-                                placeholder="Contraseña"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                                className="bg-muted border-input"
-                            />
-                        </div>
-                        {error && <p className="text-sm text-destructive text-center">{error}</p>}
-                        <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+                        {error && <div className="text-red-400 text-sm text-center bg-red-900/20 p-2 rounded border border-red-900/50">{error}</div>}
+
+                        <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-lg shadow-primary/20">
                             Registrarse
                         </Button>
 
-                        <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-background px-2 text-muted-foreground">O continúa con</span>
+                        <div className="relative my-4">
+                            <div className="absolute inset-0 flex items-center">
+                                <span className="w-full border-t border-zinc-700" />
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-zinc-900 px-2 text-zinc-400">O continuar con</span>
+                            </div>
                         </div>
 
                         <GoogleLoginButton />
 
-                        <div className="text-center text-sm text-muted-foreground mt-4">
-                            ¿Ya tienes cuenta?{" "}
-                            <Link href="/login" className="text-primary hover:underline">
-                                Inicia Sesión
-                            </Link>
-                        </div>
                     </form>
+                    <div className="mt-4 text-center text-sm">
+                        ¿Ya tienes una cuenta?{" "}
+                        <Link className="underline hover:text-primary transition-colors" href="/login">
+                            Iniciar Sesión
+                        </Link>
+                    </div>
                 </CardContent>
             </Card>
         </div>

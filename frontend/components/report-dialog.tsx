@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
     Dialog,
@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { CloudRain, CloudLightning, CloudHail, Sun, AlertTriangle, MapPin, Camera, X } from "lucide-react" // Icons
-import { submitReport, WeatherReport } from "@/lib/api"
+import { submitReport, updateReport, WeatherReport } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/components/ui/use-toast" // Assuming we have toast, otherwise alert/console
 
@@ -22,6 +22,7 @@ interface ReportDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
     userLocation: { lat: number, lon: number } | null
+    existingReport?: WeatherReport | null // Optional: if provided, we are editing
 }
 
 // Report Types Configuration
@@ -33,7 +34,7 @@ const REPORT_TYPES = [
     { id: 'cielo_despejado', label: 'Cielo Despejado', icon: Sun, color: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50' },
 ]
 
-export function ReportDialog({ open, onOpenChange, userLocation }: ReportDialogProps) {
+export function ReportDialog({ open, onOpenChange, userLocation, existingReport }: ReportDialogProps) {
     const [selectedType, setSelectedType] = useState<string | null>(null)
     const [description, setDescription] = useState("")
     const [selectedImage, setSelectedImage] = useState<File | null>(null)
@@ -41,30 +42,67 @@ export function ReportDialog({ open, onOpenChange, userLocation }: ReportDialogP
     const [isSubmitting, setIsSubmitting] = useState(false)
     const { token } = useAuth()
 
+    // Populate form if editing
+    useEffect(() => {
+        if (open && existingReport) {
+            setSelectedType(existingReport.report_type)
+            setDescription(existingReport.description || "")
+            if (existingReport.image_url) {
+                setPreviewUrl(`${process.env.NEXT_PUBLIC_API_URL || ''}${existingReport.image_url}`)
+            } else {
+                setPreviewUrl(null)
+            }
+            setSelectedImage(null) // Reset file input
+        } else if (open && !existingReport) {
+            // Reset if opening in create mode
+            setSelectedType(null)
+            setDescription("")
+            setSelectedImage(null)
+            setPreviewUrl(null)
+        }
+    }, [open, existingReport])
+
     const handleSubmit = async () => {
-        if (!selectedType || !userLocation || !token) return;
+        if (!selectedType || !token) return;
+        // If creating, we need location. If editing, we keep original location (userLocation might be current user loc, not report loc)
+        if (!existingReport && !userLocation) return;
 
         setIsSubmitting(true);
         try {
-            const report: WeatherReport = {
-                report_type: selectedType,
-                description: description,
-                latitude: userLocation.lat,
-                longitude: userLocation.lon,
-                image: selectedImage
-            };
-            await submitReport(report, token);
+            if (existingReport) {
+                // UPDATE MODE
+                await updateReport(
+                    existingReport.id!,
+                    {
+                        description,
+                        image: selectedImage || undefined // Only send image if new one selected
+                    },
+                    token
+                );
+                alert("Reporte actualizado con éxito.");
+            } else {
+                // CREATE MODE
+                const report: WeatherReport = {
+                    report_type: selectedType,
+                    description: description,
+                    latitude: userLocation!.lat,
+                    longitude: userLocation!.lon,
+                    image: selectedImage
+                };
+                await submitReport(report, token);
+                alert("Reporte enviado con éxito. ¡Gracias por colaborar!");
+            }
 
-            // Success
+            // Success cleanup
             setSelectedType(null);
             setDescription("");
             setSelectedImage(null);
             setPreviewUrl(null);
             onOpenChange(false);
-            alert("Reporte enviado con éxito. ¡Gracias por colaborar!"); // Simple feedback
+
         } catch (error) {
             console.error("Error submitting report:", error);
-            alert("Error al enviar el reporte. Inténtalo de nuevo.");
+            alert("Error al procesar el reporte. Inténtalo de nuevo.");
         } finally {
             setIsSubmitting(false);
         }
@@ -74,9 +112,9 @@ export function ReportDialog({ open, onOpenChange, userLocation }: ReportDialogP
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md bg-zinc-950 border-zinc-800 text-zinc-100">
                 <DialogHeader>
-                    <DialogTitle>Reportar Clima</DialogTitle>
+                    <DialogTitle>{existingReport ? "Editar Reporte" : "Reportar Clima"}</DialogTitle>
                     <DialogDescription>
-                        ¿Qué está pasando en tu ubicación ahora?
+                        {existingReport ? "Modifica la descripción o la foto." : "¿Qué está pasando en tu ubicación ahora?"}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -84,13 +122,26 @@ export function ReportDialog({ open, onOpenChange, userLocation }: ReportDialogP
                     {REPORT_TYPES.map((type) => {
                         const Icon = type.icon
                         const isSelected = selectedType === type.id
+                        // In edit mode, maybe disable changing type? Or allow it? Backend supports it?
+                        // Backend update only looks for description and image in my implementation!
+                        // "description = request.form.get..."
+                        // "image_url = ..."
+                        // It does NOT update report_type! 
+                        // So I should disable type selection in edit mode or warn user it won't change.
+                        // Let's visualy disable it or just hide the grid if editing to simplify?
+                        // Or just disable interaction.
+                        const isDisabled = !!existingReport;
+
                         return (
                             <button
                                 key={type.id}
-                                onClick={() => setSelectedType(type.id)}
+                                disabled={isDisabled}
+                                onClick={() => !isDisabled && setSelectedType(type.id)}
                                 className={`
                   flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all
                   ${isSelected ? `${type.color} ring-2 ring-offset-2 ring-offset-black ring-white/20` : 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800'}
+                  ${isDisabled && !isSelected ? 'opacity-50 cursor-not-allowed' : ''}
+                  ${isDisabled && isSelected ? 'cursor-default' : ''}
                 `}
                             >
                                 <Icon className={`w-8 h-8 mb-2 ${isSelected ? 'animate-pulse' : 'text-zinc-400'}`} />
@@ -129,7 +180,7 @@ export function ReportDialog({ open, onOpenChange, userLocation }: ReportDialogP
                                 className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg cursor-pointer text-sm text-zinc-300 transition-colors border border-zinc-700"
                             >
                                 <Camera className="w-4 h-4" />
-                                <span>Adjuntar Foto</span>
+                                <span>{existingReport ? "Cambiar Foto" : "Adjuntar Foto"}</span>
                             </label>
                             <span className="text-xs text-zinc-500 italic">Opcional</span>
                         </div>
@@ -156,10 +207,10 @@ export function ReportDialog({ open, onOpenChange, userLocation }: ReportDialogP
                     <Button
                         type="button"
                         onClick={handleSubmit}
-                        disabled={!selectedType || isSubmitting || !userLocation}
+                        disabled={!selectedType || isSubmitting || (!existingReport && !userLocation)}
                         className="bg-primary hover:bg-primary/90 text-white"
                     >
-                        {isSubmitting ? "Enviando..." : "Enviar Reporte"}
+                        {isSubmitting ? "Enviando..." : (existingReport ? "Guardar Cambios" : "Enviar Reporte")}
                     </Button>
                 </DialogFooter>
             </DialogContent>

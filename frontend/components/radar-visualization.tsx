@@ -338,7 +338,7 @@ export function RadarVisualization({
                     />
                   </div>
                 )}
-                <div className="flex justify-between items-start">
+                <div className="flex justify-between items-start pr-6">
                   <h3 className="font-bold text-sm uppercase mb-1 text-zinc-100">{selectedReport.properties.type.replace('_', ' ')}</h3>
                   <div className="flex gap-1">
                     {user?.username === selectedReport.properties.username && (

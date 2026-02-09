@@ -286,6 +286,7 @@ def get_images():
                         with open(json_path, 'r') as f:
                             data = json.load(f)
                             bounds = data.get('bounds')
+                            cells = data.get('cells')
                     except Exception as e:
                         logging.warning(f"No se pudo leer o parsear el JSON '{json_path}': {e}")
                 
@@ -318,7 +319,8 @@ def get_images():
                 if bounds:
                     item = {
                         "url": base_url + filename,
-                        "bounds": bounds
+                        "bounds": bounds,
+                        "cells": cells
                     }
                     if target_time:
                         item["target_time"] = target_time

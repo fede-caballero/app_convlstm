@@ -55,8 +55,11 @@ export default function RegisterPage() {
             <LightningBackground />
             <Card className="w-full max-w-md border-zinc-800 bg-zinc-900/80 backdrop-blur-md shadow-2xl z-10">
                 <CardHeader className="space-y-1">
-                    <CardTitle className="text-2xl font-bold text-center text-primary tracking-wide">Crear Cuenta</CardTitle>
-                    <CardDescription className="text-center text-zinc-400">
+                    <div className="flex justify-center mb-4">
+                        <img src="/logo.png" alt="Hailcast Logo" className="w-24 h-24 object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]" />
+                    </div>
+                    <CardTitle className="text-2xl font-bold text-center text-white tracking-wide drop-shadow-md">Crear Cuenta</CardTitle>
+                    <CardDescription className="text-center text-gray-200 font-medium">
                         Regístrate para acceder al sistema
                     </CardDescription>
                 </CardHeader>

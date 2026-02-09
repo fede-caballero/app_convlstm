@@ -45,15 +45,18 @@ export default function LoginPage() {
             <LightningBackground />
             <Card className="w-full max-w-md border-zinc-800 bg-zinc-900/80 backdrop-blur-md shadow-2xl z-10">
                 <CardHeader className="space-y-1">
-                    <CardTitle className="text-2xl font-bold text-center text-primary tracking-wide">Sistema Radar</CardTitle>
-                    <CardDescription className="text-center text-zinc-400">
+                    <CardTitle className="text-2xl font-bold text-center text-white tracking-wide drop-shadow-md">Sistema Radar</CardTitle>
+                    <div className="flex justify-center my-4">
+                        <img src="/logo.png" alt="Hailcast Logo" className="w-32 h-32 object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]" />
+                    </div>
+                    <CardDescription className="text-center text-gray-200 font-medium">
                         Ingresa tus credenciales para acceder
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="username">Usuario</label>
+                            <label className="text-sm font-bold text-gray-200 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="username">Usuario</label>
                             <Input
                                 id="username"
                                 type="text"
@@ -61,12 +64,12 @@ export default function LoginPage() {
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
                                 required
-                                className="bg-zinc-800 border-zinc-700 text-zinc-100 focus:ring-primary focus:border-primary placeholder:text-zinc-500"
+                                className="bg-zinc-800/80 border-zinc-600 text-white focus:ring-primary focus:border-primary placeholder:text-gray-500 font-medium"
                             />
                         </div>
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="password">Contraseña</label>
+                                <label className="text-sm font-bold text-gray-200 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="password">Contraseña</label>
                             </div>
                             <Input
                                 id="password"

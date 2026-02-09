@@ -106,13 +106,16 @@ export function AdminCommentBar() {
                 <Popover open={isOpen} onOpenChange={setIsOpen}>
                     <PopoverTrigger asChild>
                         <Button
-                            variant={hasActiveAlerts ? "destructive" : "secondary"}
-                            className="rounded-full shadow-lg backdrop-blur-md border border-white/20 h-9"
+                            variant="ghost"
+                            className={`rounded-full shadow-lg backdrop-blur-md border border-white/20 h-9 transition-colors ${hasActiveAlerts
+                                    ? "bg-red-500/20 text-red-200 border-red-500/50 hover:bg-red-500/30"
+                                    : "bg-black/40 text-gray-300 hover:bg-white/10 hover:text-white"
+                                }`}
                             size="sm"
                         >
-                            <Bell className={`w-4 h-4 mr-2 ${hasActiveAlerts ? 'animate-pulse' : ''}`} />
+                            <Bell className={`w-4 h-4 mr-2 ${hasActiveAlerts ? 'animate-pulse text-red-400' : ''}`} />
                             Alertas
-                            {hasActiveAlerts && <Badge variant="secondary" className="ml-2 h-5 min-w-[1.25rem] px-1 bg-white/20 text-white">{visibleComments.length}</Badge>}
+                            {hasActiveAlerts && <Badge variant="secondary" className="ml-2 h-5 min-w-[1.25rem] px-1 bg-red-500 text-white border-none">{visibleComments.length}</Badge>}
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-[340px] sm:w-[400px] p-0 bg-black/40 backdrop-blur-md border-white/10 text-white shadow-2xl" align="center" side="bottom">

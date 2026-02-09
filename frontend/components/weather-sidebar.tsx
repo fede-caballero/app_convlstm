@@ -82,7 +82,7 @@ export function WeatherSidebar() {
     const { current, hourly } = weather
 
     return (
-        <div className={`absolute top-20 right-4 z-30 transition-all duration-300 ${isOpen ? 'w-80' : 'w-auto'}`}>
+        <div className={`absolute top-20 left-4 z-30 transition-all duration-300 ${isOpen ? 'w-80' : 'w-auto'}`}>
             <Card className="bg-black/40 backdrop-blur-md border-white/10 text-white shadow-2xl overflow-hidden">
                 <div
                     className="p-3 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors"

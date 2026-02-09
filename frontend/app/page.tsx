@@ -49,6 +49,7 @@ export default function RadarPredictionRealtime() {
   const [userLocation, setUserLocation] = useState<{ lat: number, lon: number } | null>(null)
   const [nearestStorm, setNearestStorm] = useState<{ distance: number, cell: StormCell } | null>(null)
   const [locationError, setLocationError] = useState<string | null>(null)
+  const [showStormAlert, setShowStormAlert] = useState(false)
 
   // Geolocation with Fallback Strategy
   useEffect(() => {
@@ -348,27 +349,43 @@ export default function RadarPredictionRealtime() {
         </div>
       )}
 
-      {/* Storm Distance Alert (Floating) */}
+      {/* Storm Alert Section */}
       {nearestStorm && (
-        <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-40 w-auto">
-          <div className="flex items-center gap-3 px-4 py-2 bg-red-600/90 backdrop-blur-md text-white rounded-full shadow-lg border border-red-400/50 animate-in slide-in-from-bottom-5">
-            <Zap className="h-5 w-5 text-yellow-300 fill-yellow-300 animate-pulse" />
-            <div className="flex flex-col">
-              <span className="text-xs font-bold uppercase tracking-wider text-red-100">Tormenta Detectada</span>
-              <span className="text-sm font-bold">A {nearestStorm.distance.toFixed(1)} km</span>
+        <div className="absolute bottom-64 left-4 z-50 flex flex-col items-start gap-2">
+
+          {/* Detailed Card (Toggled) */}
+          {showStormAlert && (
+            <div className="mb-2 ml-14 animate-in fade-in slide-in-from-bottom-2">
+              <div className="flex items-center gap-3 px-4 py-3 bg-red-950/90 backdrop-blur-xl text-white rounded-xl shadow-2xl border border-red-500/50 w-64">
+                <Zap className="h-8 w-8 text-yellow-400 fill-yellow-400 animate-pulse" />
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold uppercase tracking-wider text-red-200">Tormenta Detectada</span>
+                  <span className="text-lg font-black tracking-tight">{nearestStorm.distance.toFixed(1)} km</span>
+                  <span className="text-[10px] text-red-300">Se recomienda precaución.</span>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Toggle Button (Red Circle) */}
+          <Button
+            onClick={() => setShowStormAlert(!showStormAlert)}
+            className={`h-14 w-14 rounded-full shadow-[0_0_20px_rgba(220,38,38,0.6)] border-2 flex flex-col items-center justify-center gap-0.5 transition-all duration-300 ${showStormAlert ? 'bg-white text-red-600 border-white' : 'bg-red-600 hover:bg-red-700 text-white border-red-400/50'}`}
+          >
+            <Zap className={`h-6 w-6 ${showStormAlert ? 'text-red-600 fill-current' : 'text-yellow-300 fill-yellow-300 animate-pulse'}`} />
+            <span className="text-[8px] font-bold uppercase">{showStormAlert ? 'Cerrar' : 'Alerta'}</span>
+          </Button>
         </div>
       )}
 
-      {/* FAB - Report Button (Bottom Left) - Moved up to avoid text overlap */}
+      {/* FAB - Report Button (Bottom Left) */}
       {user && (
         <div className="absolute bottom-48 left-4 z-50">
           <Button
             onClick={() => setIsReportDialogOpen(true)}
-            className="h-14 w-14 rounded-full bg-red-600 hover:bg-red-700 shadow-[0_0_20px_rgba(220,38,38,0.5)] border-2 border-red-400/50 flex flex-col items-center justify-center gap-0.5"
+            className="h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-700 shadow-[0_0_20px_rgba(37,99,235,0.5)] border-2 border-blue-400/50 flex flex-col items-center justify-center gap-0.5"
           >
-            <AlertCircle className="h-6 w-6 text-white animate-pulse" />
+            <AlertCircle className="h-6 w-6 text-white" />
             <span className="text-[9px] font-bold text-white uppercase">Reportar</span>
           </Button>
         </div>

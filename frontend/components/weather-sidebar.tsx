@@ -71,7 +71,7 @@ export function WeatherSidebar() {
     }, [location])
 
     if (loading) {
-        return <div className="absolute top-4 right-4 z-40 bg-black/50 p-4 rounded-xl text-white backdrop-blur-md w-64">
+        return <div className="absolute top-20 left-4 z-40 bg-black/50 p-4 rounded-xl text-white backdrop-blur-md w-64">
             <Skeleton className="h-6 w-3/4 mb-4 bg-white/20" />
             <Skeleton className="h-20 w-full bg-white/10" />
         </div>

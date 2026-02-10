@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Cloud, CloudRain, Thermometer, Wind, Droplets, ArrowRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -21,33 +21,16 @@ interface WeatherData {
     }
 }
 
-export function WeatherSidebar() {
+export function WeatherSidebar({ userLocation }: { userLocation: { lat: number, lon: number } | null }) {
     const [weather, setWeather] = useState<WeatherData | null>(null)
     const [loading, setLoading] = useState(true)
     const [isOpen, setIsOpen] = useState(false) // Collapsible state
-    const [location, setLocation] = useState<{ lat: number, lon: number, name: string }>({
-        lat: -34.6177,
-        lon: -68.3301,
-        name: "San Rafael" // Fallback
-    })
 
-    useEffect(() => {
-        // Try to get user location
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    setLocation({
-                        lat: position.coords.latitude,
-                        lon: position.coords.longitude,
-                        name: "Mi Ubicación"
-                    })
-                },
-                (error) => {
-                    console.log("Geolocation denied or error, using default.", error)
-                }
-            )
-        }
-    }, [])
+    const location = useMemo(() => {
+        return userLocation
+            ? { lat: userLocation.lat, lon: userLocation.lon, name: "Mi Ubicación" }
+            : { lat: -34.6177, lon: -68.3301, name: "San Rafael" } // Fallback
+    }, [userLocation?.lat, userLocation?.lon])
 
     useEffect(() => {
         if (!location) return;

@@ -189,7 +189,7 @@ export default function RadarPredictionRealtime() {
         />
 
         {/* Weather Sidebar */}
-        <WeatherSidebar />
+        <WeatherSidebar userLocation={userLocation} />
       </div>
 
       {/* Floating Navbar & Alerts - Z-Index Higher than Map */}

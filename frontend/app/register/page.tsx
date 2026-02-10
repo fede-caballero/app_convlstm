@@ -67,14 +67,14 @@ export default function RegisterPage() {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="first-name">Nombre</label>
+                                <label className="text-sm font-bold text-white leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="first-name">Nombre</label>
                                 <Input id="first-name" placeholder="Juan" required
                                     value={firstName} onChange={(e) => setFirstName(e.target.value)}
                                     className="bg-zinc-800 border-zinc-700 text-zinc-100 focus:ring-primary focus:border-primary placeholder:text-zinc-500"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="last-name">Apellido</label>
+                                <label className="text-sm font-bold text-white leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="last-name">Apellido</label>
                                 <Input id="last-name" placeholder="Pérez" required
                                     value={lastName} onChange={(e) => setLastName(e.target.value)}
                                     className="bg-zinc-800 border-zinc-700 text-zinc-100 focus:ring-primary focus:border-primary placeholder:text-zinc-500"
@@ -82,21 +82,21 @@ export default function RegisterPage() {
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="email">Email</label>
+                            <label className="text-sm font-bold text-white leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="email">Email</label>
                             <Input id="email" type="email" placeholder="m@ejemplo.com" required
                                 value={email} onChange={(e) => setEmail(e.target.value)}
                                 className="bg-zinc-800 border-zinc-700 text-zinc-100 focus:ring-primary focus:border-primary placeholder:text-zinc-500"
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="username">Usuario</label>
+                            <label className="text-sm font-bold text-white leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="username">Usuario</label>
                             <Input id="username" placeholder="juanperez" required
                                 value={username} onChange={(e) => setUsername(e.target.value)}
                                 className="bg-zinc-800 border-zinc-700 text-zinc-100 focus:ring-primary focus:border-primary placeholder:text-zinc-500"
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="password">Contraseña</label>
+                            <label className="text-sm font-bold text-white leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="password">Contraseña</label>
                             <Input id="password" type="password" required
                                 value={password} onChange={(e) => setPassword(e.target.value)}
                                 className="bg-zinc-800 border-zinc-700 text-zinc-100 focus:ring-primary focus:border-primary"

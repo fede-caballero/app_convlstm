@@ -60,7 +60,7 @@ export default function RegisterPage() {
                     </div>
                     <CardTitle className="text-2xl font-bold text-center text-white tracking-wide drop-shadow-md">Crear Cuenta</CardTitle>
                     <CardDescription className="text-center text-gray-200 font-medium">
-                        Regístrate para acceder al sistema
+                        Registrate para acceder al sistema
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -114,16 +114,16 @@ export default function RegisterPage() {
                                 <span className="w-full border-t border-zinc-700" />
                             </div>
                             <div className="relative flex justify-center text-xs uppercase">
-                                <span className="bg-zinc-900 px-2 text-zinc-400">O continuar con</span>
+                                <span className="bg-zinc-900 px-2 text-gray-300">O continuar con</span>
                             </div>
                         </div>
 
                         <GoogleLoginButton />
 
                     </form>
-                    <div className="mt-4 text-center text-sm">
+                    <div className="mt-4 text-center text-sm text-white">
                         ¿Ya tienes una cuenta?{" "}
-                        <Link className="underline hover:text-primary transition-colors" href="/login">
+                        <Link className="underline font-bold text-green-400 hover:text-green-300 transition-colors" href="/login">
                             Iniciar Sesión
                         </Link>
                     </div>

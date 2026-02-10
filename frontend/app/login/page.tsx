@@ -92,16 +92,16 @@ export default function LoginPage() {
                                 <span className="w-full border-t border-zinc-700" />
                             </div>
                             <div className="relative flex justify-center text-xs uppercase">
-                                <span className="bg-zinc-900 px-2 text-zinc-400">O continuar con</span>
+                                <span className="bg-zinc-900 px-2 text-gray-300">O continuar con</span>
                             </div>
                         </div>
 
                         <GoogleLoginButton />
                     </form>
 
-                    <div className="mt-4 text-center text-sm">
+                    <div className="mt-4 text-center text-sm text-white">
                         ¿No tienes una cuenta?{" "}
-                        <Link className="underline hover:text-primary transition-colors" href="/register">
+                        <Link className="underline font-bold text-green-400 hover:text-green-300 transition-colors" href="/register">
                             Regístrate
                         </Link>
                     </div>

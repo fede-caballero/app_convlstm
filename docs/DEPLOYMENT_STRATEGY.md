@@ -62,6 +62,8 @@ Este documento detalla la arquitectura "Split" para desplegar la aplicación de 
 
 ⚠️ **Importante:** Las instancias de Vast.ai son **efímeras**. Si destruyes la instancia, pierdes la base de datos de usuarios y comentarios (`/app/data/radar_history.db`).
 
+/app/scripts/backup_db.sh -> Para guardar la db
+
 ### Estrategia de Backup (Gratis con Rclone)
 Aprovechando que ya tenemos Rclone configurado para `mydrive`, podemos respaldar la DB periódicamente.
 

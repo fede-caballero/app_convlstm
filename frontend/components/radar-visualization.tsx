@@ -445,34 +445,52 @@ export function RadarVisualization({
               </div>
             </div>
 
-            {/* Slider Track */}
-            <div className="relative h-6 flex items-center group">
-              {/* Background Track with "Past" vs "Future" distinction */}
-              <div className="absolute inset-x-0 h-1.5 bg-white/10 rounded-full overflow-hidden flex">
+            {/* Slider Track Container */}
+            <div className="relative h-10 flex flex-col justify-center group">
+
+              {/* Custom Track Background (Yellow / Blue Split) */}
+              <div className="absolute top-1/2 left-0 right-0 h-1.5 -translate-y-1/2 rounded-full overflow-hidden flex pointer-events-none">
                 <div
-                  className="h-full bg-white/20"
+                  className="h-full bg-yellow-500/20"
                   style={{ width: `${(inputFiles.length / Math.max(1, totalFrames)) * 100}%` }}
                 />
                 <div
-                  className="h-full bg-primary/20"
+                  className="h-full bg-blue-500/20"
                   style={{ width: `${(predictionFiles.length / Math.max(1, totalFrames)) * 100}%` }}
                 />
               </div>
 
+              {/* Visual Tick for "Now" */}
+              <div
+                className="absolute top-1/2 h-3 w-0.5 bg-white/50 -translate-y-1/2 z-0"
+                style={{ left: `${(inputFiles.length / Math.max(1, totalFrames)) * 100}%` }}
+              />
+
+              {/* The Slider Component */}
               <Slider
                 value={[currentFrameIndex]}
                 onValueChange={(value) => { setIsPlaying(false); setCurrentFrameIndex(value[0]); }}
                 max={Math.max(0, totalFrames - 1)}
                 step={1}
-                className="cursor-pointer z-10"
+                className={`cursor-pointer z-10 ${isPrediction ? '[&_.bg-primary]:bg-blue-500 [&_.border-primary]:border-blue-500' : '[&_.bg-primary]:bg-yellow-500 [&_.border-primary]:border-yellow-500'}`}
               />
-            </div>
 
-            {/* Ticks/Labels under slider */}
-            <div className="flex justify-between text-[10px] text-muted-foreground px-1 font-mono uppercase tracking-widest">
-              <span>Pasado</span>
-              <span>Ahora</span>
-              <span>Futuro</span>
+              {/* Labels */}
+              <div className="absolute top-full left-0 right-0 mt-1 h-4 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                {/* Past Label */}
+                <span className="absolute left-0 text-yellow-500/70">Pasado</span>
+
+                {/* Now Label (Centered at split) */}
+                <span
+                  className="absolute -translate-x-1/2 text-white font-bold"
+                  style={{ left: `${(inputFiles.length / Math.max(1, totalFrames)) * 100}%` }}
+                >
+                  Ahora
+                </span>
+
+                {/* Future Label */}
+                <span className="absolute right-0 text-blue-500/70">Futuro</span>
+              </div>
             </div>
 
           </div>

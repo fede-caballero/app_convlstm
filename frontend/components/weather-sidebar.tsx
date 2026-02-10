@@ -56,7 +56,7 @@ export function WeatherSidebar() {
             setLoading(true)
             try {
                 const res = await fetch(
-                    `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability&timezone=auto&forecast_days=1`
+                    `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability&timezone=auto&forecast_days=2`
                 )
                 const data = await res.json()
                 setWeather(data)
@@ -80,6 +80,12 @@ export function WeatherSidebar() {
     if (!weather) return null
 
     const { current, hourly } = weather
+
+    // Find start index for current time
+    const now = new Date()
+    const currentHourIndex = hourly.time.findIndex((t) => new Date(t) >= now)
+    const startIndex = currentHourIndex === -1 ? 0 : currentHourIndex
+    const nextHours = hourly.time.slice(startIndex, startIndex + 24) // Show next 24 hours
 
     return (
         <div className={`absolute top-20 left-4 z-30 transition-all duration-300 ${isOpen ? 'w-80' : 'w-auto'}`}>
@@ -130,21 +136,21 @@ export function WeatherSidebar() {
 
                         {/* Hourly Forecast (Mini) */}
                         <div>
-                            <h4 className="text-xs font-bold uppercase text-zinc-500 mb-2">Próximas Horas</h4>
+                            <h4 className="text-xs font-bold uppercase text-zinc-500 mb-2">Próximas 24 Horas</h4>
                             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                                {hourly.time.slice(0, 12).map((t, i) => { // Show next 12 hours
+                                {nextHours.map((t, i) => {
                                     const date = new Date(t)
-                                    const now = new Date()
-                                    if (date < now) return null // Skip past hours
+                                    // Index in original array
+                                    const originalIndex = startIndex + i
 
                                     return (
                                         <div key={t} className="flex-shrink-0 flex flex-col items-center gap-1 min-w-[3rem] p-2 rounded-md hover:bg-white/5">
                                             <span className="text-xs text-zinc-400">{date.getHours()}:00</span>
                                             <Cloud className="w-4 h-4 text-zinc-500" />
-                                            <span className="text-sm font-bold">{Math.round(hourly.temperature_2m[i])}°</span>
+                                            <span className="text-sm font-bold">{Math.round(hourly.temperature_2m[originalIndex])}°</span>
                                             <div className="flex items-center text-[10px] text-blue-300">
                                                 <Droplets className="w-2 h-2 mr-0.5" />
-                                                {hourly.precipitation_probability[i]}%
+                                                {hourly.precipitation_probability[originalIndex]}%
                                             </div>
                                         </div>
                                     )

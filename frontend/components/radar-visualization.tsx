@@ -169,20 +169,16 @@ export function RadarVisualization({
   // Assuming inputs are every 15 min and predictions every 3 min (based on previous context)
   // But for simplicity in UI, we'll just show "Past" vs "Forecast +X min"
   const getTimeLabel = () => {
-    if (currentImage?.target_time) {
-      // Si tenemos hora, distinguimos el tipo
+    if (!currentImage) return "Esperando datos del radar...";
+
+    if (currentImage.target_time) {
       if (isPrediction) {
         return `Pronóstico ${currentImage.target_time}`;
       } else {
         return `Observación ${currentImage.target_time}`;
       }
     }
-    if (!isPrediction) {
-      return `Radar Pasado (${currentFrameIndex + 1}/${inputFiles.length})`;
-    } else {
-      const predIndex = currentFrameIndex - inputFiles.length;
-      return `Pronóstico T+${(predIndex + 1) * 3} min`;
-    }
+    return ""; // Fallback empty
   };
 
   // --- Reports Layer Logic ---

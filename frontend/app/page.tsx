@@ -381,17 +381,23 @@ export default function RadarPredictionRealtime() {
       )}
 
       {/* FAB - Report Button (Bottom Left) */}
-      {user && (
-        <div className="absolute bottom-48 left-4 z-50">
-          <Button
-            onClick={() => setIsReportDialogOpen(true)}
-            className="h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-700 shadow-[0_0_20px_rgba(37,99,235,0.5)] border-2 border-blue-400/50 flex flex-col items-center justify-center gap-0.5"
-          >
-            <AlertCircle className="h-6 w-6 text-white" />
-            <span className="text-[9px] font-bold text-white uppercase">Reportar</span>
-          </Button>
-        </div>
-      )}
+      <div className="absolute bottom-48 left-4 z-50">
+        <Button
+          onClick={() => {
+            if (!user) {
+              setError("Por favor crea una cuenta para reportar.");
+              // Auto-clear error after 3 seconds
+              setTimeout(() => setError(null), 3000);
+              return;
+            }
+            setIsReportDialogOpen(true);
+          }}
+          className="h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-700 shadow-[0_0_20px_rgba(37,99,235,0.5)] border-2 border-blue-400/50 flex flex-col items-center justify-center gap-0.5"
+        >
+          <AlertCircle className="h-6 w-6 text-white" />
+          <span className="text-[9px] font-bold text-white uppercase">Reportar</span>
+        </Button>
+      </div>
 
       {/* Report Dialog */}
       <ReportDialog

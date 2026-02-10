@@ -452,18 +452,18 @@ export function RadarVisualization({
               <div className="absolute top-1/2 left-0 right-0 h-1.5 -translate-y-1/2 rounded-full overflow-hidden flex pointer-events-none">
                 <div
                   className="h-full bg-yellow-500/20"
-                  style={{ width: '25%' }}
+                  style={{ width: '22%' }}
                 />
                 <div
                   className="h-full bg-blue-500/20"
-                  style={{ width: '75%' }}
+                  style={{ width: '78%' }}
                 />
               </div>
 
               {/* Visual Tick for "Now" */}
               <div
                 className="absolute top-1/2 h-3 w-0.5 bg-white/50 -translate-y-1/2 z-0"
-                style={{ left: '25%' }}
+                style={{ left: '22%' }}
               />
 
               {/* The Slider Component */}
@@ -483,7 +483,7 @@ export function RadarVisualization({
                 {/* Now Label (Centered at split) */}
                 <span
                   className="absolute -translate-x-1/2 text-white font-bold"
-                  style={{ left: '25%' }}
+                  style={{ left: '22%' }}
                 >
                   ACTUAL
                 </span>

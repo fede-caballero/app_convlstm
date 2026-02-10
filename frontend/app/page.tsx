@@ -135,7 +135,7 @@ export default function RadarPredictionRealtime() {
       }
     });
 
-    if (closestCell && minDist <= 20) {
+    if (closestCell && minDist <= 200) {
       setNearestStorm({
         distance: minDist,
         cell: closestCell

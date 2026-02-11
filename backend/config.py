@@ -71,6 +71,8 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "*").rstrip("/")
 # in production, set these via environment variables or file mounts
 VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY")
 if VAPID_PRIVATE_KEY:
+    # Remove wrapping quotes if present (common mistake in some env editors)
+    VAPID_PRIVATE_KEY = VAPID_PRIVATE_KEY.strip('"').strip("'")
     VAPID_PRIVATE_KEY = VAPID_PRIVATE_KEY.replace("\\n", "\n")
 
 VAPID_CLAIM_EMAIL = os.getenv("VAPID_CLAIM_EMAIL", "mailto:admin@example.com")

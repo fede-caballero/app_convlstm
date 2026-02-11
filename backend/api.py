@@ -210,10 +210,17 @@ try:
 except ImportError:
     # Fallback or error
     logging.error("Could not import Vapid from py_vapid")
+    Vapid = None
 
 @app.route('/api/notifications/vapid-public-key', methods=['GET'])
 def get_vapid_public_key():
     try:
+        if Vapid is None:
+             return jsonify({"error": "Server missing 'py-vapid' library. Please rebuild backend image."}), 500
+        
+        if not VAPID_PRIVATE_KEY:
+             return jsonify({"error": "VAPID_PRIVATE_KEY not configured on server."}), 500
+
         # Load Vapid from PEM string
         # Vapid.from_pem expects bytes
         vapid = Vapid.from_pem(VAPID_PRIVATE_KEY.encode('utf-8'))

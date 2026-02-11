@@ -14,9 +14,7 @@ import { AdminCommentBar } from "@/components/admin-comment-bar"
 import { fetchImages, fetchStatus, ApiStatus, ApiImages, StormCell, fetchReports, WeatherReport } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { ReportDialog } from "@/components/report-dialog"
-import { PushSubscriptionButton } from '@/components/push-subscription-button'
-import { registerServiceWorker } from '@/lib/push-notifications'
-import { AdminPushSender } from '@/components/admin-push-sender'
+
 import { WeatherSidebar } from "@/components/weather-sidebar"
 import Link from "next/link"
 
@@ -99,11 +97,7 @@ export default function RadarPredictionRealtime() {
     getLocation(true); // Start with High Accuracy
   }, []);
 
-  // Update nearest storm when images or userLocation changes
-  useEffect(() => {
-    // Register Service Worker for Push Notifications
-    registerServiceWorker();
-  }, []);
+
 
   useEffect(() => {
     if (!userLocation) return;
@@ -234,8 +228,7 @@ export default function RadarPredictionRealtime() {
               </div>
             )}
 
-            {/* Push Notifications Bell */}
-            <PushSubscriptionButton />
+
 
             {/* Auth Buttons */}
             {user ? (
@@ -345,8 +338,7 @@ export default function RadarPredictionRealtime() {
                       </p>
                     </div>
 
-                    {/* Push Sender */}
-                    <AdminPushSender />
+
                   </div>
                 </SheetContent>
               </Sheet>

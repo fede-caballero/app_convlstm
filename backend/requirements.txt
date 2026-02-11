@@ -19,3 +19,8 @@ cartopy
 PyJWT
 google-auth
 requests
+
+# Push Notifications
+pywebpush
+python-dotenv
+py-vapid

@@ -14,6 +14,9 @@ import { AdminCommentBar } from "@/components/admin-comment-bar"
 import { fetchImages, fetchStatus, ApiStatus, ApiImages, StormCell, fetchReports, WeatherReport } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { ReportDialog } from "@/components/report-dialog"
+import { PushSubscriptionButton } from '@/components/push-subscription-button'
+import { registerServiceWorker } from '@/lib/push-notifications'
+import { AdminPushSender } from '@/components/admin-push-sender'
 import { WeatherSidebar } from "@/components/weather-sidebar"
 import Link from "next/link"
 
@@ -97,6 +100,11 @@ export default function RadarPredictionRealtime() {
   }, []);
 
   // Update nearest storm when images or userLocation changes
+  useEffect(() => {
+    // Register Service Worker for Push Notifications
+    registerServiceWorker();
+  }, []);
+
   useEffect(() => {
     if (!userLocation) return;
 
@@ -220,11 +228,14 @@ export default function RadarPredictionRealtime() {
             {user?.role === 'admin' && (
               <div className="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 h-9">
                 <div className={`w-2 h-2 rounded-full ${status ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`} />
-                <span className="text-xs font-mono text-gray-300">
+                <span className="text-xs text-gray-300">
                   {status ? "ONLINE" : "OFFLINE"}
                 </span>
               </div>
             )}
+
+            {/* Push Notifications Bell */}
+            <PushSubscriptionButton />
 
             {/* Auth Buttons */}
             {user ? (
@@ -333,6 +344,9 @@ export default function RadarPredictionRealtime() {
                         Última actualización: {lastPredictionTime}
                       </p>
                     </div>
+
+                    {/* Push Sender */}
+                    <AdminPushSender />
                   </div>
                 </SheetContent>
               </Sheet>

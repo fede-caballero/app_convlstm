@@ -213,6 +213,7 @@ export function RadarVisualization({
         'lluvia_fuerte', '#4f46e5', // Indigo
         'granizo_pequeno', '#f97316', // Orange
         'granizo_grande', '#dc2626', // Red
+        'viento_fuerte', '#94a3b8', // Slate/Grey
         'cielo_despejado', '#eab308', // Yellow
         '#ffffff' // Default white
       ],

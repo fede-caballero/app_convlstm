@@ -13,7 +13,7 @@ import {
     DialogClose
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
-import { CloudRain, CloudLightning, CloudHail, Sun, AlertTriangle, MapPin, Camera, X } from "lucide-react" // Icons
+import { CloudRain, CloudLightning, CloudHail, Sun, AlertTriangle, MapPin, Camera, X, Wind } from "lucide-react" // Icons
 import { submitReport, updateReport, WeatherReport } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/components/ui/use-toast" // Assuming we have toast, otherwise alert/console
@@ -31,6 +31,7 @@ const REPORT_TYPES = [
     { id: 'lluvia_fuerte', label: 'Lluvia Fuerte', icon: CloudLightning, color: 'bg-indigo-600/30 text-indigo-300 border-indigo-500/50' },
     { id: 'granizo_pequeno', label: 'Granizo Pequeño', icon: CloudHail, color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50' },
     { id: 'granizo_grande', label: 'Granizo Dañino', icon: AlertTriangle, color: 'bg-red-600/30 text-red-400 border-red-500/50' },
+    { id: 'viento_fuerte', label: 'Viento Fuerte', icon: Wind, color: 'bg-slate-500/20 text-slate-300 border-slate-500/50' },
     { id: 'cielo_despejado', label: 'Cielo Despejado', icon: Sun, color: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50' },
 ]
 

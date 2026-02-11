@@ -1,6 +1,8 @@
-# backend/config.py
 import os
 import torch
+from dotenv import load_dotenv
+
+load_dotenv() # Load environment variables from .env file
 
 # --- Rutas del Pipeline ---
 # Todas las rutas deben ser relativas a la raíz del contenedor (/app)
@@ -63,3 +65,12 @@ if not os.getenv("SECRET_KEY"):
 # CORS / Frontend Domain
 # Remove trailing slash to match Browser Origin header format
 FRONTEND_URL = os.getenv("FRONTEND_URL", "*").rstrip("/")
+
+# --- VAPID Keys for Push Notifications ---
+# Generated with `vapid --gen`
+# in production, set these via environment variables or file mounts
+VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY")
+if VAPID_PRIVATE_KEY:
+    VAPID_PRIVATE_KEY = VAPID_PRIVATE_KEY.replace("\\n", "\n")
+
+VAPID_CLAIM_EMAIL = os.getenv("VAPID_CLAIM_EMAIL", "mailto:admin@example.com")

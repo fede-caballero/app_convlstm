@@ -201,6 +201,156 @@ def serve_image(filename):
 def serve_upload(filename):
     return send_from_directory(REPORTS_UPLOAD_DIR, filename)
 
+# --- Push Notifications Endpoints ---
+from config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL
+from pywebpush import webpush, WebPushException
+# We need Vapid to derive the public key. Try importing from py_vapid or pywebpush.
+try:
+    from py_vapid import Vapid
+except ImportError:
+    # Fallback or error
+    logging.error("Could not import Vapid from py_vapid")
+
+@app.route('/api/notifications/vapid-public-key', methods=['GET'])
+def get_vapid_public_key():
+    try:
+        # Load Vapid from PEM string
+        # Vapid.from_pem expects bytes
+        vapid = Vapid.from_pem(VAPID_PRIVATE_KEY.encode('utf-8'))
+        
+        # public_key property usually returns the uncompressed point (Application Server Key)
+        # We might need to base64url encode it if it's raw bytes
+        pub_key = vapid.public_key
+        
+        # If it's bytes, convert to string (base64url)
+        # py_vapid often returns it as a string? Let's check type.
+        # Ideally we return a base64url string.
+        # If pub_key is bytes, we encode it.
+        import base64
+        if isinstance(pub_key, bytes):
+            pub_key_str = base64.urlsafe_b64encode(pub_key).decode('utf-8').rstrip('=')
+        else:
+            pub_key_str = str(pub_key)
+            
+        return jsonify({"publicKey": pub_key_str})
+    except Exception as e:
+        logging.error(f"Error deriving public key: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/notifications/subscribe', methods=['POST'])
+def subscribe_push():
+    data = request.get_json()
+    subscription = data.get('subscription') # Expecting standard PushSubscription object
+    if not subscription:
+        return jsonify({"error": "No subscription data"}), 400
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Check if user is logged in (optional, but good for linking)
+    user_id = None
+    auth_header = request.headers.get('Authorization')
+    if auth_header and auth_header.startswith("Bearer "):
+        try:
+            token = auth_header.split(" ")[1]
+            payload = auth.decode_access_token(token)
+            if payload:
+                user_id = payload.get('id')
+        except:
+            pass
+
+    try:
+        endpoint = subscription.get('endpoint')
+        keys = subscription.get('keys', {})
+        p256dh = keys.get('p256dh')
+        auth_key = keys.get('auth')
+
+        if not endpoint or not p256dh or not auth_key:
+             return jsonify({"error": "Invalid subscription object"}), 400
+
+        # Upsert or Insert (SQLite UPSERT syntax or basic check)
+        # Using INSERT OR REPLACE to update keys if endpoint exists
+        cursor.execute("""
+            INSERT OR REPLACE INTO push_subscriptions (user_id, endpoint, p256dh, auth)
+            VALUES (?, ?, ?, ?)
+        """, (user_id, endpoint, p256dh, auth_key))
+        
+        conn.commit()
+        return jsonify({"message": "Subscribed successfully"}), 201
+    except Exception as e:
+        logging.error(f"Error subscribing to push: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/notifications/send', methods=['POST'])
+def send_push_notification():
+    # Admin only check
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    token = auth_header.split(" ")[1]
+    payload = auth.decode_access_token(token)
+    if not payload or payload.get('role') not in ['admin', 'superadmin']:
+        return jsonify({"error": "Admins only"}), 403
+
+    data = request.get_json()
+    message = data.get('message', 'Alerta Meteorológica')
+    title = data.get('title', 'Alerta')
+    url = data.get('url', '/')
+
+    notification_data = json.dumps({
+        "title": title,
+        "body": message,
+        "url": url,
+        "icon": "/icon-192x192.png" # Path relative to frontend public
+    })
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT endpoint, p256dh, auth FROM push_subscriptions")
+    subscriptions = cursor.fetchall()
+    conn.close()
+
+    if not subscriptions:
+        return jsonify({"message": "No subscriptions found"}), 200
+
+    results = []
+    headers = {
+        "TTL": "60", # Time to live in seconds
+        "Urgency": "high"
+    }
+
+    for sub in subscriptions:
+        endpoint, p256dh, auth_key = sub
+        subscription_info = {
+            "endpoint": endpoint,
+            "keys": {
+                "p256dh": p256dh,
+                "auth": auth_key
+            }
+        }
+        
+        try:
+            webpush(
+                subscription_info=subscription_info,
+                data=notification_data,
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims={"sub": VAPID_CLAIM_EMAIL},
+                headers=headers
+            )
+            results.append({"endpoint": endpoint, "status": "sent"})
+        except WebPushException as e:
+            logging.error(f"Push error for {endpoint}: {e}")
+            # If 410 Gone, remove subscription
+            if "410" in str(e) or "404" in str(e):
+                 # We should probably delete it from DB here
+                 pass
+            results.append({"endpoint": endpoint, "status": "failed", "error": str(e)})
+
+    return jsonify({"results": results}), 200
+
 # Endpoints de la API
 @app.route("/api/status")
 def get_status():

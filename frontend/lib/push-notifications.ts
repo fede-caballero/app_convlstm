@@ -60,7 +60,7 @@ export async function subscribeToPushNotifications() {
         // For now, let's just use fetch. If we need Auth, we need the token.
         const token = localStorage.getItem('token'); // Simplistic token retrieval
 
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}${SUBSCRIBE_ENDPOINT}`, {
+        const subscribeResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}${SUBSCRIBE_ENDPOINT}`, {
             method: 'POST',
             body: JSON.stringify({ subscription }),
             headers: {
@@ -68,6 +68,11 @@ export async function subscribeToPushNotifications() {
                 ...(token ? { 'Authorization': `Bearer ${token}` } : {})
             }
         });
+
+        if (!subscribeResponse.ok) {
+            const errorData = await subscribeResponse.json();
+            throw new Error(errorData.error || `Failed to subscribe: ${subscribeResponse.status}`);
+        }
 
         console.log('Push subscription success');
         return true;

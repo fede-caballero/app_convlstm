@@ -61,7 +61,7 @@ for sub in subscriptions:
         webpush(
             subscription_info=subscription_info,
             data=notification_data,
-            vapid_private_key=VAPID_PRIVATE_KEY,
+            vapid_private_key=VAPID_PRIVATE_KEY.encode('utf-8'),
             vapid_claims={"sub": VAPID_CLAIM_EMAIL},
             headers=headers
         )

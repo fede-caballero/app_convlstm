@@ -24,7 +24,7 @@ else
     mkdir -p /app/model
     # Attempt download (non-blocking if it fails, or allow check)
     # Use || true to prevent exit on network error
-    rclone backend copyid mydrive:1Rodv1nQPnNCH545-4PoXo7S7rIZDntPG /app/model/best_convlstm_model.pth || echo "Rclone download failed"
+    rclone backend copyid mydrive: 1Rodv1nQPnNCH545-4PoXo7S7rIZDntPG /app/model/best_convlstm_model.pth || echo "Rclone download failed"
     
     # Start Watcher
     nohup python3 /app/tools/drive_watcher.py --remote-base "mydrive:cart_no_clutter" --interval 60 > /app/logs/watcher.log 2>&1 &

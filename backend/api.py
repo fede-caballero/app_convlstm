@@ -225,21 +225,38 @@ def get_vapid_public_key():
         # Vapid.from_pem expects bytes
         vapid = Vapid.from_pem(VAPID_PRIVATE_KEY.encode('utf-8'))
         
-        # public_key property usually returns the uncompressed point (Application Server Key)
-        # We might need to base64url encode it if it's raw bytes
-        pub_key = vapid.public_key
+        # Get the Application Server Key (Public Key)
+        # py-vapid provides this as a property, usually returning bytes.
+        # We need to ensure it's base64url encoded for the frontend.
         
-        # If it's bytes, convert to string (base64url)
-        # py_vapid often returns it as a string? Let's check type.
-        # Ideally we return a base64url string.
-        # If pub_key is bytes, we encode it.
-        import base64
-        if isinstance(pub_key, bytes):
-            pub_key_str = base64.urlsafe_b64encode(pub_key).decode('utf-8').rstrip('=')
+        # Check if we can get the raw public key bytes or the pre-encoded key
+        if hasattr(vapid, "application_server_key"):
+             # This property often returns the raw bytes (uncompressed point)
+             raw_pub = vapid.application_server_key
         else:
-            pub_key_str = str(pub_key)
-            
-        return jsonify({"publicKey": pub_key_str})
+             # Fallback: Serialize manually if needed (should not happen with standard py-vapid)
+             # But wait, debug showed public_key is an object.
+             # let's try to get the raw bytes from the object if needed.
+             pass
+
+        # Actually, the most reliable way with py-vapid is:
+        # It calculates the public key on initialization.
+        # Inspecting py-vapid source:
+        # The public key is an EC point.
+        # We need the UNCOMPRESSED format (0x04 + x + y).
+        
+        from cryptography.hazmat.primitives import serialization
+        
+        public_key_bytes = vapid.public_key.public_bytes(
+            encoding=serialization.Encoding.X962,
+            format=serialization.PublicFormat.UncompressedPoint
+        )
+        
+        import base64
+        # Encode to URL-Safe Base64
+        vapid_public_key = base64.urlsafe_b64encode(public_key_bytes).decode('utf-8').rstrip('=')
+        
+        return jsonify({"publicKey": vapid_public_key}), 200
     except Exception as e:
         logging.error(f"Error deriving public key: {e}")
         return jsonify({"error": str(e)}), 500

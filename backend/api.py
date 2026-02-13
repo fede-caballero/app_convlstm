@@ -307,6 +307,96 @@ def subscribe_push():
     finally:
         conn.close()
 
+def _send_push_to_all(title, message, url):
+    """
+    Helper function to send push notifications to all subscribers.
+    Used by both manual send endpoint and auto-send on comment.
+    """
+    logging.info(f"Initiating Push to All: {title} - {message}")
+    
+    notification_data = json.dumps({
+        "title": title,
+        "body": message,
+        "url": url,
+        "icon": "/icon-192x192.png"
+    })
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT endpoint, p256dh, auth FROM push_subscriptions")
+        subscriptions = cursor.fetchall()
+        conn.close()
+    except Exception as e:
+        logging.error(f"DB Error fetching subs: {e}")
+        return []
+
+    if not subscriptions:
+        logging.info("No subscriptions found.")
+        return []
+
+    results = []
+    headers = {
+        "TTL": "60",
+        "Urgency": "high"
+    }
+
+    vapid_obj = None
+    try:
+        # Manual VAPID Signing Setup
+        if Vapid is None:
+             raise ImportError("py-vapid library not loaded")
+
+        key_bytes = VAPID_PRIVATE_KEY.encode('utf-8')
+        vapid_obj = Vapid.from_pem(key_bytes)
+    except Exception as e:
+        logging.error(f"VAPID Setup Error: {e}")
+        # Continue? No, we need vapid_obj
+        return []
+
+    for sub in subscriptions:
+        endpoint, p256dh, auth_key = sub
+        subscription_info = {
+            "endpoint": endpoint,
+            "keys": {"p256dh": p256dh, "auth": auth_key}
+        }
+        
+        try:
+            # Generate Headers per endpoint
+            auth_headers = {}
+            if vapid_obj and hasattr(vapid_obj, "get_authorization_header"):
+                 header_value = vapid_obj.get_authorization_header(endpoint, VAPID_CLAIM_EMAIL)
+                 if isinstance(header_value, (bytes, str)):
+                     if isinstance(header_value, bytes):
+                         header_value = header_value.decode('utf-8')
+                     auth_headers = {"Authorization": header_value}
+                 elif isinstance(header_value, dict):
+                     auth_headers = header_value
+            
+            final_headers = headers.copy()
+            final_headers.update(auth_headers)
+
+            webpush(
+                subscription_info=subscription_info,
+                data=notification_data,
+                vapid_private_key=None,
+                vapid_claims=None,
+                headers=final_headers
+            )
+            results.append({"endpoint": endpoint, "status": "sent"})
+        except WebPushException as e:
+            logging.error(f"Push error for {endpoint}: {e}")
+            if "410" in str(e) or "404" in str(e):
+                 # Todo: Delete from DB
+                 pass
+            results.append({"endpoint": endpoint, "status": "failed", "error": str(e)})
+        except Exception as e:
+             logging.error(f"Generic Push error for {endpoint}: {e}")
+             results.append({"endpoint": endpoint, "status": "failed", "error": str(e)})
+
+    logging.info(f"Push Summary: Sent {len([r for r in results if r['status']=='sent'])}/{len(subscriptions)}")
+    return results
+
 @app.route('/api/notifications/send', methods=['POST'])
 def send_push_notification():
     # Admin only check
@@ -324,83 +414,7 @@ def send_push_notification():
     title = data.get('title', 'Alerta')
     url = data.get('url', '/')
 
-    notification_data = json.dumps({
-        "title": title,
-        "body": message,
-        "url": url,
-        "icon": "/icon-192x192.png" # Path relative to frontend public
-    })
-
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT endpoint, p256dh, auth FROM push_subscriptions")
-    subscriptions = cursor.fetchall()
-    conn.close()
-
-    if not subscriptions:
-        return jsonify({"message": "No subscriptions found"}), 200
-
-    results = []
-    headers = {
-        "TTL": "60", # Time to live in seconds
-        "Urgency": "high"
-    }
-
-    for sub in subscriptions:
-        endpoint, p256dh, auth_key = sub
-        subscription_info = {
-            "endpoint": endpoint,
-            "keys": {
-                "p256dh": p256dh,
-                "auth": auth_key
-            }
-        }
-        
-        try:
-            # Manual VAPID Signing to bypass pywebpush quirks (AttributeError/ASN.1)
-            if Vapid is None:
-                 raise ImportError("py-vapid library not loaded")
-
-            # Decode key correctly (strip quotes, fix newlines, encode to bytes)
-            key_bytes = VAPID_PRIVATE_KEY.encode('utf-8')
-            vapid_obj = Vapid.from_pem(key_bytes)
-            
-            auth_headers = {}
-            if hasattr(vapid_obj, "get_authorization_header"):
-                 # Returns bytes or str depending on version
-                 header_value = vapid_obj.get_authorization_header(endpoint, VAPID_CLAIM_EMAIL)
-                 # Ensure it's a dict or convert
-                 if isinstance(header_value, (bytes, str)):
-                     if isinstance(header_value, bytes):
-                         header_value = header_value.decode('utf-8')
-                     auth_headers = {"Authorization": header_value}
-                 elif isinstance(header_value, dict):
-                     auth_headers = header_value
-            else:
-                 # Should not happen with recent py-vapid, but safe fallback logic if needed
-                 logging.warning(f"Vapid object missing get_authorization_header for {endpoint}")
-
-            # Merge headers
-            final_headers = headers.copy()
-            final_headers.update(auth_headers)
-
-            webpush(
-                subscription_info=subscription_info,
-                data=notification_data,
-                vapid_private_key=None, # Skip internal signing
-                vapid_claims=None,
-                headers=final_headers
-            )
-            results.append({"endpoint": endpoint, "status": "sent"})
-        except WebPushException as e:
-            logging.error(f"Push error for {endpoint}: {e}")
-            # If 410 Gone, remove subscription
-            if "410" in str(e) or "404" in str(e):
-                 # We should probably delete it from DB here
-                 pass
-            results.append({"endpoint": endpoint, "status": "failed", "error": str(e)})
-            results.append({"endpoint": endpoint, "status": "failed", "error": str(e)})
-
+    results = _send_push_to_all(title, message, url)
     return jsonify({"results": results}), 200
 
 # Endpoints de la API
@@ -631,6 +645,15 @@ def create_comment():
         ''', (content, author_id, created_at))
         
         conn.commit()
+        
+        # --- AUTO-PUSH NOTIFICATION ---
+        try:
+            # Launch in background thread ideally, but for now blocking is fine (it's fast-ish)
+            logging.info("Auto-triggering push for new comment...")
+            _send_push_to_all(title="Nueva alerta", message=content, url="/")
+        except Exception as e:
+            logging.error(f"Failed to auto-send push: {e}")
+
         return jsonify({"message": "Comment posted successfully"}), 201
     except Exception as e:
         logging.error(f"Error posting comment: {e}")

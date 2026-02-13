@@ -36,31 +36,41 @@ export async function registerServiceWorker() {
 }
 
 export async function subscribeToPushNotifications() {
-    if (!('serviceWorker' in navigator)) return;
+    alert("Step 0: Start");
+    if (!('serviceWorker' in navigator)) { alert("No SW support"); return; }
 
+    alert("Step 1: Waiting for SW ready...");
     const registration = await navigator.serviceWorker.ready;
+    alert("Step 2: SW Ready: " + registration.scope);
 
     try {
         // 1. Get Public Key from Backend
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}${PUBLIC_KEY_ENDPOINT}`);
+        alert("Step 3: Fetching Public Key...");
+        const response = await fetch('/api/notifications/vapid-public-key');
         const data = await response.json();
         if (!data.publicKey) throw new Error("No public key returned");
 
+        alert("Step 4: Got Key. Converting...");
         const convertedVapidKey = urlBase64ToUint8Array(data.publicKey);
 
         // 2. Subscribe using PushManager
+        alert("Step 5: Calling pushManager.subscribe (Check permissions!)...");
         const subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: convertedVapidKey
         });
 
-        // 3. Send subscription to Backend
-        // Using simple fetch to avoid circular deps with large api libraries, or pass token if needed
-        // Assuming auth context handles token elsewhere or we pass it here.
-        // For now, let's just use fetch. If we need Auth, we need the token.
-        const token = localStorage.getItem('token'); // Simplistic token retrieval
+        alert("Step 6: Subscribe Local OK. Sending to Backend...");
 
-        const subscribeResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}${SUBSCRIBE_ENDPOINT}`, {
+        // 3. Send subscription to Backend
+        // Fix: Use correct token storage (localStorage 'token' might be inside a JSON object if using context?)
+        // Let's assume 'token' is key. If using provider, we might not have access here easily without passing it.
+        // But let's try reading from localStorage which is where AuthProvider usually puts it.
+        const token = localStorage.getItem('token');
+        // Debug
+        // alert("Token: " + (token ? "Found" : "Missing"));
+
+        const subscribeResponse = await fetch('/api/notifications/subscribe', {
             method: 'POST',
             body: JSON.stringify({ subscription }),
             headers: {
@@ -74,10 +84,12 @@ export async function subscribeToPushNotifications() {
             throw new Error(errorData.error || `Failed to subscribe: ${subscribeResponse.status}`);
         }
 
+        alert("Step 7: Backend OK! Success!");
         console.log('Push subscription success');
         return true;
     } catch (error) {
         console.error('Push subscription failed:', error);
+        alert("ERROR CRITICAL: " + error);
         throw error; // Re-throw to let UI handle the alert
     }
 }

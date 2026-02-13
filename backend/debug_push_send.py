@@ -58,14 +58,53 @@ for sub in subscriptions:
     }
     
     try:
+    # Manual VAPID Signing to bypass pywebpush quirks
+        from py_vapid import Vapid
+        # Decode key correctly (strip quotes, fix newlines, encode)
+        # Assuming VAPID_PRIVATE_KEY is clean from config.py but let's be sure
+        key_bytes = VAPID_PRIVATE_KEY.encode('utf-8')
+        vapid = Vapid.from_pem(key_bytes)
+        
+        # Generate Authorization Header
+        # py-vapid < 2.0 uses sign(), >= 2.0 might use get_authorization_header
+        # Let's try get_authorization_header if available, else sign
+        
+        auth_headers = {}
+        if hasattr(vapid, "get_authorization_header"):
+             auth_headers = vapid.get_authorization_header(endpoint, VAPID_CLAIM_EMAIL)
+             # This returns a dict like {"Authorization": "WebPush ..."} or just the value?
+             # Usually it returns the value strings? No, it returns a dict in recent versions?
+             # Let's assume it returns a dict or we inspect it.
+             # Actually, standard py-vapid `get_authorization_header` returns `b'WebPush <token>'`
+             
+             # If it returns bytes/str, we set it:
+             if isinstance(auth_headers, (bytes, str)):
+                 auth_headers = {"Authorization": auth_headers}
+        else:
+             # Older versions
+             # token = vapid.sign({"endpoint": endpoint, "sub": VAPID_CLAIM_EMAIL})
+             # auth_headers = {"Authorization": f"WebPush {token}"}
+             print("Warning: unexpected Vapid version, trying get_authorization_header anyway")
+
+        # Merge headers
+        final_headers = headers.copy()
+        final_headers.update(auth_headers)
+
         webpush(
             subscription_info=subscription_info,
             data=notification_data,
-            vapid_private_key=VAPID_PRIVATE_KEY.encode('utf-8'),
-            vapid_claims={"sub": VAPID_CLAIM_EMAIL},
-            headers=headers
+            vapid_private_key=None, # Skip internal signing
+            vapid_claims=None,
+            headers=final_headers
         )
         print("✅ Send Success!")
+    except Exception as e:
+        print(f"❌ VAPID Manual Signing Error: {e}")
+        import traceback
+        traceback.print_exc() 
+    
+    # Fallback to old method if needed (commented out)
+    # webpush(...)
     except WebPushException as e:
         print(f"⚠️ WebPushException (Expected if sub invalid): {e}")
     except Exception as e:

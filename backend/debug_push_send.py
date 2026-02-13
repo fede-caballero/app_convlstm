@@ -58,7 +58,7 @@ for sub in subscriptions:
     }
     
     try:
-    # Manual VAPID Signing to bypass pywebpush quirks
+        # Manual VAPID Signing to bypass pywebpush quirks
         from py_vapid import Vapid
         # Decode key correctly (strip quotes, fix newlines, encode)
         # Assuming VAPID_PRIVATE_KEY is clean from config.py but let's be sure
@@ -98,17 +98,11 @@ for sub in subscriptions:
             headers=final_headers
         )
         print("✅ Send Success!")
-    except Exception as e:
-        print(f"❌ VAPID Manual Signing Error: {e}")
-        import traceback
-        traceback.print_exc() 
     
-    # Fallback to old method if needed (commented out)
-    # webpush(...)
     except WebPushException as e:
         print(f"⚠️ WebPushException (Expected if sub invalid): {e}")
     except Exception as e:
-        print(f"❌ UNEXPECTED ERROR: {type(e).__name__}: {e}")
+        print(f"❌ ERROR: {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
 

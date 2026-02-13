@@ -124,7 +124,10 @@ export function AdminCommentBar() {
             } else {
                 alert("No se pudo activar. Verifica permisos.")
             }
-        } catch (e) { console.error(e) }
+        } catch (e) {
+            console.error(e)
+            alert("Error al suscribir: " + e)
+        }
         finally { setLoading(false) }
     }
 

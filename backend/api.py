@@ -357,12 +357,39 @@ def send_push_notification():
         }
         
         try:
+            # Manual VAPID Signing to bypass pywebpush quirks (AttributeError/ASN.1)
+            if Vapid is None:
+                 raise ImportError("py-vapid library not loaded")
+
+            # Decode key correctly (strip quotes, fix newlines, encode to bytes)
+            key_bytes = VAPID_PRIVATE_KEY.encode('utf-8')
+            vapid_obj = Vapid.from_pem(key_bytes)
+            
+            auth_headers = {}
+            if hasattr(vapid_obj, "get_authorization_header"):
+                 # Returns bytes or str depending on version
+                 header_value = vapid_obj.get_authorization_header(endpoint, VAPID_CLAIM_EMAIL)
+                 # Ensure it's a dict or convert
+                 if isinstance(header_value, (bytes, str)):
+                     if isinstance(header_value, bytes):
+                         header_value = header_value.decode('utf-8')
+                     auth_headers = {"Authorization": header_value}
+                 elif isinstance(header_value, dict):
+                     auth_headers = header_value
+            else:
+                 # Should not happen with recent py-vapid, but safe fallback logic if needed
+                 logging.warning(f"Vapid object missing get_authorization_header for {endpoint}")
+
+            # Merge headers
+            final_headers = headers.copy()
+            final_headers.update(auth_headers)
+
             webpush(
                 subscription_info=subscription_info,
                 data=notification_data,
-                vapid_private_key=VAPID_PRIVATE_KEY.encode('utf-8'),
-                vapid_claims={"sub": VAPID_CLAIM_EMAIL},
-                headers=headers
+                vapid_private_key=None, # Skip internal signing
+                vapid_claims=None,
+                headers=final_headers
             )
             results.append({"endpoint": endpoint, "status": "sent"})
         except WebPushException as e:
@@ -371,6 +398,7 @@ def send_push_notification():
             if "410" in str(e) or "404" in str(e):
                  # We should probably delete it from DB here
                  pass
+            results.append({"endpoint": endpoint, "status": "failed", "error": str(e)})
             results.append({"endpoint": endpoint, "status": "failed", "error": str(e)})
 
     return jsonify({"results": results}), 200

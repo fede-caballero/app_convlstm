@@ -36,8 +36,20 @@ export async function registerServiceWorker() {
 }
 
 export async function subscribeToPushNotifications() {
-    alert("Step 0: Start");
+    alert("Step 0: Start - Checking Permission...");
     if (!('serviceWorker' in navigator)) { alert("No SW support"); return; }
+
+    // Explicitly request permission first (Required for Firefox/Safari)
+    let permission = Notification.permission;
+    if (permission === 'default') {
+        alert("Step 0.5: Requesting Permission...");
+        permission = await Notification.requestPermission();
+    }
+
+    if (permission !== 'granted') {
+        alert("ERROR: Permission Denied (" + permission + ")");
+        throw new Error("Permission NOT granted.");
+    }
 
     alert("Step 1: Waiting for SW ready...");
     const registration = await navigator.serviceWorker.ready;

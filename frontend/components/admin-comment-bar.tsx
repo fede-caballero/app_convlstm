@@ -99,16 +99,21 @@ export function AdminCommentBar() {
 
     const [isSubscribed, setIsSubscribed] = useState(false)
     const [isSupported, setIsSupported] = useState(false)
+    const [permissionStatus, setPermissionStatus] = useState("checking")
 
     useEffect(() => {
         // Check sw support
-        if ('serviceWorker' in navigator && 'PushManager' in window) {
+        if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
             setIsSupported(true)
+            setPermissionStatus(Notification.permission)
+
             navigator.serviceWorker.ready.then(registration => {
                 registration.pushManager.getSubscription().then(sub => {
                     if (sub) setIsSubscribed(true)
                 })
             })
+        } else {
+            setPermissionStatus("unsupported")
         }
     }, [])
 
@@ -326,7 +331,14 @@ export function AdminCommentBar() {
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        onClick={handleSubscribe}
+                                        onClick={async () => {
+                                            if (Notification.permission === 'denied') {
+                                                alert("Has bloqueado las notificaciones. Habilítalas en la configuración del navegador.")
+                                                return;
+                                            }
+                                            // alert("Paso 1: Iniciando...")
+                                            await handleSubscribe()
+                                        }}
                                         disabled={isSubscribed || loading}
                                         className={`w-full justify-between px-2 ${isSubscribed ? "text-green-400" : "text-gray-400 hover:text-white"}`}
                                     >
@@ -335,10 +347,16 @@ export function AdminCommentBar() {
                                         </span>
                                         {isSubscribed ? <BellRing className="w-3 h-3" /> : <BellOff className="w-3 h-3" />}
                                     </Button>
+
                                     {!isSubscribed && (
-                                        <p className="text-[10px] text-gray-500 text-center mt-1">
-                                            Recibe alertas de tormentas severas.
-                                        </p>
+                                        <div className="text-center mt-1">
+                                            <p className="text-[10px] text-gray-500">
+                                                Recibe alertas de tormentas severas.
+                                            </p>
+                                            <p className="text-[9px] text-gray-600 mt-1">
+                                                Estado: {permissionStatus} | Soporte: {isSupported ? 'OK' : 'No'}
+                                            </p>
+                                        </div>
                                     )}
                                 </div>
                             )}

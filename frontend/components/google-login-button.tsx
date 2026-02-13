@@ -29,7 +29,7 @@ export function GoogleLoginButton() {
             })
 
             const data = await res.json()
-            console.log("Backend response:", data)
+            // console.log("Backend response:", data) // Security: Token hidden
 
             if (res.ok) {
                 console.log("Login success, redirecting...")

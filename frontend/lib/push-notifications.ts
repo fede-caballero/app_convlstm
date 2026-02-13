@@ -78,6 +78,6 @@ export async function subscribeToPushNotifications() {
         return true;
     } catch (error) {
         console.error('Push subscription failed:', error);
-        return false;
+        throw error; // Re-throw to let UI handle the alert
     }
 }

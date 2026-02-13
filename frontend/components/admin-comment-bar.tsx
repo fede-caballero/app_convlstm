@@ -113,6 +113,7 @@ export function AdminCommentBar() {
     }, [])
 
     const handleSubscribe = async () => {
+        //alert("Iniciando suscripción...") // Debugging
         setLoading(true)
         try {
             // Import dynamically or assume it's valid

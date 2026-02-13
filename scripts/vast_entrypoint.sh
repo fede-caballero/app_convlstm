@@ -26,6 +26,13 @@ else
     # Use || true to prevent exit on network error
     rclone backend copyid mydrive: 1Rodv1nQPnNCH545-4PoXo7S7rIZDntPG /app/model/best_convlstm_model.pth || echo "Rclone download failed"
     
+    
+    # Restore Database (Persistence)
+    echo "Restoring Database from Backup..."
+    mkdir -p /app/data
+    # Try to download the DB. If it doesn't exist remotely, just start fresh.
+    rclone copyto mydrive:convlstm_backups/radar_history.db /app/data/radar_history.db || echo "No remote database backup found. Starting fresh."
+    
     # Start Watcher
     nohup python3 /app/tools/drive_watcher.py --remote-base "mydrive:cart_no_clutter" --interval 60 > /app/logs/watcher.log 2>&1 &
 fi

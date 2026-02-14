@@ -1,19 +1,36 @@
-# Entorno Virtual de Python
-venv/
 
-# Archivos de caché y compilados de Python
+# Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+venv/
+env/
+.env
+.venv
 
-# Archivos de caché y dependencias del editor
+# Local Data
+*.sqlite3
+*.db
+backend/data/radar_history.db
+
+# Logs & Debug
+backend/debug_push_send.txt
+*.log
+backend/debug_*.txt
+
+# IDE
 .vscode/
 .idea/
 
-# Dependencias de Frontend (si usas Node.js en el futuro)
+# JS
 node_modules/
+frontend/.next/
+frontend/out/
 
+# OS
+.DS_Store
+
+# User Excludes
 *.deb
 
 # Modelos entrenados

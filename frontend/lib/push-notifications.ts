@@ -36,51 +36,39 @@ export async function registerServiceWorker() {
 }
 
 export async function subscribeToPushNotifications() {
-    alert("Step 0: Start - Checking Permission...");
-    if (!('serviceWorker' in navigator)) { alert("No SW support"); return; }
+    if (!('serviceWorker' in navigator)) {
+        console.warn("No Service Worker support");
+        return;
+    }
 
     // Explicitly request permission first (Required for Firefox/Safari)
     let permission = Notification.permission;
     if (permission === 'default') {
-        alert("Step 0.5: Requesting Permission...");
         permission = await Notification.requestPermission();
     }
 
     if (permission !== 'granted') {
-        alert("ERROR: Permission Denied (" + permission + ")");
         throw new Error("Permission NOT granted.");
     }
 
-    alert("Step 1: Waiting for SW ready...");
     const registration = await navigator.serviceWorker.ready;
-    alert("Step 2: SW Ready: " + registration.scope);
 
     try {
         // 1. Get Public Key from Backend
-        alert("Step 3: Fetching Public Key...");
         const response = await fetch('/api/notifications/vapid-public-key');
         const data = await response.json();
         if (!data.publicKey) throw new Error("No public key returned");
 
-        alert("Step 4: Got Key. Converting...");
         const convertedVapidKey = urlBase64ToUint8Array(data.publicKey);
 
         // 2. Subscribe using PushManager
-        alert("Step 5: Calling pushManager.subscribe (Check permissions!)...");
         const subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: convertedVapidKey
         });
 
-        alert("Step 6: Subscribe Local OK. Sending to Backend...");
-
         // 3. Send subscription to Backend
-        // Fix: Use correct token storage (localStorage 'token' might be inside a JSON object if using context?)
-        // Let's assume 'token' is key. If using provider, we might not have access here easily without passing it.
-        // But let's try reading from localStorage which is where AuthProvider usually puts it.
         const token = localStorage.getItem('token');
-        // Debug
-        // alert("Token: " + (token ? "Found" : "Missing"));
 
         const subscribeResponse = await fetch('/api/notifications/subscribe', {
             method: 'POST',
@@ -96,12 +84,39 @@ export async function subscribeToPushNotifications() {
             throw new Error(errorData.error || `Failed to subscribe: ${subscribeResponse.status}`);
         }
 
-        alert("Step 7: Backend OK! Success!");
         console.log('Push subscription success');
         return true;
     } catch (error) {
         console.error('Push subscription failed:', error);
-        alert("ERROR CRITICAL: " + error);
-        throw error; // Re-throw to let UI handle the alert
+        throw error;
     }
+}
+
+export async function unsubscribeFromPush() {
+    if (!('serviceWorker' in navigator)) return;
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+
+    if (!subscription) return;
+
+    // 1. Unsubscribe from Backend
+    try {
+        const token = localStorage.getItem('token');
+        await fetch('/api/notifications/subscribe', {
+            method: 'DELETE',
+            body: JSON.stringify({ endpoint: subscription.endpoint }),
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            }
+        });
+    } catch (e) {
+        console.error("Backend unsubscribe failed", e);
+        // Continue to local unsubscribe anyway
+    }
+
+    // 2. Unsubscribe locally (browser)
+    await subscription.unsubscribe();
+    console.log("Unsubscribed from Push");
+    return true;
 }

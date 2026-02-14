@@ -307,6 +307,30 @@ def subscribe_push():
     finally:
         conn.close()
 
+@app.route('/api/notifications/subscribe', methods=['DELETE'])
+def unsubscribe_push():
+    data = request.get_json()
+    endpoint = data.get('endpoint')
+
+    if not endpoint:
+        return jsonify({"error": "Missing endpoint"}), 400
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,))
+        conn.commit()
+        
+        if cursor.rowcount == 0:
+             return jsonify({"message": "Subscription not found"}), 404
+             
+        return jsonify({"message": "Unsubscribed successfully"}), 200
+    except Exception as e:
+        logging.error(f"Error unsubscribing: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
 def _send_push_to_all(title, message, url):
     """
     Helper function to send push notifications to all subscribers.

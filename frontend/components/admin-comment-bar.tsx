@@ -117,22 +117,27 @@ export function AdminCommentBar() {
         }
     }, [])
 
-    const handleSubscribe = async () => {
-        //alert("Iniciando suscripción...") // Debugging
+    const handleTogglePush = async () => {
         setLoading(true)
         try {
-            // Import dynamically or assume it's valid
-            const { subscribeToPushNotifications } = await import('@/lib/push-notifications')
-            const result = await subscribeToPushNotifications()
-            if (result) {
-                setIsSubscribed(true)
-                alert("Notificaciones activadas")
+            const { subscribeToPushNotifications, unsubscribeFromPush } = await import('@/lib/push-notifications')
+
+            if (isSubscribed) {
+                const success = await unsubscribeFromPush()
+                if (success) {
+                    setIsSubscribed(false)
+                    alert("Notificaciones desactivadas")
+                }
             } else {
-                alert("No se pudo activar. Verifica permisos.")
+                const result = await subscribeToPushNotifications()
+                if (result) {
+                    setIsSubscribed(true)
+                    alert("Notificaciones activadas")
+                }
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error(e)
-            alert("Error al suscribir: " + e)
+            alert("Error: " + (e.message || e))
         }
         finally { setLoading(false) }
     }
@@ -280,18 +285,17 @@ export function AdminCommentBar() {
                                         variant="ghost"
                                         size="sm"
                                         onClick={async () => {
-                                            if (Notification.permission === 'denied') {
+                                            if (!isSubscribed && Notification.permission === 'denied') {
                                                 alert("Has bloqueado las notificaciones. Habilítalas en la configuración del navegador.")
                                                 return;
                                             }
-                                            // alert("Paso 1: Iniciando...")
-                                            await handleSubscribe()
+                                            await handleTogglePush()
                                         }}
-                                        disabled={isSubscribed || loading}
-                                        className={`w-full justify-between px-2 ${isSubscribed ? "text-green-400" : "text-gray-400 hover:text-white"}`}
+                                        disabled={loading}
+                                        className={`w-full justify-between px-2 ${isSubscribed ? "text-green-400 hover:text-red-400 hover:bg-red-500/10" : "text-gray-400 hover:text-white"}`}
                                     >
                                         <span className="text-xs">
-                                            {isSubscribed ? "Notificaciones Activas" : "Activar Notificaciones"}
+                                            {loading ? "Procesando..." : (isSubscribed ? "Notificaciones Activas" : "Activar Notificaciones")}
                                         </span>
                                         {isSubscribed ? <BellRing className="w-3 h-3" /> : <BellOff className="w-3 h-3" />}
                                     </Button>

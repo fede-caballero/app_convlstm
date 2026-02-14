@@ -1,0 +1,29 @@
+CWD: /app
+✅ Loaded config from CWD
+=== DEBUG PUSH SEND START ===
+DB Path: /app/data/radar_history.db
+VAPID Email: mailto:admin@example.com
+VAPID Key Length: 240
+Found 4 subscriptions.
+Testing subscription: https://updates.push.services....
+Using legacy vapid.sign() method
+DEBUG: vapid.sign() returned type <class 'dict'>: {'Authorization': 'vapid t=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJodHRwczovL3VwZGF0ZXMucHVzaC5zZXJ2aWNlcy5tb3ppbGxhLmNvbSIsImV4cCI6MTc3MTE2Mjk5MCwic3ViIjoibWFpbHRvOmFkbWluQGV4YW1wbGUuY29tIn0.a4fOhq78-cIm80_P2AaBZfN-14STVLoNJ0XKb-KBDjTjj2yOVV7hn103qLAsgklTGzqu4blwjypkCvx6VMAehQ,k=BCLCYjR4JfMGiEu89iVTOP8surJnL-v-QW6_-_xRZWHWMKuA7WK1f7qtenLFaXOIk3669ju3DQvQX-Xj1PXjndA'}
+Generated Headers: {'Authorization': 'vapid t=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJodHRwczovL3VwZGF0ZXMucHVzaC5zZXJ2aWNlcy5tb3ppbGxhLmNvbSIsImV4cCI6MTc3MTE2Mjk5MCwic3ViIjoibWFpbHRvOmFkbWluQGV4YW1wbGUuY29tIn0.a4fOhq78-cIm80_P2AaBZfN-14STVLoNJ0XKb-KBDjTjj2yOVV7hn103qLAsgklTGzqu4blwjypkCvx6VMAehQ,k=BCLCYjR4JfMGiEu89iVTOP8surJnL-v-QW6_-_xRZWHWMKuA7WK1f7qtenLFaXOIk3669ju3DQvQX-Xj1PXjndA'}
+⚠️ WebPushException (Expected if sub invalid): WebPushException: Push failed: 410 Gone
+Response body:{"code":410,"errno":106,"error":"Gone","message":"No such subscription","more_info":"http://autopush.readthedocs.io/en/latest/http.html#error-codes"}, Response {"code":410,"errno":106,"error":"Gone","message":"No such subscription","more_info":"http://autopush.readthedocs.io/en/latest/http.html#error-codes"}
+Testing subscription: https://updates.push.services....
+Using legacy vapid.sign() method
+DEBUG: vapid.sign() returned type <class 'dict'>: {'Authorization': 'vapid t=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJodHRwczovL3VwZGF0ZXMucHVzaC5zZXJ2aWNlcy5tb3ppbGxhLmNvbSIsImV4cCI6MTc3MTE2Mjk5MSwic3ViIjoibWFpbHRvOmFkbWluQGV4YW1wbGUuY29tIn0.rH_NtQ_6BbSnxK-UYJYzgKxn3cSvBe0eTNfeEOFVeOsnnC_57jPj-oGWassKRBOBi8ubFnJ7lXh2PYukNi5GSw,k=BCLCYjR4JfMGiEu89iVTOP8surJnL-v-QW6_-_xRZWHWMKuA7WK1f7qtenLFaXOIk3669ju3DQvQX-Xj1PXjndA'}
+Generated Headers: {'Authorization': 'vapid t=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJodHRwczovL3VwZGF0ZXMucHVzaC5zZXJ2aWNlcy5tb3ppbGxhLmNvbSIsImV4cCI6MTc3MTE2Mjk5MSwic3ViIjoibWFpbHRvOmFkbWluQGV4YW1wbGUuY29tIn0.rH_NtQ_6BbSnxK-UYJYzgKxn3cSvBe0eTNfeEOFVeOsnnC_57jPj-oGWassKRBOBi8ubFnJ7lXh2PYukNi5GSw,k=BCLCYjR4JfMGiEu89iVTOP8surJnL-v-QW6_-_xRZWHWMKuA7WK1f7qtenLFaXOIk3669ju3DQvQX-Xj1PXjndA'}
+✅ Send Success!
+Testing subscription: https://fcm.googleapis.com/fcm...
+Using legacy vapid.sign() method
+DEBUG: vapid.sign() returned type <class 'dict'>: {'Authorization': 'vapid t=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJodHRwczovL2ZjbS5nb29nbGVhcGlzLmNvbSIsImV4cCI6MTc3MTE2Mjk5MSwic3ViIjoibWFpbHRvOmFkbWluQGV4YW1wbGUuY29tIn0.xwDyFU1CrrigB8h8JvHd1FFTOIPEAw3jfAYgBrfmGdg038MxIrSaFpdbP5gNkuUjMmaH6VHKYOBVl9iwqsO7mg,k=BCLCYjR4JfMGiEu89iVTOP8surJnL-v-QW6_-_xRZWHWMKuA7WK1f7qtenLFaXOIk3669ju3DQvQX-Xj1PXjndA'}
+Generated Headers: {'Authorization': 'vapid t=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJodHRwczovL2ZjbS5nb29nbGVhcGlzLmNvbSIsImV4cCI6MTc3MTE2Mjk5MSwic3ViIjoibWFpbHRvOmFkbWluQGV4YW1wbGUuY29tIn0.xwDyFU1CrrigB8h8JvHd1FFTOIPEAw3jfAYgBrfmGdg038MxIrSaFpdbP5gNkuUjMmaH6VHKYOBVl9iwqsO7mg,k=BCLCYjR4JfMGiEu89iVTOP8surJnL-v-QW6_-_xRZWHWMKuA7WK1f7qtenLFaXOIk3669ju3DQvQX-Xj1PXjndA'}
+✅ Send Success!
+Testing subscription: https://fcm.googleapis.com/fcm...
+Using legacy vapid.sign() method
+DEBUG: vapid.sign() returned type <class 'dict'>: {'Authorization': 'vapid t=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJodHRwczovL2ZjbS5nb29nbGVhcGlzLmNvbSIsImV4cCI6MTc3MTE2Mjk5MSwic3ViIjoibWFpbHRvOmFkbWluQGV4YW1wbGUuY29tIn0.kiFETqgh1oLJgDkidRJC-6_Rc59trozDrdqsz_bP_Ei7tKNAMA-RrNONqe4k46QVZo0dJ0iBaRXegKxplIP2jw,k=BCLCYjR4JfMGiEu89iVTOP8surJnL-v-QW6_-_xRZWHWMKuA7WK1f7qtenLFaXOIk3669ju3DQvQX-Xj1PXjndA'}
+Generated Headers: {'Authorization': 'vapid t=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJodHRwczovL2ZjbS5nb29nbGVhcGlzLmNvbSIsImV4cCI6MTc3MTE2Mjk5MSwic3ViIjoibWFpbHRvOmFkbWluQGV4YW1wbGUuY29tIn0.kiFETqgh1oLJgDkidRJC-6_Rc59trozDrdqsz_bP_Ei7tKNAMA-RrNONqe4k46QVZo0dJ0iBaRXegKxplIP2jw,k=BCLCYjR4JfMGiEu89iVTOP8surJnL-v-QW6_-_xRZWHWMKuA7WK1f7qtenLFaXOIk3669ju3DQvQX-Xj1PXjndA'}
+✅ Send Success!
+=== DEBUG PUSH SEND END ===

@@ -1,7 +1,24 @@
 import sqlite3
 import json
 import logging
-from config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL, DB_PATH
+import sys
+import os
+
+print(f"CWD: {os.getcwd()}")
+sys.path.append(os.getcwd())
+
+try:
+    try:
+        from config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL, DB_PATH
+        print("✅ Loaded config from CWD")
+    except ImportError:
+        sys.path.append(os.path.join(os.getcwd(), 'backend'))
+        from backend.config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL, DB_PATH
+        print("✅ Loaded config from backend/")
+except ImportError as e:
+    print(f"❌ Config Import Failed: {e}")
+    exit(1)
+
 from pywebpush import webpush, WebPushException
 
 # Configure logging to see everything
@@ -70,21 +87,46 @@ for sub in subscriptions:
         # Let's try get_authorization_header if available, else sign
         
         auth_headers = {}
+        # Debug library version capabilities
+        # print(f"Vapid methods: {dir(vapid)}")
+        
         if hasattr(vapid, "get_authorization_header"):
              auth_headers = vapid.get_authorization_header(endpoint, VAPID_CLAIM_EMAIL)
-             # This returns a dict like {"Authorization": "WebPush ..."} or just the value?
-             # Usually it returns the value strings? No, it returns a dict in recent versions?
-             # Let's assume it returns a dict or we inspect it.
-             # Actually, standard py-vapid `get_authorization_header` returns `b'WebPush <token>'`
-             
-             # If it returns bytes/str, we set it:
              if isinstance(auth_headers, (bytes, str)):
+                 if isinstance(auth_headers, bytes):
+                     auth_headers = auth_headers.decode('utf-8')
                  auth_headers = {"Authorization": auth_headers}
         else:
-             # Older versions
-             # token = vapid.sign({"endpoint": endpoint, "sub": VAPID_CLAIM_EMAIL})
-             # auth_headers = {"Authorization": f"WebPush {token}"}
-             print("Warning: unexpected Vapid version, trying get_authorization_header anyway")
+             # Fallback for older py-vapid
+             print("Using legacy vapid.sign() method")
+             from urllib.parse import urlparse
+             # We need to sign a claim. "aud" is usually origin, "sub" is email.
+             # Origin is protocol + host
+             parsed = urlparse(endpoint)
+             aud = f"{parsed.scheme}://{parsed.netloc}"
+             
+             claim = {"aud": aud, "sub": VAPID_CLAIM_EMAIL}
+             token = vapid.sign(claim)
+             
+             print(f"DEBUG: vapid.sign() returned type {type(token)}: {token}")
+
+             if isinstance(token, dict):
+                 auth_headers = token
+             else:
+                 if isinstance(token, bytes):
+                     token = token.decode('utf-8')
+                 # If it's a string, is it the full value or just the JWT?
+                 # If it contains "vapid t=", it's the value.
+                 if "vapid t=" in token:
+                     auth_headers = {"Authorization": token}
+                 else:
+                     # Assume it's just the JWT, verify standard
+                     # RFC 8292: Authorization: vapid t=JWT, k=Public
+                     # But we need public key. vapid.public_key?
+                     # Let's try the WebPush prefix as fallback if it looks like a clean JWT
+                     auth_headers = {"Authorization": f"WebPush {token}"}
+
+        print(f"Generated Headers: {auth_headers}")
 
         # Merge headers
         final_headers = headers.copy()

@@ -363,7 +363,9 @@ def _send_push_to_all(title, message, url):
         
         try:
             # Generate Headers per endpoint
+            # Generate Headers per endpoint
             auth_headers = {}
+            
             if vapid_obj and hasattr(vapid_obj, "get_authorization_header"):
                  header_value = vapid_obj.get_authorization_header(endpoint, VAPID_CLAIM_EMAIL)
                  if isinstance(header_value, (bytes, str)):
@@ -372,6 +374,24 @@ def _send_push_to_all(title, message, url):
                      auth_headers = {"Authorization": header_value}
                  elif isinstance(header_value, dict):
                      auth_headers = header_value
+            else:
+                 # Fallback for older/different py-vapid versions
+                 from urllib.parse import urlparse
+                 parsed = urlparse(endpoint)
+                 aud = f"{parsed.scheme}://{parsed.netloc}"
+                 claim = {"aud": aud, "sub": VAPID_CLAIM_EMAIL}
+                 
+                 token = vapid_obj.sign(claim)
+                 
+                 if isinstance(token, dict):
+                     auth_headers = token
+                 else:
+                     if isinstance(token, bytes):
+                         token = token.decode('utf-8')
+                     if "vapid t=" in token:
+                         auth_headers = {"Authorization": token}
+                     else:
+                         auth_headers = {"Authorization": f"WebPush {token}"}
             
             final_headers = headers.copy()
             final_headers.update(auth_headers)

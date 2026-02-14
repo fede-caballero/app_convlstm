@@ -1,4 +1,9 @@
+import sys
 import os
+
+print(f"CWD: {os.getcwd()}")
+sys.path.append(os.getcwd())
+
 from py_vapid import Vapid
 from pywebpush import webpush, WebPushException
 import json
@@ -8,12 +13,20 @@ logging.basicConfig(level=logging.INFO)
 
 # 1. Load Keys from Env / Config
 try:
-    from config import VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, VAPID_CLAIM_EMAIL
-    print(f"✅ Loaded keys from config.py")
+    try:
+        from config import VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, VAPID_CLAIM_EMAIL
+        print(f"✅ Loaded keys from config.py")
+    except ImportError:
+        # Fallback: maybe we are in backend/ and config is here
+        sys.path.append(os.path.join(os.getcwd(), 'backend'))
+        from backend.config import VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, VAPID_CLAIM_EMAIL
+        print(f"✅ Loaded keys from backend.config")
+
     print(f"Public Key (Config): {VAPID_PUBLIC_KEY[:10]}...")
     print(f"Private Key (Config): {VAPID_PRIVATE_KEY[:10]}...")
-except ImportError:
-    print("❌ Could not import keys from config.py")
+except ImportError as e:
+    print(f"❌ Could not import keys from config.py: {e}")
+    # Try reading .env manually?
     exit(1)
 
 # 2. Test Key Validity

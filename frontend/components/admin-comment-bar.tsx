@@ -180,7 +180,7 @@ export function AdminCommentBar() {
     return (
         <div className="pointer-events-auto">
             {/* 1. Toggle / Bell Trigger */}
-            {(hasActiveAlerts || isAdmin) && (
+            {(hasActiveAlerts || user) && (
                 <Popover open={isOpen} onOpenChange={setIsOpen}>
                     <PopoverTrigger asChild>
                         <Button

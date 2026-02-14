@@ -56,11 +56,11 @@ export default function LoginPage() {
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-bold text-gray-200 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="username">Usuario</label>
+                            <label className="text-sm font-bold text-gray-200 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="username">Usuario o Email</label>
                             <Input
                                 id="username"
                                 type="text"
-                                placeholder="usuario"
+                                placeholder="usuario o email"
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
                                 required
@@ -74,6 +74,7 @@ export default function LoginPage() {
                             <Input
                                 id="password"
                                 type="password"
+                                placeholder="••••••••"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required

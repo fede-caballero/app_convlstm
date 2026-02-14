@@ -24,13 +24,23 @@ export default function RegisterPage() {
         e.preventDefault()
         setError("")
 
+        // Client-side Validation
+        if (password.length < 8) {
+            setError("La contraseña debe tener al menos 8 caracteres.")
+            return
+        }
+        if (!/\d/.test(password) || !/[a-zA-Z]/.test(password)) {
+            setError("La contraseña debe contener letras y números.")
+            return
+        }
+
         try {
             const res = await fetch(`${API_BASE_URL}/auth/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     username,
-                    password, // Note: In a real app we should validate password strength
+                    password,
                     email,
                     first_name: firstName,
                     last_name: lastName,
@@ -98,9 +108,11 @@ export default function RegisterPage() {
                         <div className="space-y-2">
                             <label className="text-sm font-bold text-white leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="password">Contraseña</label>
                             <Input id="password" type="password" required
+                                placeholder="••••••••"
                                 value={password} onChange={(e) => setPassword(e.target.value)}
                                 className="bg-zinc-800 border-zinc-700 text-zinc-100 focus:ring-primary focus:border-primary"
                             />
+                            <p className="text-[10px] text-gray-400">Mínimo 8 caracteres, letras y números.</p>
                         </div>
 
                         {error && <div className="text-red-400 text-sm text-center bg-red-900/20 p-2 rounded border border-red-900/50">{error}</div>}

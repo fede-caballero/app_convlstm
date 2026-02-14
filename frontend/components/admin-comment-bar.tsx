@@ -225,6 +225,7 @@ export function AdminCommentBar() {
                                             placeholder="Nueva alerta..."
                                             value={newContent}
                                             onChange={e => setNewContent(e.target.value)}
+                                            onKeyDown={e => { if (e.key === 'Enter') handlePost() }}
                                             className="h-8 bg-white/10 border-none text-white text-xs"
                                         />
                                         <Button size="sm" onClick={handlePost} disabled={loading} className="h-8 bg-blue-600 hover:bg-blue-700">

@@ -55,6 +55,10 @@ def register():
 
     if not username or not password or not email:
         return jsonify({"error": "Username, password and email required"}), 400
+        
+    # Validation
+    if len(password) < 8 or not re.search(r"\d", password) or not re.search(r"[a-zA-Z]", password):
+        return jsonify({"error": "Password must be at least 8 characters long and contain both letters and numbers."}), 400
 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -81,6 +85,8 @@ def register():
         return jsonify({"error": f"Internal error: {str(e)}"}), 500
     finally:
         conn.close()
+    
+
 
 @app.route('/auth/google', methods=['POST'])
 def google_login():
@@ -161,20 +167,21 @@ def google_login():
 @app.route('/auth/login', methods=['POST'])
 def login():
     data = request.get_json()
-    username = data.get('username')
+    username_or_email = data.get('username')
     password = data.get('password')
 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT password_hash, role, id FROM users WHERE username = ?", (username,))
+    cursor.execute("SELECT password_hash, role, id, username FROM users WHERE username = ? OR email = ?", (username_or_email, username_or_email))
     user = cursor.fetchone()
     conn.close()
 
     if not user or not auth.verify_password(password, user[0]):
         return jsonify({"error": "Invalid credentials"}), 401
 
-    access_token = auth.create_access_token(data={"sub": username, "role": user[1], "id": user[2]})
-    return jsonify({"access_token": access_token, "token_type": "bearer", "role": user[1], "username": username})
+    real_username = user[3]
+    access_token = auth.create_access_token(data={"sub": real_username, "role": user[1], "id": user[2]})
+    return jsonify({"access_token": access_token, "token_type": "bearer", "role": user[1], "username": real_username})
 
 @app.route('/auth/me', methods=['GET'])
 def me():

@@ -24,6 +24,7 @@ else:
     origins_list = [
         "http://localhost:3000",
         "https://app-convlstm.vercel.app",
+        "https://hail-cast.vercel.app",
         FRONTEND_URL
     ]
 

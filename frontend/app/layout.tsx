@@ -7,9 +7,21 @@ import { AuthProvider } from '@/lib/auth-context'
 import { ServiceWorkerRegister } from '@/components/sw-register'
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.dev',
+  title: 'Hailcast Alert',
+  description: 'Alertas de tormentas severas en tiempo real.',
+  manifest: '/manifest.json',
+  themeColor: '#0f172a',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Hailcast',
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false, // App-like behavior
+  },
 }
 
 export default function RootLayout({

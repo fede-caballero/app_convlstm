@@ -144,3 +144,12 @@
 .dark-popup .mapboxgl-popup-close-button {
   @apply flex w-6 h-6 text-xl top-1 right-1 rounded-full hover:bg-white/10;
 }
+
+/* Hide Scale Control on Mobile to prevent overlap */
+@media (max-width: 768px) {
+
+  .maplibregl-ctrl-scale,
+  .mapboxgl-ctrl-scale {
+    display: none !important;
+  }
+}

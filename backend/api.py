@@ -149,7 +149,7 @@ def google_login():
         conn.close()
         
         # Generate our JWT
-        access_token = auth.create_access_token(data={"sub": username, "role": role, "id": user_id})
+        access_token = auth.create_access_token(data={"sub": username, "role": role, "id": user_id}, expires_delta=timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES))
         return jsonify({
             "access_token": access_token, 
             "token_type": "bearer", 
@@ -182,7 +182,8 @@ def login():
         return jsonify({"error": "Invalid credentials"}), 401
 
     real_username = user[3]
-    access_token = auth.create_access_token(data={"sub": real_username, "role": user[1], "id": user[2]})
+    real_username = user[3]
+    access_token = auth.create_access_token(data={"sub": real_username, "role": user[1], "id": user[2]}, expires_delta=timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES))
     return jsonify({"access_token": access_token, "token_type": "bearer", "role": user[1], "username": real_username})
 
 @app.route('/auth/me', methods=['GET'])

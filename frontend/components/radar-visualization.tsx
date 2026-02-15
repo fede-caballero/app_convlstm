@@ -51,6 +51,7 @@ export function RadarVisualization({
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [boundariesData, setBoundariesData] = useState<any>(null)
+  const [districtsData, setDistrictsData] = useState<any>(null)
   const [selectedReport, setSelectedReport] = useState<{
     longitude: number,
     latitude: number,
@@ -81,6 +82,12 @@ export function RadarVisualization({
       .then(res => res.json())
       .then(data => setBoundariesData(data))
       .catch(err => console.error("Failed to load boundaries", err));
+
+    // Load Mendoza districts
+    fetch('/mendoza_departamentos.geojson')
+      .then(res => res.json())
+      .then(data => setDistrictsData(data))
+      .catch(err => console.error("Failed to load districts", err));
   }, []);
 
   // Animation logic
@@ -239,6 +246,36 @@ export function RadarVisualization({
       'text-halo-width': 2
     }
   } as const;
+
+  const districtLineStyle = {
+    id: 'districts-line',
+    type: 'line' as const,
+    paint: {
+      'line-color': '#4ade80', // Greenish for districts
+      'line-width': 1,
+      'line-opacity': 0.5,
+      'line-dasharray': [2, 2]
+    }
+  };
+
+  const districtLabelStyle = {
+    id: 'districts-label',
+    type: 'symbol' as const,
+    layout: {
+      'text-field': ['get', 'departamen'] as any,
+      'text-size': 10,
+      'text-transform': 'uppercase' as const,
+      'text-offset': [0, 0] as [number, number],
+      'symbol-placement': 'point' as const,
+      'text-max-width': 8
+    },
+    paint: {
+      'text-color': '#4ade80',
+      'text-halo-color': '#000000',
+      'text-halo-width': 1.5,
+      'text-opacity': 0.8
+    }
+  };
 
 
 
@@ -409,6 +446,13 @@ export function RadarVisualization({
             </Source>
           )
         }
+
+        {districtsData && (
+          <Source id="districts" type="geojson" data={districtsData}>
+            <Layer {...districtLineStyle} />
+            <Layer {...districtLabelStyle} />
+          </Source>
+        )}
 
         {/* Unified Timeline Control Bar */}
         <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/60 to-transparent pb-8 pt-12">

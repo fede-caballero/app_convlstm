@@ -51,7 +51,9 @@ export function RadarVisualization({
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [boundariesData, setBoundariesData] = useState<any>(null)
-  const [districtsData, setDistrictsData] = useState<any>(null)
+  const [departmentsData, setDepartmentsData] = useState<any>(null) // Depatamentos (Top level)
+  const [districtsData, setDistrictsData] = useState<any>(null)     // Distritos (Sub level)
+  const [localitiesData, setLocalitiesData] = useState<any>(null)   // Localidades (Points)
   const [selectedReport, setSelectedReport] = useState<{
     longitude: number,
     latitude: number,
@@ -83,11 +85,24 @@ export function RadarVisualization({
       .then(data => setBoundariesData(data))
       .catch(err => console.error("Failed to load boundaries", err));
 
-    // Load Mendoza districts
+
+    // Load Mendoza Departments (Departamentos)
     fetch('/mendoza_departamentos.geojson')
+      .then(res => res.json())
+      .then(data => setDepartmentsData(data))
+      .catch(err => console.error("Failed to load departments", err));
+
+    // Load Mendoza Districts (Distritos)
+    fetch('/distritos-mendoza.geojson')
       .then(res => res.json())
       .then(data => setDistrictsData(data))
       .catch(err => console.error("Failed to load districts", err));
+
+    // Load Localities (Localidades)
+    fetch('/localidades.geojson')
+      .then(res => res.json())
+      .then(data => setLocalitiesData(data))
+      .catch(err => console.error("Failed to load localities", err));
   }, []);
 
   // Animation logic
@@ -247,33 +262,98 @@ export function RadarVisualization({
     }
   } as const;
 
+  const departmentLineStyle = {
+    id: 'departments-line',
+    type: 'line' as const,
+    paint: {
+      'line-color': '#4ade80', // Greenish for departments
+      'line-width': 1.5,       // Slightly thicker
+      'line-opacity': 0.7,
+      'line-dasharray': [2, 2]
+    }
+  };
+
+  const departmentLabelStyle = {
+    id: 'departments-label',
+    type: 'symbol' as const,
+    layout: {
+      'text-field': ['get', 'departamen'] as any,
+      'text-size': 12, // Bigger for departments
+      'text-transform': 'uppercase' as const,
+      'text-offset': [0, 0] as [number, number],
+      'symbol-placement': 'point' as const,
+      'text-max-width': 10,
+      'text-font': ["Open Sans Bold"]
+    },
+    paint: {
+      'text-color': '#4ade80',
+      'text-halo-color': '#000000',
+      'text-halo-width': 2,
+      'text-opacity': 0.9
+    }
+  };
+
+  // Districts (Distritos) - Thinner, more subtle
   const districtLineStyle = {
     id: 'districts-line',
     type: 'line' as const,
+    minzoom: 8, // Only visible when zoomed in a bit
     paint: {
-      'line-color': '#4ade80', // Greenish for districts
-      'line-width': 1,
-      'line-opacity': 0.5,
-      'line-dasharray': [2, 2]
+      'line-color': '#4ade80',
+      'line-width': 0.5,
+      'line-opacity': 0.4,
+      'line-dasharray': [1, 2] // Dotted
     }
   };
 
   const districtLabelStyle = {
     id: 'districts-label',
     type: 'symbol' as const,
+    minzoom: 10,
     layout: {
-      'text-field': ['get', 'departamen'] as any,
-      'text-size': 10,
+      'text-field': ['get', 'distrito'] as any,
+      'text-size': 9,
       'text-transform': 'uppercase' as const,
       'text-offset': [0, 0] as [number, number],
       'symbol-placement': 'point' as const,
       'text-max-width': 8
     },
     paint: {
-      'text-color': '#4ade80',
+      'text-color': '#86efac', // Lighter green
       'text-halo-color': '#000000',
-      'text-halo-width': 1.5,
-      'text-opacity': 0.8
+      'text-halo-width': 1,
+      'text-opacity': 0.7
+    }
+  };
+
+  // Localities (Localidades) - Points
+  const localityCircleStyle = {
+    id: 'localities-circle',
+    type: 'circle' as const,
+    minzoom: 10,
+    paint: {
+      'circle-radius': 3,
+      'circle-color': '#ffffff',
+      'circle-opacity': 0.8,
+      'circle-stroke-width': 1,
+      'circle-stroke-color': '#000000'
+    }
+  };
+
+  const localityLabelStyle = {
+    id: 'localities-label',
+    type: 'symbol' as const,
+    minzoom: 11,
+    layout: {
+      'text-field': ['get', 'localidad'] as any,
+      'text-size': 9,
+      'text-offset': [0, 1] as [number, number], // Below the dot
+      'text-anchor': 'top' as const,
+    },
+    paint: {
+      'text-color': '#ffffff',
+      'text-halo-color': '#000000',
+      'text-halo-width': 1.5
     }
   };
 
@@ -447,10 +527,27 @@ export function RadarVisualization({
           )
         }
 
+        {/* Department Layer (Top Level) */}
+        {departmentsData && (
+          <Source id="departments" type="geojson" data={departmentsData}>
+            <Layer {...departmentLineStyle} />
+            <Layer {...departmentLabelStyle} />
+          </Source>
+        )}
+
+        {/* District Layer (Sub Level) */}
         {districtsData && (
           <Source id="districts" type="geojson" data={districtsData}>
             <Layer {...districtLineStyle} />
             <Layer {...districtLabelStyle} />
+          </Source>
+        )}
+
+        {/* Localities Layer (Points) */}
+        {localitiesData && (
+          <Source id="localities" type="geojson" data={localitiesData}>
+            <Layer {...localityCircleStyle} />
+            <Layer {...localityLabelStyle} />
           </Source>
         )}
 

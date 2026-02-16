@@ -52,7 +52,7 @@ Este documento detalla la arquitectura "Split" para desplegar la aplicación de 
 ## 3. Flujo de Trabajo Operativo
 
 1.  Inicias la instancia en Vast.ai.
-2.  Obtienes la URL del túnel desde los logs (`grep "trycloudflare.com" /app/logs/tunnel.log`).-
+2.  Obtienes la URL del túnel desde los logs (`grep "trycloudflare.com" /app/logs/tunnel.log`).
 3.  Actualizas la variable en Vercel (si usas túnel aleatorio) o usas siempre la misma (si configuras dominio propio).
 4.  ¡Listo! Usuarios acceden a `https://tu-proyecto.vercel.app` de forma segura.
 

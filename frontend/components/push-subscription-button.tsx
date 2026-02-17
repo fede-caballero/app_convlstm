@@ -59,12 +59,12 @@ export function PushSubscriptionButton() {
                     })
                 }
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error(error)
             toast({
                 variant: "destructive",
-                title: "Error",
-                description: "Ocurrió un problema al cambiar las notificaciones.",
+                title: "Error de Suscripción",
+                description: error.message || "Ocurrió un problema desconocido.",
             })
         } finally {
             setLoading(false)

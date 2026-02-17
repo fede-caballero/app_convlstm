@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Switch } from "@/components/ui/switch"
 import { RadarVisualization } from "@/components/radar-visualization"
 import { AdminCommentBar } from "@/components/admin-comment-bar"
-import { fetchImages, fetchStatus, ApiStatus, ApiImages, StormCell, fetchReports, WeatherReport } from "@/lib/api"
+import { fetchImages, fetchStatus, ApiStatus, ApiImages, StormCell, fetchReports, WeatherReport, updateLocation } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { ReportDialog } from "@/components/report-dialog"
 import { PushSubscriptionButton } from "@/components/push-subscription-button"
@@ -61,16 +61,24 @@ export default function RadarPredictionRealtime() {
         return;
       }
 
-      console.log(`Requesting geolocation (High Accuracy: ${highAccuracy})...`);
+      // console.log(`Requesting geolocation (High Accuracy: ${highAccuracy})...`);
 
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          console.log(`Geolocation success (${highAccuracy ? 'High' : 'Low'}):`, position.coords);
-          setUserLocation({
-            lat: position.coords.latitude,
-            lon: position.coords.longitude
-          });
+        async (position) => {
+          // console.log(`Geolocation success (${highAccuracy ? 'High' : 'Low'}):`, position.coords);
+          const { latitude, longitude } = position.coords;
+          setUserLocation({ lat: latitude, lon: longitude });
           setLocationError(null);
+
+          // Send to Backend if logged in
+          if (user && user.token) {
+            try {
+              await updateLocation(latitude, longitude, user.token);
+              console.log("Location sent to backend");
+            } catch (e) {
+              console.error("Failed to send location", e);
+            }
+          }
         },
         (error) => {
           console.warn(`Geolocation error (${highAccuracy ? 'High' : 'Low'}):`, error.message);
@@ -89,14 +97,18 @@ export default function RadarPredictionRealtime() {
         },
         {
           enableHighAccuracy: highAccuracy,
-          timeout: highAccuracy ? 5000 : 15000, // Short timeout for High, longer for Low
-          maximumAge: highAccuracy ? 0 : 600000 // Accept cached low accuracy (10 mins)
+          timeout: highAccuracy ? 5000 : 15000,
+          maximumAge: highAccuracy ? 0 : 600000
         }
       );
     }
 
-    getLocation(true); // Start with High Accuracy
-  }, []);
+    getLocation(true);
+
+    // Refresh location every 5 minutes
+    const intervalId = setInterval(() => getLocation(true), 1000 * 60 * 5);
+    return () => clearInterval(intervalId);
+  }, [user]); // Re-run if user logs in
 
 
 
@@ -360,7 +372,7 @@ export default function RadarPredictionRealtime() {
 
       {/* Storm Alert Section */}
       {nearestStorm && (
-        <div className="absolute bottom-64 left-4 z-50 flex flex-col items-start gap-2">
+        <div className="absolute bottom-80 left-4 z-50 flex flex-col items-start gap-2">
 
           {/* Detailed Card (Toggled) */}
           {showStormAlert && (
@@ -388,7 +400,7 @@ export default function RadarPredictionRealtime() {
       )}
 
       {/* FAB - Report Button (Bottom Left) */}
-      <div className="absolute bottom-48 left-4 z-50">
+      <div className="absolute bottom-64 left-4 z-50">
         <Button
           onClick={() => {
             if (!user) {
@@ -407,7 +419,7 @@ export default function RadarPredictionRealtime() {
       </div>
 
       {/* Push Notifications Switch (Below Report Button) */}
-      <div className="absolute bottom-32 left-4 z-50 flex justify-center w-14">
+      <div className="absolute bottom-48 left-4 z-50 flex justify-center w-14">
         <div className="bg-black/60 backdrop-blur-md rounded-full p-2 border border-white/10 shadow-lg hover:bg-black/80 transition-all">
           <PushSubscriptionButton />
         </div>

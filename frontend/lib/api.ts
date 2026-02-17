@@ -14,6 +14,21 @@ export interface StormCell {
 }
 
 // Nueva interfaz para una imagen con sus coordenadas
+export async function updateLocation(lat: number, lon: number, token: string) {
+  const response = await fetch(`${API_BASE_URL}/api/user/location`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ latitude: lat, longitude: lon }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to update location');
+  }
+}
+
 export interface ImageWithBounds {
   url: string;
   bounds: [[number, number], [number, number]];

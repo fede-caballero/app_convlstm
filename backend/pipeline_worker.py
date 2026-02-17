@@ -21,8 +21,28 @@ from scipy.ndimage import label, center_of_mass
 # Importamos desde nuestros módulos
 from config import (MDV_INBOX_DIR, MDV_ARCHIVE_DIR, INPUT_DIR, OUTPUT_DIR, ARCHIVE_DIR, 
                     SECUENCE_LENGHT, POLL_INTERVAL_SECONDS, MODEL_PATH, 
-                    DATA_CONFIG, STATUS_FILE_PATH, MDV_OUTPUT_DIR, IMAGE_OUTPUT_DIR, DB_PATH)
+                    DATA_CONFIG, STATUS_FILE_PATH, MDV_OUTPUT_DIR, IMAGE_OUTPUT_DIR, DB_PATH,
+                    VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL, FRONTEND_URL)
 from model.predict import ModelPredictor
+
+from pywebpush import webpush, WebPushException
+try:
+    from py_vapid import Vapid
+except ImportError:
+    logging.error("Could not import Vapid from py_vapid")
+    Vapid = None
+
+# --- Utilitarios ---
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371  # Radius of earth in km
+    dLat = np.radians(lat2 - lat1)
+    dLon = np.radians(lon2 - lon1)
+    a = np.sin(dLat/2) * np.sin(dLat/2) + \
+        np.cos(np.radians(lat1)) * np.cos(np.radians(lat2)) * \
+        np.sin(dLon/2) * np.sin(dLon/2)
+    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1-a))
+    d = R * c # Distance in km
+    return d
 
 
 # --- Configuración del Logging ---
@@ -94,6 +114,129 @@ def detect_storm_cells(dbz_data, x_vals, y_vals, projection):
         })
         
     return cells
+
+def check_proximity_alerts(storm_cells):
+    """
+    Verifica si hay usuarios cerca (< 20km) de alguna celda de tormenta.
+    Envía notificación si no se ha enviado una en los últimos 10 minutos.
+    """
+    if not storm_cells:
+        return
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # 1. Get Users with Location and Push Subscriptions
+        # We join to ensure they have a subscription
+        cursor.execute("""
+            SELECT DISTINCT u.id, u.latitude, u.longitude, u.last_proximity_alert, 
+                   s.endpoint, s.p256dh, s.auth
+            FROM users u
+            JOIN push_subscriptions s ON u.id = s.user_id
+            WHERE u.latitude IS NOT NULL AND u.longitude IS NOT NULL
+        """)
+        users_subs = cursor.fetchall()
+        
+        if not users_subs:
+            return
+
+        # Prepare VAPID
+        vapid_obj = None
+        if Vapid and VAPID_PRIVATE_KEY:
+             try:
+                 key_bytes = VAPID_PRIVATE_KEY.encode('utf-8')
+                 vapid_obj = Vapid.from_pem(key_bytes)
+             except Exception as e:
+                 logging.error(f"Worker VAPID Setup Error: {e}")
+                 # Continue without VAPID? Usually strictly required. 
+                 pass
+
+        now = datetime.now(timezone.utc)
+        
+        # Keep track of sent alerts to avoid double sending if user has multiple devices
+        # actually the loop is per subscription (device), so it's fine.
+        # But we update user.last_proximity_alert ONCE per user?
+        # Better: check user cooldown.
+        
+        users_processed = {} # userId -> sent?
+
+        for row in users_subs:
+            user_id, u_lat, u_lon, last_alert_iso, endpoint, p256dh, auth_key = row
+            
+            # Check Cooldown (10 mins)
+            if last_alert_iso:
+                try:
+                    last_alert = datetime.fromisoformat(last_alert_iso)
+                    if (now - last_alert).total_seconds() < 600: # 10 mins
+                        continue 
+                except:
+                    pass # Invalid date, proceed
+            
+            # Check Distance to ANY cell
+            min_dist = float('inf')
+            nearest_cell = None
+            
+            for cell in storm_cells:
+                dist = haversine(u_lat, u_lon, cell['lat'], cell['lon'])
+                if dist < min_dist:
+                    min_dist = dist
+                    nearest_cell = cell
+            
+            # Threshold: 20km
+            if min_dist < 20 and nearest_cell:
+                # SEND ALERT!
+                msg = f"Detectada {nearest_cell['type']} a {int(min_dist)}km de tu ubicación."
+                
+                logging.info(f"Sending Proximity Alert to User {user_id}: {msg}")
+                
+                # Payload
+                notification_data = json.dumps({
+                    "title": "¡Tormenta Cercana!",
+                    "body": msg,
+                    "url": "/", # Open Map
+                    "icon": "/icon-192x192.png"
+                })
+                
+                # Push Logic (Duplicate from API, should be refactored but okay for now)
+                subscription_info = {
+                    "endpoint": endpoint,
+                    "keys": {"p256dh": p256dh, "auth": auth_key}
+                }
+                
+                try:
+                    headers = {"TTL": "60", "Urgency": "high"}
+                    if vapid_obj:
+                         auth_headers = vapid_obj.get_authorization_header(endpoint, VAPID_CLAIM_EMAIL)
+                         # dict or str handling
+                         if isinstance(auth_headers, dict):
+                             headers.update(auth_headers)
+                         elif isinstance(auth_headers, (str, bytes)):
+                             if isinstance(auth_headers, bytes): auth_headers = auth_headers.decode()
+                             headers["Authorization"] = auth_headers
+                    
+                    webpush(
+                        subscription_info=subscription_info,
+                        data=notification_data,
+                        vapid_private_key=None,
+                        vapid_claims=None,
+                        headers=headers
+                    )
+                    
+                    # Mark user as updated (in memory for this loop)
+                    if user_id not in users_processed:
+                        # Update DB timestamp
+                        cursor.execute("UPDATE users SET last_proximity_alert = ? WHERE id = ?", (now.isoformat(), user_id))
+                        conn.commit()
+                        users_processed[user_id] = True
+                        
+                except Exception as e:
+                    logging.error(f"Worker Push Error: {e}")
+
+        conn.close()
+
+    except Exception as e:
+        logging.error(f"Error in check_proximity_alerts: {e}")
 
 def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: str, skip_levels: int = 2):
     """
@@ -181,6 +324,9 @@ def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: s
 
         # --- 5. Detectar Celdas y Centroides ---
         storm_cells = detect_storm_cells(composite_data_2d, x, y, projection)
+        
+        # --- 6. Verificar Alertas de Proximidad ---
+        check_proximity_alerts(storm_cells)
 
         logging.info(f"  -> Imagen transparente guardada en: {output_image_path}")
         logging.info(f"  -> Coordenadas calculadas: {bounds}")

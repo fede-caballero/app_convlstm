@@ -166,6 +166,45 @@ def google_login():
         logging.error(f"Google Login Error: {e}")
         return jsonify({"error": f"Internal error: {str(e)}"}), 500
 
+# --- User Location Endpoint ---
+@app.route('/api/user/location', methods=['POST'])
+def update_user_location():
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    token = auth_header.split(" ")[1]
+    payload = auth.decode_access_token(token)
+    if not payload:
+        return jsonify({"error": "Invalid token"}), 401
+        
+    user_id = payload.get('id')
+    data = request.get_json()
+    lat = data.get('latitude')
+    lon = data.get('longitude')
+    
+    if lat is None or lon is None:
+        return jsonify({"error": "Latitude and longitude required"}), 400
+        
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        now = datetime.now(timezone.utc).isoformat()
+        cursor.execute("""
+            UPDATE users 
+            SET latitude = ?, longitude = ?, last_location_update = ?
+            WHERE id = ?
+        """, (lat, lon, now, user_id))
+        
+        conn.commit()
+        return jsonify({"message": "Location updated"}), 200
+    except Exception as e:
+        logging.error(f"Error updating user location: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
 @app.route('/auth/login', methods=['POST'])
 def login():
     data = request.get_json()

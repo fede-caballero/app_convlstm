@@ -66,6 +66,12 @@ def init_db():
         add_column_if_not_exists("users", "last_name", "TEXT")
         add_column_if_not_exists("users", "google_id", "TEXT UNIQUE") # Will create index
         add_column_if_not_exists("users", "picture", "TEXT")
+        # Location & Proximity Alert Columns
+        add_column_if_not_exists("users", "latitude", "REAL")
+        add_column_if_not_exists("users", "longitude", "REAL")
+        add_column_if_not_exists("users", "last_location_update", "TEXT")
+        add_column_if_not_exists("users", "last_proximity_alert", "TEXT")
+
         add_column_if_not_exists("weather_reports", "image_url", "TEXT")
 
 

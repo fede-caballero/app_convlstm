@@ -7,7 +7,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from config import SECRET_KEY
 # SECRET_KEY is now imported from config.py
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 24 horas
+# ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 24 horas
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 30 # 30 días (Extended for better UX)
 
 def verify_password(plain_password, hashed_password):
     """Verifica si la contraseña plana coincide con el hash."""

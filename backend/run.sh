@@ -32,6 +32,7 @@ cleanup() {
     # El '|| true' es para evitar errores si el proceso ya no existe
     kill $WORKER_PID || true
     kill $API_PID || true
+    kill $TUNNEL_PID || true
     echo "Procesos detenidos. Saliendo."
     exit 0
 }
@@ -53,6 +54,21 @@ echo "Iniciando API Server en el puerto 8080..."
 python3 /app/api.py >> "$LOG_FILE" 2>&1 &
 # Guardamos el PID de la API
 API_PID=$!
+
+echo "------------------------------------------------------------"
+echo "Configurando Acceso Remoto (Cloudflare Tunnel)..."
+
+if [ -n "$CLOUDFLARE_TOKEN" ]; then
+    echo "✅ Token de Cloudflare detectado. Iniciando Túnel Fijo..."
+    cloudflared tunnel run --token "$CLOUDFLARE_TOKEN" >> /app/logs/tunnel.log 2>&1 &
+    TUNNEL_PID=$!
+    echo "Túnel Fijo iniciado (PID: $TUNNEL_PID). Tu URL debería estar activa en breve."
+else
+    echo "⚠️  No se detectó CLOUDFLARE_TOKEN. Iniciando Túnel Ad-hoc (URL aleatoria)..."
+    cloudflared tunnel --url http://localhost:8000 >> /app/logs/tunnel.log 2>&1 &
+    TUNNEL_PID=$!
+    echo "Túnel Ad-hoc iniciado (PID: $TUNNEL_PID). Busca la URL en /app/logs/tunnel.log"
+fi
 
 echo ""
 echo "Mostrando logs en tiempo real. Presiona Ctrl+C para salir."

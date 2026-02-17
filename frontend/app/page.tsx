@@ -14,6 +14,7 @@ import { AdminCommentBar } from "@/components/admin-comment-bar"
 import { fetchImages, fetchStatus, ApiStatus, ApiImages, StormCell, fetchReports, WeatherReport } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { ReportDialog } from "@/components/report-dialog"
+import { PushSubscriptionButton } from "@/components/push-subscription-button"
 
 import { WeatherSidebar } from "@/components/weather-sidebar"
 import Link from "next/link"
@@ -403,6 +404,13 @@ export default function RadarPredictionRealtime() {
           <AlertCircle className="h-6 w-6 text-white" />
           <span className="text-[9px] font-bold text-white uppercase">Reportar</span>
         </Button>
+      </div>
+
+      {/* Push Notifications Switch (Below Report Button) */}
+      <div className="absolute bottom-32 left-4 z-50 flex justify-center w-14">
+        <div className="bg-black/60 backdrop-blur-md rounded-full p-2 border border-white/10 shadow-lg hover:bg-black/80 transition-all">
+          <PushSubscriptionButton />
+        </div>
       </div>
 
       {/* Report Dialog */}

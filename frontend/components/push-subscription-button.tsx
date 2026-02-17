@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Bell, BellOff, BellRing } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
-import { subscribeToPushNotifications } from "@/lib/push-notifications"
+import { subscribeToPushNotifications, unsubscribeFromPush } from "@/lib/push-notifications"
 
 export function PushSubscriptionButton() {
     const [isSubscribed, setIsSubscribed] = useState(false)
@@ -31,40 +31,56 @@ export function PushSubscriptionButton() {
 
     if (!isSupported) return null;
 
-    const handleSubscribe = async () => {
+    const handleToggle = async () => {
         setLoading(true)
         try {
-            const result = await subscribeToPushNotifications()
-            if (result) {
-                setIsSubscribed(true)
+            if (isSubscribed) {
+                // Unsubscribe logic
+                await unsubscribeFromPush()
+                setIsSubscribed(false)
                 toast({
-                    title: "Notificaciones Activas",
-                    description: "Recibirás alertas de tormentas severas.",
+                    title: "Notificaciones Desactivadas",
+                    description: "Ya no recibirás alertas en este dispositivo.",
                 })
             } else {
-                toast({
-                    variant: "destructive",
-                    title: "Error",
-                    description: "No se pudo activar las notificaciones. Verifica los permisos.",
-                })
+                // Subscribe logic
+                const result = await subscribeToPushNotifications()
+                if (result) {
+                    setIsSubscribed(true)
+                    toast({
+                        title: "Notificaciones Activas",
+                        description: "Recibirás alertas de tormentas severas.",
+                    })
+                } else {
+                    toast({
+                        variant: "destructive",
+                        title: "Error",
+                        description: "No se pudo activar. Verifica permisos.",
+                    })
+                }
             }
         } catch (error) {
             console.error(error)
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Ocurrió un problema al cambiar las notificaciones.",
+            })
         } finally {
             setLoading(false)
         }
     }
 
-    // Check moved to useEffect to avoid SSR errors
+    if (!isSupported) return null;
 
     return (
         <Button
             variant="ghost"
             size="icon"
-            onClick={handleSubscribe}
-            disabled={isSubscribed || loading}
-            title={isSubscribed ? "Notificaciones Activas" : "Activar Alertas"}
-            className={isSubscribed ? "text-green-400" : "text-zinc-400 hover:text-white hover:bg-white/10"}
+            onClick={handleToggle}
+            disabled={loading}
+            title={isSubscribed ? "Desactivar Notificaciones" : "Activar Alertas"}
+            className={isSubscribed ? "text-green-400 hover:text-red-400 hover:bg-white/10" : "text-zinc-400 hover:text-white hover:bg-white/10"}
         >
             {loading ? (
                 <Bell className="h-5 w-5 animate-pulse" />

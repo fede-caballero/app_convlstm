@@ -5,6 +5,7 @@ import './globals.css'
 import 'leaflet/dist/leaflet.css'
 import { AuthProvider } from '@/lib/auth-context'
 import { ServiceWorkerRegister } from '@/components/sw-register'
+import ErrorBoundary from '@/components/error-boundary'
 
 export const metadata: Metadata = {
   title: 'Hailcast Alert',
@@ -41,11 +42,13 @@ html {
 }
         `}</style>
       </head>
-      <body>
-        <AuthProvider>
-          <ServiceWorkerRegister />
-          {children}
-        </AuthProvider>
+      <body className="bg-black text-white antialiased overflow-hidden overscroll-none touch-none">
+        <ErrorBoundary>
+          <AuthProvider>
+            <ServiceWorkerRegister />
+            {children}
+          </AuthProvider>
+        </ErrorBoundary>
       </body>
     </html>
   )

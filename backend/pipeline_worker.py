@@ -304,11 +304,20 @@ def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: s
         cmap.set_under('none') # Transparente por debajo de 5 dbz
         norm = BoundaryNorm(titan_bounds, cmap.N)
 
-        # Dibujar la imagen de reflectividad con escala TITAN
-        ax.imshow(composite_data_2d, cmap=cmap, norm=norm, origin='lower')
+        # Dibujar la imagen de reflectividad CON CONTORNOS SUAVIZADOS (Vector-like)
+        # En lugar de píxeles (imshow), usamos contourf para bordes definidos pero curvos.
+        
+        # Niveles explícitos para que coincidan con la escala TITAN
+        levels = [20, 30, 40, 50, 60, 70, 80] 
+        
+        # Usamos contourf. 
+        # extend='max' para que valores >80 sigan siendo grises.
+        # antialiased=True para bordes suaves.
+        ax.contourf(x, y, composite_data_2d, levels=levels, cmap=cmap, norm=norm, extend='max', antialiased=True)
         
         plt.tight_layout(pad=0)
-        plt.savefig(output_image_path, dpi=150, transparent=True, bbox_inches='tight', pad_inches=0)
+        # Aumentamos DPI a 300 para que los contornos se vean nítidos en móviles retina/high-res
+        plt.savefig(output_image_path, dpi=300, transparent=True, bbox_inches='tight', pad_inches=0)
         plt.close(fig)
 
         # --- 4. Calcular Bounding Box Geográfico ---

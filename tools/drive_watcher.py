@@ -70,7 +70,7 @@ def download_file(remote_path: str, filename: str):
 def main():
     parser = argparse.ArgumentParser(description="Google Drive Radar Watcher")
     parser.add_argument("--remote-base", required=True, help="Rclone remote base path (e.g. 'gdrive:Campaña/2025-2026')")
-    parser.add_argument("--interval", type=int, default=60, help="Polling interval in seconds")
+    parser.add_argument("--interval", type=int, default=10, help="Polling interval in seconds")
     
     args = parser.parse_args()
     

@@ -6,7 +6,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Bot, MapPin, AlertCircle, Zap, Bell, CheckCircle2 } from "lucide-react"
+import { Bot, MapPin, AlertCircle, Zap, Bell, BellRing } from "lucide-react"
 
 interface TutorialDialogProps {
     open: boolean
@@ -26,7 +26,7 @@ export function TutorialDialog({ open, onOpenChange }: TutorialDialogProps) {
             description: "Al activar tu GPS, el sistema puede localizarte en el mapa y calcular distancias exactas a las celdas de tormenta cercanas."
         },
         {
-            icon: <AlertCircle className="h-6 w-6 text-yellow-400" />,
+            icon: <AlertCircle className="h-6 w-6 text-blue-500" />,
             title: "Reportes Ciudadanos",
             description: "¡Colaborá! Podes enviar reportes del estado del tiempo (granizo, lluvia, viento) en tu ubicación actual para alertar a otros usuarios."
         },
@@ -36,12 +36,12 @@ export function TutorialDialog({ open, onOpenChange }: TutorialDialogProps) {
             description: "Si el sistema detecta una celda de tormenta severa a menos de 20km de vos, recibirás una notificación automática de alerta."
         },
         {
-            icon: <Bell className="h-6 w-6 text-purple-400" />,
+            icon: <Bell className="h-6 w-6 text-red-500" />,
             title: "Notificaciones Generales",
             description: "Los administradores pueden enviar alertas manuales a toda la comunidad en caso de eventos climáticos extremos."
         },
         {
-            icon: <CheckCircle2 className="h-6 w-6 text-teal-400" />,
+            icon: <BellRing className="h-6 w-6 text-green-500" />,
             title: "Gestión de Alertas",
             description: "Usa la campanita en la pantalla principal para activar o desactivar la recepción de notificaciones en tu dispositivo."
         }

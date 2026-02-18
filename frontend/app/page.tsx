@@ -433,10 +433,10 @@ export default function RadarPredictionRealtime() {
           variant="ghost"
           size="icon"
           onClick={() => setIsTutorialOpen(true)}
-          className="rounded-full h-10 w-10 bg-black/60 backdrop-blur-md border border-white/10 shadow-lg hover:bg-black/80 text-zinc-400 hover:text-white transition-all"
+          className="rounded-full h-12 w-12 bg-black/60 backdrop-blur-md border border-white/10 shadow-lg hover:bg-black/80 text-zinc-400 hover:text-white transition-all"
         >
           <div className="flex flex-col items-center justify-center -space-y-0.5">
-            <span className="text-lg font-bold">?</span>
+            <span className="text-xl font-bold">?</span>
           </div>
         </Button>
       </div>

@@ -57,6 +57,13 @@ export default function RadarPredictionRealtime() {
 
   // Geolocation with Fallback Strategy
   useEffect(() => {
+    // Check Tutorial Status
+    const hasSeenTutorial = localStorage.getItem('hasSeenTutorial');
+    if (!hasSeenTutorial) {
+      setIsTutorialOpen(true);
+      localStorage.setItem('hasSeenTutorial', 'true');
+    }
+
     const getLocation = (highAccuracy = true) => {
       if (!("geolocation" in navigator)) {
         setLocationError("Navegador sin soporte GPS");

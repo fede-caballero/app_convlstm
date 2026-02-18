@@ -6,7 +6,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Bot, MapPin, AlertCircle, Zap, Bell, BellRing } from "lucide-react"
+import { Bot, MapPin, AlertCircle, Zap, Bell, BellRing, Play } from "lucide-react"
 
 interface TutorialDialogProps {
     open: boolean

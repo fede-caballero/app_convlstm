@@ -3,13 +3,19 @@ import sys
 import time
 import glob
 import shutil
+import xarray as xr
 import torch
 import torch.nn.functional as F
 import numpy as np
 import subprocess
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap, BoundaryNorm
-import xarray as xr
+import resource
+try:
+    import psutil
+except ImportError:
+    psutil = None
+import threading
 
 # --- CONFIGURACIÓN ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -371,8 +377,72 @@ def run_test(mdv_folder, model_path):
                 if os.path.isfile(f): os.remove(f)
             except: pass
 
+    # 6. Reporte de Recursos
+    print("\n" + "="*40)
+    print("📊 REPORTE DE RECURSOS")
+    print("="*40)
+    
+    # RAM (Max RSS)
+    # create monitor first
+    pass
+
+def monitor_resources(stop_event, interval=0.1):
+    cpu_percentages = []
+    mem_usages = []
+    if psutil is None:
+        return cpu_percentages, mem_usages
+    try:
+        p = psutil.Process(os.getpid())
+        while not stop_event.is_set():
+            cpu_percentages.append(p.cpu_percent(interval=interval))
+            mem_usages.append(p.memory_info().rss / (1024 * 1024)) # MB
+            time.sleep(interval)
+    except:
+        pass
+    return cpu_percentages, mem_usages
+
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         print("Uso: python3 test_local_pipeline.py <carpeta_con_mdvs> <ruta_modelo_optimizado.pth>")
     else:
+        # Check psutil
+        if psutil is None:
+            print("⚠ 'psutil' no instalado. Se usará 'resource' (menos preciso para CPU).")
+            # print("  Instala con: pip install psutil")
+
+        stop_event = threading.Event()
+        if psutil is not None:
+             monitor_thread = threading.Thread(target=monitor_resources, args=(stop_event,))
+             monitor_thread.start()
+
+        # Start timer
+        start_global = time.time()
+        
+        # Run
         run_test(sys.argv[1], sys.argv[2])
+        
+        end_global = time.time()
+        
+        if psutil is not None:
+            stop_event.set()
+            monitor_thread.join()
+            
+        print(f"\n⏱ Tiempo Total de Ejecución: {end_global - start_global:.2f}s")
+        
+        # Memory
+        if psutil is not None:
+             # Just grab max RSS from psutil loop if possible, or process memory info now?
+             p = psutil.Process(os.getpid())
+             mem_mb = p.memory_info().rss / (1024 * 1024)
+             print(f"💾 Memoria RAM Final (RSS): {mem_mb:.2f} MB")
+        else:
+            max_rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+            # Linux: KB usually
+            print(f"💾 Memoria RAM Pico (MaxRSS): {max_rss / 1024:.2f} MB")
+        
+        # CPU Info
+        print(f"💻 Núcleos Disponibles (Sistema): {os.cpu_count()}")
+        print(f"🧵 Hilos usados por PyTorch: {torch.get_num_threads()}")
+        if psutil is not None:
+             p = psutil.Process(os.getpid())
+             print(f"CPU Percent (Final Snapshot): {p.cpu_percent()}%")

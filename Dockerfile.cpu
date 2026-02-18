@@ -1,0 +1,143 @@
+# =================================================================
+# ETAPA 1: BUILDER (Solo para instalar dependencias y limpiar)
+# =================================================================
+FROM ubuntu:22.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Instalar herramientas básicas
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    curl \
+    ca-certificates \
+    git \
+    python3 \
+    python3-pip \
+    libnetcdf19 \
+    libffi-dev \
+    build-essential \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar e instalar LROSE (Debe estar en el contexto de build)
+WORKDIR /tmp
+COPY lrose-core-20250105.ubuntu_22.04.amd64.deb .
+RUN apt-get update && apt-get install -y ./lrose-core-20250105.ubuntu_22.04.amd64.deb \
+    && rm lrose-core-20250105.ubuntu_22.04.amd64.deb \
+    && rm -rf /var/lib/apt/lists/*
+
+# =================================================================
+# ETAPA 2: FRONTEND BUILD (Opcional si se despliega completo)
+# =================================================================
+FROM node:20-alpine AS frontend-builder
+
+WORKDIR /build
+COPY frontend/package*.json ./
+RUN npm install --legacy-peer-deps
+
+COPY frontend/next.config.mjs frontend/postcss.config.mjs frontend/tsconfig.json frontend/components.json ./
+COPY frontend/tailwind.config.* ./
+COPY frontend/app ./app
+COPY frontend/components ./components
+COPY frontend/lib ./lib
+COPY frontend/public ./public
+COPY frontend/scripts ./scripts
+COPY frontend/hooks ./hooks
+
+RUN npm run build
+
+# =================================================================
+# ETAPA 3: RUNTIME (Imagen Final)
+# =================================================================
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+# Instalar dependencias de runtime (Python, LROSE deps, Node para frontend)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-venv \
+    libnetcdf19 \
+    libgl1 \
+    libgomp1 \
+    ca-certificates \
+    curl \
+    git \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar LROSE instalado desde builder (Truco para ahorrar espacio si builder tuviera muchas deps de compilación)
+# Pero como instalamos .deb, es mejor instalarlo aquí limpio también o copiar /usr/local/lrose
+COPY --from=builder /usr/local/lrose /usr/local/lrose
+
+ENV PATH="/usr/local/lrose/bin:${PATH}"
+ENV LD_LIBRARY_PATH="/usr/local/lrose/lib:${LD_LIBRARY_PATH}"
+
+WORKDIR /app
+
+# Instalar Dependencias Python (Optimizadas para CPU)
+# Primero las pesadas (PyTorch CPU)
+RUN pip3 install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# Luego el resto del requirements.txt (excluyendo torch si está ahí para evitar que baje la de CUDA)
+COPY backend/requirements.txt .
+# Filtrar torch del requirements.txt original para que no sobreescriba con la version CUDA
+RUN grep -v "torch" requirements.txt > requirements_cpu.txt && \
+    pip3 install --no-cache-dir -r requirements_cpu.txt
+
+# Copiar Código
+COPY ./backend ./backend
+COPY ./tools ./tools
+COPY ./scripts ./scripts
+
+# Copiar Frontend Construido
+COPY --from=frontend-builder /build/.next /app/frontend/.next
+COPY --from=frontend-builder /build/public /app/frontend/public
+COPY --from=frontend-builder /build/package*.json /app/frontend/
+COPY --from=frontend-builder /build/next.config.mjs /app/frontend/
+
+# Instalar deps prod frontend
+WORKDIR /app/frontend
+RUN npm ci --only=production --legacy-peer-deps
+
+WORKDIR /app
+
+# Script de Inicio
+RUN echo '#!/bin/bash\n\
+    set -e\n\
+    \n\
+    # Buscar Modelo\n\
+    echo "Searching for .pth model file in /app/model..."\n\
+    FOUND_MODEL=$(find /app/model -name "*.pth" | head -n 1)\n\
+    \n\
+    if [ -n "$FOUND_MODEL" ]; then\n\
+    echo "Found model at: $FOUND_MODEL"\n\
+    export MODEL_PATH="$FOUND_MODEL"\n\
+    else\n\
+    echo "WARNING: No .pth model found in /app/model."\n\
+    fi\n\
+    \n\
+    echo "Starting backend services (CPU Optimization)..."\n\
+    # Opcional: Limitar hilos de Torch para evitar sobrecarga si hay pocos cores\n\
+    # export OMP_NUM_THREADS=2\n\
+    # export MKL_NUM_THREADS=2\n\
+    \n\
+    python3 /app/backend/pipeline_worker.py > /app/logs/worker.log 2>&1 &\n\
+    python3 /app/backend/api.py > /app/logs/api.log 2>&1 &\n\
+    \n\
+    echo "Starting frontend..."\n\
+    cd /app/frontend\n\
+    npm start > /app/logs/frontend.log 2>&1 &\n\
+    \n\
+    echo "All services started. Tailing logs..."\n\
+    tail -f /app/logs/*.log\n\
+    ' > /app/start_cpu.sh && chmod +x /app/start_cpu.sh
+
+RUN mkdir -p /app/logs
+
+EXPOSE 8000 3000
+
+CMD ["/app/start_cpu.sh"]

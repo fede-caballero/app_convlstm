@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  app_cpu:
+    build:
+      context: .
+      dockerfile: Dockerfile.cpu
+    container_name: convlstm_cpu_app
+    volumes:
+      - ./data:/app/data # Input MDV data
+      - ./model:/app/model # Model .pth file
+      - ./logs:/app/logs # Persist logs
+      - ./backend/output:/app/backend/output # Output images/json
+    environment:
+      - PYTHONUNBUFFERED=1
+      # Keys for Push Notifications (Set these in .env file or VPS env)
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+      - VAPID_CLAIM_EMAIL=${VAPID_CLAIM_EMAIL}
+      - SECRET_KEY=${SECRET_KEY}
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 # Client-side access
+    ports:
+      - "3000:3000" # Frontend
+      - "8000:8000" # Backend API
+    restart: unless-stopped
+    # Limit resources to prevent crashing the VPS if it goes crazy
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '2.0'
+    #       memory: 4096M

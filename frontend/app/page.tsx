@@ -15,6 +15,7 @@ import { fetchImages, fetchStatus, ApiStatus, ApiImages, StormCell, fetchReports
 import { useAuth } from "@/lib/auth-context"
 import { ReportDialog } from "@/components/report-dialog"
 import { PushSubscriptionButton } from "@/components/push-subscription-button"
+import { TutorialDialog } from "@/components/tutorial-dialog"
 
 import { WeatherSidebar } from "@/components/weather-sidebar"
 import Link from "next/link"
@@ -41,9 +42,10 @@ export default function RadarPredictionRealtime() {
   const [status, setStatus] = useState<ApiStatus | null>(null)
   const [images, setImages] = useState<ApiImages>({ input_images: [], prediction_images: [] })
   const [error, setError] = useState<string | null>(null)
-  const { user, logout } = useAuth()
+  const { user, token, logout } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false)
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false)
   const [reports, setReports] = useState<WeatherReport[]>([])
   const [showReports, setShowReports] = useState(true)
 
@@ -71,9 +73,9 @@ export default function RadarPredictionRealtime() {
           setLocationError(null);
 
           // Send to Backend if logged in
-          if (user && user.token) {
+          if (user && token) {
             try {
-              await updateLocation(latitude, longitude, user.token);
+              await updateLocation(latitude, longitude, token);
               console.log("Location sent to backend");
             } catch (e) {
               console.error("Failed to send location", e);
@@ -372,7 +374,7 @@ export default function RadarPredictionRealtime() {
 
       {/* Storm Alert Section */}
       {nearestStorm && (
-        <div className="absolute bottom-80 left-4 z-50 flex flex-col items-start gap-2">
+        <div className="absolute bottom-96 left-4 z-50 flex flex-col items-start gap-2">
 
           {/* Detailed Card (Toggled) */}
           {showStormAlert && (
@@ -400,7 +402,7 @@ export default function RadarPredictionRealtime() {
       )}
 
       {/* FAB - Report Button (Bottom Left) */}
-      <div className="absolute bottom-64 left-4 z-50">
+      <div className="absolute bottom-80 left-4 z-50">
         <Button
           onClick={() => {
             if (!user) {
@@ -419,10 +421,24 @@ export default function RadarPredictionRealtime() {
       </div>
 
       {/* Push Notifications Switch (Below Report Button) */}
-      <div className="absolute bottom-48 left-4 z-50 flex justify-center w-14">
+      <div className="absolute bottom-64 left-4 z-50 flex justify-center w-14">
         <div className="bg-black/60 backdrop-blur-md rounded-full p-2 border border-white/10 shadow-lg hover:bg-black/80 transition-all">
           <PushSubscriptionButton />
         </div>
+      </div>
+
+      {/* Tutorial / Help Button (Below Push Button) */}
+      <div className="absolute bottom-48 left-4 z-50 flex justify-center w-14">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setIsTutorialOpen(true)}
+          className="rounded-full h-10 w-10 bg-black/60 backdrop-blur-md border border-white/10 shadow-lg hover:bg-black/80 text-zinc-400 hover:text-white transition-all"
+        >
+          <div className="flex flex-col items-center justify-center -space-y-0.5">
+            <span className="text-lg font-bold">?</span>
+          </div>
+        </Button>
       </div>
 
       {/* Report Dialog */}
@@ -430,6 +446,12 @@ export default function RadarPredictionRealtime() {
         open={isReportDialogOpen}
         onOpenChange={setIsReportDialogOpen}
         userLocation={userLocation}
+      />
+
+      {/* Tutorial Dialog */}
+      <TutorialDialog
+        open={isTutorialOpen}
+        onOpenChange={setIsTutorialOpen}
       />
     </div>
   )

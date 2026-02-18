@@ -101,7 +101,7 @@ def google_login():
 
     try:
         # Verify token
-        idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), client_id)
+        idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), client_id, clock_skew_in_seconds=60)
         
         # Get user info
         google_id = idinfo['sub']
@@ -161,7 +161,7 @@ def google_login():
     except ValueError as e:
         # Invalid token
         logging.error(f"Google Token Verification Error: {e}")
-        return jsonify({"error": "Invalid token"}), 401
+        return jsonify({"error": f"Invalid token: {str(e)}"}), 401
     except Exception as e:
         logging.error(f"Google Login Error: {e}")
         return jsonify({"error": f"Internal error: {str(e)}"}), 500

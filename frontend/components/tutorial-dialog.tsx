@@ -21,6 +21,11 @@ export function TutorialDialog({ open, onOpenChange }: TutorialDialogProps) {
             description: "Nuestra app utiliza un modelo de IA avanzado para escanear imágenes de radar y predecir el movimiento de tormentas a corto plazo."
         },
         {
+            icon: <Play className="h-6 w-6 text-white" />,
+            title: "Control del Tiempo",
+            description: "Dale 'Play' al reproductor inferior para ver la animación: primero verás los datos observados (pasado) y luego la predicción (futuro)."
+        },
+        {
             icon: <MapPin className="h-6 w-6 text-green-400" />,
             title: "Tu Ubicación",
             description: "Al activar tu GPS, el sistema puede localizarte en el mapa y calcular distancias exactas a las celdas de tormenta cercanas."

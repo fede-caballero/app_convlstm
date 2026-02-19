@@ -189,6 +189,29 @@ export function RadarVisualization({
     return ""; // Fallback empty
   };
 
+  // --- Offline Check Logic ---
+  const isOffline = useMemo(() => {
+    // Find the latest INPUT image (observed data)
+    if (!inputFiles || inputFiles.length === 0) return false;
+
+    // Sort by timestamp if available to be sure we get the latest
+    // Input files are usually sorted chronologically in the prop, but let's be safe or just take the last one
+    const latestInput = inputFiles[inputFiles.length - 1];
+
+    if (!latestInput.timestamp_iso) return false; // Can't determine
+
+    try {
+      const lastTime = new Date(latestInput.timestamp_iso).getTime();
+      const now = new Date().getTime();
+      const diffHours = (now - lastTime) / (1000 * 60 * 60);
+
+      return diffHours > 2;
+    } catch (e) {
+      console.error("Error checking offline status", e);
+      return false;
+    }
+  }, [inputFiles]);
+
   // --- Reports Layer Logic ---
   const reportsGeoJSON = useMemo(() => {
     if (!reports || reports.length === 0) return null;

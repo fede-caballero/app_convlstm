@@ -33,6 +33,7 @@ export interface ImageWithBounds {
   url: string;
   bounds: [[number, number], [number, number]];
   target_time?: string;
+  timestamp_iso?: string;
   cells?: StormCell[];
 }
 

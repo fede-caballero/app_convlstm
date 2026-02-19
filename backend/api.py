@@ -633,6 +633,18 @@ def get_images():
                     }
                     if target_time:
                         item["target_time"] = target_time
+                        if is_prediction:
+                            # For predictions, we can use the forecast time as ISO
+                            # We already calculated dt_local. Let's use dt_utc for ISO standard
+                            item["timestamp_iso"] = dt_utc.isoformat()
+                        else:
+                             # For inputs
+                             if ts_str and len(ts_str) >= 14:
+                                 try:
+                                     dt_utc_input = datetime.strptime(ts_str[:14], "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc)
+                                     item["timestamp_iso"] = dt_utc_input.isoformat()
+                                 except:
+                                     pass
                     image_data_list.append(item)
             return image_data_list
 

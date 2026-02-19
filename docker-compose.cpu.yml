@@ -11,14 +11,16 @@ services:
       - ./model:/app/model # Model .pth file
       - ./logs:/app/logs # Persist logs
       - ./backend/output:/app/backend/output # Output images/json
+      - ./rclone.conf:/root/.config/rclone/rclone.conf # Rclone Auth
     environment:
       - PYTHONUNBUFFERED=1
-      # Keys for Push Notifications (Set these in .env file or VPS env)
+      # Keys for Push Notifications
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
       - VAPID_CLAIM_EMAIL=${VAPID_CLAIM_EMAIL}
       - SECRET_KEY=${SECRET_KEY}
-      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 # Client-side access
-      - FRONTEND_URL=${FRONTEND_URL} # CORS & Links
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+      - FRONTEND_URL=${FRONTEND_URL}
+      - RCLONE_REMOTE_BASE=${RCLONE_REMOTE_BASE} # e.g. gdrive:RadarMendoza/cart_no_clutter
     ports:
       - "3000:3000" # Frontend
       - "8000:8000" # Backend API

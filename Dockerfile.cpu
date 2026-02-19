@@ -54,7 +54,7 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 
-# Instalar dependencias de runtime (Python, LROSE deps, Node para frontend)
+# Instalar dependencias de runtime (Python, LROSE deps, Node para frontend, Rclone)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
@@ -65,12 +65,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     git \
+    unzip \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
+    && curl https://rclone.org/install.sh | bash \
     && rm -rf /var/lib/apt/lists/*
 
 # Copiar LROSE instalado desde builder (Truco para ahorrar espacio si builder tuviera muchas deps de compilación)
-# Pero como instalamos .deb, es mejor instalarlo aquí limpio también o copiar /usr/local/lrose
 COPY --from=builder /usr/local/lrose /usr/local/lrose
 
 ENV PATH="/usr/local/lrose/bin:${PATH}"
@@ -127,6 +128,13 @@ RUN echo '#!/bin/bash\n\
     \n\
     python3 /app/backend/pipeline_worker.py > /app/logs/worker.log 2>&1 &\n\
     python3 /app/backend/api.py > /app/logs/api.log 2>&1 &\n\
+    \n\
+    if [ -n "$RCLONE_REMOTE_BASE" ]; then\n\
+    echo "Starting Drive Watcher pointing to $RCLONE_REMOTE_BASE..."\n\
+    python3 /app/tools/drive_watcher.py --remote-base "$RCLONE_REMOTE_BASE" > /app/logs/watcher.log 2>&1 &\n\
+    else\n\
+    echo "WARNING: RCLONE_REMOTE_BASE not set. Drive Watcher DISABLED."\n\
+    fi\n\
     \n\
     echo "Starting frontend..."\n\
     cd /app/frontend\n\

@@ -18,6 +18,7 @@ services:
       - VAPID_CLAIM_EMAIL=${VAPID_CLAIM_EMAIL}
       - SECRET_KEY=${SECRET_KEY}
       - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 # Client-side access
+      - FRONTEND_URL=${FRONTEND_URL} # CORS & Links
     ports:
       - "3000:3000" # Frontend
       - "8000:8000" # Backend API

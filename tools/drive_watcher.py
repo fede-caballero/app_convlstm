@@ -36,8 +36,22 @@ def list_remote_files(remote_path: str):
         logger.warning(f"No se pudo listar archivos en {remote_path}: {e.stderr}")
         return []
 
+
+# In-memory "processed" cache (for files skipped or downloaded in this session)
+# This prevents re-evaluating old files if they are not in local folders (e.g. catch-up skipped)
+metrics = {
+    "downloaded": 0,
+    "skipped": 0,
+    "errors": 0
+}
+files_seen_this_session = set()
+
 def is_processed(filename: str):
-    """Verifica si el archivo ya existe localmente (en inbox, archivo o convertido)."""
+    """Verifica si el archivo ya existe localmente (en inbox, archivo o convertido) o fue saltado."""
+    # 0. Check Session Cache
+    if filename in files_seen_this_session:
+        return True
+
     # 1. Check Inbox
     if os.path.exists(os.path.join(MDV_INBOX_DIR, filename)):
         return True
@@ -45,10 +59,6 @@ def is_processed(filename: str):
     # 2. Check Archive (Processed and moved)
     if os.path.exists(os.path.join(MDV_ARCHIVE_DIR, filename)):
         return True
-    
-    # 3. Check Input NC (Converted) - File name might change slightly (mdv -> nc)
-    # Simple check: assumes base name similarity or relied on archive check.
-    # Archive check is robust enough if worker always archives.
     
     return False
 
@@ -62,9 +72,12 @@ def download_file(remote_path: str, filename: str):
         cmd = ["rclone", "copy", remote_file, local_dest]
         subprocess.run(cmd, check=True, capture_output=True)
         logger.info(f"✅ Descarga completada: {filename}")
+        files_seen_this_session.add(filename) # Mark as seen
+        metrics["downloaded"] += 1
         return True
     except subprocess.CalledProcessError as e:
         logger.error(f"❌ Error descargando {filename}: {e.stderr}")
+        metrics["errors"] += 1
         return False
 
 def main():
@@ -82,8 +95,6 @@ def main():
     while True:
         try:
             # 1. Determinar carpeta del día
-            # TODO: Manejar la transición de día (mirar también el día anterior si es cerca de medianoche?)
-            # Por ahora, miramos solo el día actual UTC.
             current_remote_path = get_remote_path_for_today(args.remote_base)
             
             logger.debug(f"🔍 Consultando: {current_remote_path}")
@@ -95,24 +106,29 @@ def main():
                 logger.debug("No se encontraron archivos remotos (o error de conexión).")
             
             # 3. Filtrar y descargar nuevos
-            # SORT FILES to ensure chronological order (MDV filenames are timestamps)
             remote_files.sort()
 
-            # IDENTIFY NEW FILES
+            # IDENTIFY NEW FILES (Using updated is_processed with cache)
             new_files = [f for f in remote_files if not is_processed(f)]
             
             # --- LOGIC UPDATE: Catch-up Strategy ---
-            # If we have too many new files (e.g. starting late in the day),
-            # downloading everything causes a huge delay.
-            # We want to jump to "LIVE" immediately.
-            # We need at least 8 files to start prediction, so let's take the LAST 10 to be safe.
+            MAX_CATCHUP = 8 # Sufficient for 1 sequence
             
-            MAX_CATCHUP = 10
+            files_to_download = []
+            
             if len(new_files) > MAX_CATCHUP:
                 logger.warning(f"⚠️ Demasiados archivos pendientes ({len(new_files)}). Saltando a los últimos {MAX_CATCHUP} para estar en vivo.")
-                # Mark older files as 'processed' effectively by ignoring them this run.
-                # (They won't be downloaded, but might be picked up if we restart logic? No, they stay ignored)
+                
+                # Split: Skipped vs Downloaded
+                files_to_skip = new_files[:-MAX_CATCHUP]
                 files_to_download = new_files[-MAX_CATCHUP:]
+                
+                # Mark skipped files as "seen" to prevent re-processing next loop
+                for f in files_to_skip:
+                    files_seen_this_session.add(f)
+                metrics["skipped"] += len(files_to_skip)
+                
+                logger.info(f"⏭️ Saltados {len(files_to_skip)} archivos antiguos (ej: {files_to_skip[0]} ... {files_to_skip[-1]})")
             else:
                 files_to_download = new_files
 

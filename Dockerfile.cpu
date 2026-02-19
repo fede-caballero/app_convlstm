@@ -133,7 +133,7 @@ RUN echo '#!/bin/bash\n\
     \n\
     if [ -n "$RCLONE_REMOTE_BASE" ]; then\n\
     echo "Starting Drive Watcher pointing to $RCLONE_REMOTE_BASE..."\n\
-    python3 /app/tools/drive_watcher.py --remote-base "$RCLONE_REMOTE_BASE" > /app/logs/watcher.log 2>&1 &\n\
+    python3 /app/tools/drive_watcher.py --remote-base "$RCLONE_REMOTE_BASE" --interval 5 > /app/logs/watcher.log 2>&1 &\n\
     else\n\
     echo "WARNING: RCLONE_REMOTE_BASE not set. Drive Watcher DISABLED."\n\
     fi\n\

@@ -308,7 +308,8 @@ def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: s
         # En lugar de píxeles (imshow), usamos contourf para bordes definidos pero curvos.
         
         # Niveles explícitos para que coincidan con la escala TITAN
-        levels = [20, 30, 40, 50, 60, 70, 80] 
+        # levels = [20, 30, 40, 50, 60, 70, 80] <-- REMOVED HARDCODED
+        levels = titan_bounds 
         
         # Usamos contourf. 
         # extend='max' para que valores >80 sigan siendo grises.

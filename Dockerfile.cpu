@@ -93,6 +93,8 @@ RUN grep -v "torch" requirements.txt > requirements_cpu.txt && \
 COPY ./backend ./backend
 COPY ./tools ./tools
 COPY ./scripts ./scripts
+# Copiar parametros de LROSE a la raiz para acceso facil
+COPY ./backend/lrose_params ./lrose_params
 
 # Copiar Frontend Construido
 COPY --from=frontend-builder /build/.next /app/frontend/.next

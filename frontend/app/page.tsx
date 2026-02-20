@@ -54,7 +54,6 @@ export default function RadarPredictionRealtime() {
   const [nearestStorm, setNearestStorm] = useState<{ distance: number, cell: StormCell } | null>(null)
   const [locationError, setLocationError] = useState<string | null>(null)
   const [showStormAlert, setShowStormAlert] = useState(false)
-  const [showStormAlert, setShowStormAlert] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
 
   // Geolocation with Fallback Strategy

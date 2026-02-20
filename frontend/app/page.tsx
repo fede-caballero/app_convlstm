@@ -54,9 +54,13 @@ export default function RadarPredictionRealtime() {
   const [nearestStorm, setNearestStorm] = useState<{ distance: number, cell: StormCell } | null>(null)
   const [locationError, setLocationError] = useState<string | null>(null)
   const [showStormAlert, setShowStormAlert] = useState(false)
+  const [showStormAlert, setShowStormAlert] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
 
   // Geolocation with Fallback Strategy
   useEffect(() => {
+    setIsMounted(true)
+
     // Check Tutorial Status
     const hasSeenTutorial = localStorage.getItem('hasSeenTutorial');
     if (!hasSeenTutorial) {
@@ -430,7 +434,7 @@ export default function RadarPredictionRealtime() {
       {/* Push Notifications Switch (Below Report Button) */}
       <div className="absolute bottom-64 left-4 z-50 flex justify-center w-14">
         <div className="bg-black/60 backdrop-blur-md rounded-full p-2 border border-white/10 shadow-lg hover:bg-black/80 transition-all">
-          <PushSubscriptionButton />
+          {isMounted && <PushSubscriptionButton />}
         </div>
       </div>
 
@@ -449,17 +453,21 @@ export default function RadarPredictionRealtime() {
       </div>
 
       {/* Report Dialog */}
-      <ReportDialog
-        open={isReportDialogOpen}
-        onOpenChange={setIsReportDialogOpen}
-        userLocation={userLocation}
-      />
+      {isMounted && (
+        <ReportDialog
+          open={isReportDialogOpen}
+          onOpenChange={setIsReportDialogOpen}
+          userLocation={userLocation}
+        />
+      )}
 
       {/* Tutorial Dialog */}
-      <TutorialDialog
-        open={isTutorialOpen}
-        onOpenChange={setIsTutorialOpen}
-      />
+      {isMounted && (
+        <TutorialDialog
+          open={isTutorialOpen}
+          onOpenChange={setIsTutorialOpen}
+        />
+      )}
     </div>
   )
 }

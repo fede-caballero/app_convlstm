@@ -83,30 +83,30 @@ WORKDIR /app
 # Primero las pesadas (PyTorch CPU)
 RUN pip3 install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 
-# Luego el resto del requirements.txt (excluyendo torch si está ahí para evitar que baje la de CUDA)
+# Luego el resto del requirements.txt
 COPY backend/requirements.txt .
 # Filtrar torch del requirements.txt original para que no sobreescriba con la version CUDA
 RUN grep -v "torch" requirements.txt > requirements_cpu.txt && \
     pip3 install --no-cache-dir -r requirements_cpu.txt
 
-# Copiar Código
+# --- OPTIMIZACIÓN DE CACHÉ: FRONTEND PRIMERO ---
+# 1. Instalar dependencias de Node (solo si package.json cambia)
+WORKDIR /app/frontend
+COPY --from=frontend-builder /build/package*.json ./
+RUN npm ci --only=production --legacy-peer-deps
+
+# 2. Copiar el build del frontend (solo si cambia el código frontend)
+COPY --from=frontend-builder /build/.next ./.next
+COPY --from=frontend-builder /build/public ./public
+COPY --from=frontend-builder /build/next.config.mjs ./
+
+# --- CÓDIGO BACKEND AL FINAL ---
+# Así cambios en .py no invalidan lo anterior
+WORKDIR /app
 COPY ./backend ./backend
 COPY ./tools ./tools
 COPY ./scripts ./scripts
-# Copiar parametros de LROSE a la raiz para acceso facil
 COPY ./backend/lrose_params ./lrose_params
-
-# Copiar Frontend Construido
-COPY --from=frontend-builder /build/.next /app/frontend/.next
-COPY --from=frontend-builder /build/public /app/frontend/public
-COPY --from=frontend-builder /build/package*.json /app/frontend/
-COPY --from=frontend-builder /build/next.config.mjs /app/frontend/
-
-# Instalar deps prod frontend
-WORKDIR /app/frontend
-RUN npm ci --only=production --legacy-peer-deps
-
-WORKDIR /app
 
 # Script de Inicio
 RUN echo '#!/bin/bash\n\

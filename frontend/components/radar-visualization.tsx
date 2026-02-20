@@ -3,9 +3,9 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle, Pencil } from "lucide-react"
-import { ImageWithBounds, WeatherReport, deleteReport } from "@/lib/api"
-import Map, { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, GeolocateControl, MapRef, Popup } from 'react-map-gl/maplibre'
+import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle, Pencil, Plane } from "lucide-react"
+import { ImageWithBounds, WeatherReport, deleteReport, fetchAircraft, Aircraft } from "@/lib/api"
+import Map, { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, GeolocateControl, MapRef, Popup, Marker } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useAuth } from "@/lib/auth-context"
 import { ReportDialog } from "./report-dialog"
@@ -52,6 +52,9 @@ export function RadarVisualization({
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [boundariesData, setBoundariesData] = useState<any>(null)
 
+  // Aircraft State
+  const [aircraftData, setAircraftData] = useState<Aircraft[]>([])
+
   const [districtsData, setDistrictsData] = useState<any>(null)
   const [selectedReport, setSelectedReport] = useState<{
     longitude: number,
@@ -89,6 +92,14 @@ export function RadarVisualization({
       .then(res => res.json())
       .then(data => setDistrictsData(data))
       .catch(err => console.error("Failed to load districts", err));
+
+    // Poll Aircraft Data
+    const pollAircraft = () => {
+      fetchAircraft().then(setAircraftData);
+    };
+    pollAircraft(); // Initial fetch
+    const acInterval = setInterval(pollAircraft, 30000); // 30s
+    return () => clearInterval(acInterval);
   }, []);
 
   // Animation logic

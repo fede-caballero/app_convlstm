@@ -211,3 +211,28 @@ export const updateReport = async (reportId: number, data: { description?: strin
     throw new Error("Failed to update report");
   }
 };
+
+// --- Aircraft Telemetry ---
+
+export interface Aircraft {
+  icao24: string;
+  callsign: string;
+  reg: string;
+  lat: number;
+  lon: number;
+  heading: number;
+  altitude: number;
+  velocity: number;
+  on_ground: boolean;
+}
+
+export const fetchAircraft = async (): Promise<Aircraft[]> => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/aircraft`);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (e) {
+    console.error("Failed to fetch aircraft", e);
+    return [];
+  }
+};

@@ -54,6 +54,10 @@ export function RadarVisualization({
 
   // Aircraft State
   const [aircraftData, setAircraftData] = useState<Aircraft[]>([])
+  // Trail: Map of callsign -> array of [lon, lat] positions (last 30)
+  const aircraftTrailRef = useRef<Map<string, [number, number][]>>(new Map())
+  const [trailGeoJSON, setTrailGeoJSON] = useState<any>({ type: 'FeatureCollection', features: [] })
+  const MAX_TRAIL_POINTS = 30
 
   const [districtsData, setDistrictsData] = useState<any>(null)
   const [selectedReport, setSelectedReport] = useState<{
@@ -95,12 +99,39 @@ export function RadarVisualization({
 
     // Poll Aircraft Data
     const pollAircraft = () => {
-      fetchAircraft().then(setAircraftData);
+      fetchAircraft().then((data) => {
+        setAircraftData(data);
+        // Update trails
+        const trailMap = aircraftTrailRef.current;
+        data.forEach((ac: Aircraft) => {
+          if (ac.lon == null || ac.lat == null) return;
+          const key = ac.callsign;
+          const history = trailMap.get(key) ?? [];
+          const newPoint: [number, number] = [ac.lon, ac.lat];
+          // Only append if position actually changed
+          const last = history[history.length - 1];
+          if (!last || last[0] !== newPoint[0] || last[1] !== newPoint[1]) {
+            history.push(newPoint);
+            if (history.length > MAX_TRAIL_POINTS) history.shift();
+            trailMap.set(key, history);
+          }
+        });
+        // Build GeoJSON
+        const features = Array.from(trailMap.entries())
+          .filter(([, pts]) => pts.length >= 2)
+          .map(([cs, pts]) => ({
+            type: 'Feature',
+            properties: { callsign: cs },
+            geometry: { type: 'LineString', coordinates: pts }
+          }));
+        setTrailGeoJSON({ type: 'FeatureCollection', features });
+      });
     };
     pollAircraft(); // Initial fetch
-    const acInterval = setInterval(pollAircraft, 30000); // 30s
+    const acInterval = setInterval(pollAircraft, 10000); // 10s
     return () => clearInterval(acInterval);
   }, []);
+
 
   // Animation logic
   useEffect(() => {
@@ -381,6 +412,22 @@ export function RadarVisualization({
             </Source>
           )
         }
+
+        {/* Aircraft Trail Layer (breadcrumb path) */}
+        {trailGeoJSON.features.length > 0 && (
+          <Source id="aircraft-trail-source" type="geojson" data={trailGeoJSON}>
+            <Layer
+              id="aircraft-trail-layer"
+              type="line"
+              paint={{
+                'line-color': '#4ade80',
+                'line-width': 1.5,
+                'line-opacity': 0.6,
+                'line-dasharray': [2, 3],
+              }}
+            />
+          </Source>
+        )}
 
         {/* Aircraft Layer (TITAN Telemetry + OpenSky) */}
         {aircraftData.map((ac) => (

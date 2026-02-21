@@ -215,7 +215,7 @@ export const updateReport = async (reportId: number, data: { description?: strin
 // --- Aircraft Telemetry ---
 
 export interface Aircraft {
-  icao24: string;
+  icao24?: string;
   callsign: string;
   reg: string;
   lat: number;
@@ -223,7 +223,8 @@ export interface Aircraft {
   heading: number;
   altitude: number;
   velocity: number;
-  on_ground: boolean;
+  on_ground?: boolean;
+  source?: string;  // 'opensky' | 'titan'
 }
 
 export const fetchAircraft = async (): Promise<Aircraft[]> => {
@@ -236,3 +237,4 @@ export const fetchAircraft = async (): Promise<Aircraft[]> => {
     return [];
   }
 };
+

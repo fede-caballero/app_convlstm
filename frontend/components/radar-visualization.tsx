@@ -193,10 +193,12 @@ export function RadarVisualization({
 
   const imageCoordinates = useMemo(() => getImageCoordinates(currentImage), [currentImage]);
 
-  // Calculate center of current image for distance
+  // Calculate center of LAST OBSERVED image for proximity distance
+  // Always use the last input image, NOT the current frame (which may be a prediction)
+  const lastObservedImage = inputFiles[inputFiles.length - 1];
   const stormCenter = useMemo(() => {
-    if (!currentImage?.bounds) return null;
-    const b = currentImage.bounds as any;
+    if (!lastObservedImage?.bounds) return null;
+    const b = lastObservedImage.bounds as any;
     // Assuming bounds are [[lat1, lon1], [lat2, lon2]] or similar based on usage
     // Code above uses p1[0] as lat, p1[1] as lon
     const p1 = b[0];

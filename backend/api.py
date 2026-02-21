@@ -810,21 +810,6 @@ def get_reports():
     # 8AM Argentina (UTC-3) = 11AM UTC.
     
     # Let's stick to UTC-3 logic for "Operational Day"
-    
-    # ... (existing report logic) ...
-    pass # Placeholder if not fully shown, but inserting new endpoint below
-
-# --- Aircraft Telemetry Endpoint ---
-import aircraft_tracker
-
-@app.route('/api/aircraft', methods=['GET'])
-def get_aircraft():
-    try:
-        data = aircraft_tracker.get_aircraft_data()
-        return jsonify(data)
-    except Exception as e:
-        logging.error(f"Error fetching aircraft: {e}")
-        return jsonify({"error": "Failed to fetch aircraft data"}), 500
     now_local = now_utc - timedelta(hours=3)
     
     if now_local.hour < 8:
@@ -856,6 +841,18 @@ def get_aircraft():
         return jsonify({"error": "Internal error"}), 500
     finally:
         conn.close()
+
+# --- Aircraft Telemetry Endpoint ---
+import aircraft_tracker
+
+@app.route('/api/aircraft', methods=['GET'])
+def get_aircraft():
+    try:
+        data = aircraft_tracker.get_aircraft_data()
+        return jsonify(data)
+    except Exception as e:
+        logging.error(f"Error fetching aircraft: {e}")
+        return jsonify({"error": "Failed to fetch aircraft data"}), 500
 
 @app.route('/api/reports', methods=['POST'])
 def create_report():

@@ -102,29 +102,30 @@ export function RadarVisualization({
     const pollAircraft = () => {
       fetchAircraft().then((data) => {
         setAircraftData(data);
-        // Update trails
+        // Update trails — always append latest position, no equality check
         const trailMap = aircraftTrailRef.current;
         data.forEach((ac: Aircraft) => {
           if (ac.lon == null || ac.lat == null) return;
           const key = ac.callsign;
-          const history = trailMap.get(key) ?? [];
-          const newPoint: [number, number] = [ac.lon, ac.lat];
-          // Only append if position actually changed
-          const last = history[history.length - 1];
-          if (!last || last[0] !== newPoint[0] || last[1] !== newPoint[1]) {
-            history.push(newPoint);
-            if (history.length > MAX_TRAIL_POINTS) history.shift();
-            trailMap.set(key, history);
-          }
+          // Ensure the entry exists before modifying
+          if (!trailMap.has(key)) trailMap.set(key, []);
+          const history = trailMap.get(key)!;
+          history.push([ac.lon, ac.lat]);
+          if (history.length > MAX_TRAIL_POINTS) history.shift();
         });
-        // Build GeoJSON
+        // Build GeoJSON — deduplicate consecutive identical coordinates
         const features = Array.from(trailMap.entries())
-          .filter(([, pts]) => pts.length >= 2)
-          .map(([cs, pts]) => ({
-            type: 'Feature',
-            properties: { callsign: cs },
-            geometry: { type: 'LineString', coordinates: pts }
-          }));
+          .map(([cs, pts]) => {
+            const deduped = pts.filter(
+              (p, i) => i === 0 || p[0] !== pts[i - 1][0] || p[1] !== pts[i - 1][1]
+            );
+            return {
+              type: 'Feature' as const,
+              properties: { callsign: cs },
+              geometry: { type: 'LineString' as const, coordinates: deduped }
+            };
+          })
+          .filter(f => f.geometry.coordinates.length >= 2);
         setTrailGeoJSON({ type: 'FeatureCollection', features });
       });
     };
@@ -132,6 +133,16 @@ export function RadarVisualization({
     const acInterval = setInterval(pollAircraft, 10000); // 10s
     return () => clearInterval(acInterval);
   }, []);
+
+  // Directly update MapLibre source data imperatively (more reliable than prop updates)
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    const source = map.getSource('aircraft-trail-source') as any;
+    if (source && typeof source.setData === 'function') {
+      source.setData(trailGeoJSON);
+    }
+  }, [trailGeoJSON]);
 
 
   // Animation logic
@@ -420,10 +431,9 @@ export function RadarVisualization({
             id="aircraft-trail-layer"
             type="line"
             paint={{
-              'line-color': '#4ade80',
-              'line-width': 1.5,
-              'line-opacity': 0.6,
-              'line-dasharray': [2, 3],
+              'line-color': '#ef4444',
+              'line-width': 2.5,
+              'line-opacity': 0.85,
             }}
           />
         </Source>

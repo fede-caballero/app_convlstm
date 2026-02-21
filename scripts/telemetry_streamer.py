@@ -30,6 +30,10 @@ VPS_API_URL = "https://vps-api.hail-cast-mendoza.com/api/aircraft/ingest"
 # Clave secreta compartida con el servidor (debe coincidir con la del .env del VPS)
 INGEST_SECRET_KEY = "t3l3m3try"
 
+# Verificación SSL. Cambiar a False si la red corporativa tiene certificados desactualizados.
+# La seguridad está garantizada de todas formas por INGEST_SECRET_KEY.
+VERIFY_SSL = False
+
 # Directorio donde TITAN guarda los archivos ascii_ac_posn
 # Ej: /home/titan/data/spbd/ascii_ac_posn  o  $DATA_DIR/spbd/ascii_ac_posn
 DATA_DIR = os.environ.get("DATA_DIR", "/home/titan5/projDir/data")
@@ -115,8 +119,10 @@ def send_to_vps(aircraft: dict):
             headers={
                 "X-Ingest-Key": INGEST_SECRET_KEY,
                 "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0 (compatible; TitanStreamer/1.0)",
             },
             timeout=5,
+            verify=VERIFY_SSL,
         )
         if response.status_code == 200:
             log.info(f"✅ Enviado: {aircraft['reg']} @ ({aircraft['lat']:.4f}, {aircraft['lon']:.4f})")

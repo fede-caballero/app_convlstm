@@ -19,35 +19,59 @@ TRACKED_AIRCRAFT = {
     "lq-bcp": {"reg": "LQ-BCP", "type": "T-MaybeSeed"}, 
 }
 
-# Cache to avoid hitting rate limits (OpenSky Free = 10s for anon, though we'll query every 30s)
-_cache = {
+# OpenSky result cache (15s TTL to respect rate limits)
+_opensky_cache = {
     "last_update": 0,
     "data": []
 }
 
+# Local (TITAN) telemetry cache: keyed by callsign, expires in 120s if no update
+_local_cache: dict[str, dict] = {}
+LOCAL_TTL_SECONDS = 120  # If no update for 2 min, consider the aircraft gone
+
+
+def update_local_aircraft(aircraft: dict):
+    """Called by the /api/aircraft/ingest endpoint when a new position arrives."""
+    key = aircraft.get("callsign", aircraft.get("reg", "unknown"))
+    aircraft["_received_at"] = time.time()
+    _local_cache[key] = aircraft
+    logging.info(f"[TITAN] Position updated: {key} @ ({aircraft.get('lat')}, {aircraft.get('lon')})")
+
+
+def _get_local_aircraft() -> list[dict]:
+    """Returns fresh local aircraft, removing stale entries."""
+    now = time.time()
+    fresh = []
+    stale_keys = []
+    for key, ac in _local_cache.items():
+        age = now - ac.get("_received_at", 0)
+        if age <= LOCAL_TTL_SECONDS:
+            entry = {k: v for k, v in ac.items() if k != "_received_at"}
+            entry["source"] = "titan"
+            fresh.append(entry)
+        else:
+            stale_keys.append(key)
+    for k in stale_keys:
+        del _local_cache[k]
+        logging.info(f"[TITAN] Removed stale aircraft: {k}")
+    return fresh
+
+
 def get_aircraft_data():
     now = time.time()
-    if now - _cache["last_update"] < 15: # 15s cache
-        return _cache["data"]
 
-    try:
-        # Construct params
-        params = BBOX.copy()
-        
-        # We can't filter by icao24 AND bounding box easily in one query without own account sometimes,
-        # but let's try basic BBOX query which is standard.
-        response = requests.get(OPENSKY_URL, params=params, timeout=5)
-        
-        if response.status_code == 200:
-            raw_data = response.json()
-            states = raw_data.get("states", [])
+    # Refresh OpenSky cache if stale
+    if now - _opensky_cache["last_update"] >= 15:
+        try:
+            params = BBOX.copy()
+            response = requests.get(OPENSKY_URL, params=params, timeout=5)
             
-            filtered_aircraft = []
-            
-            if states:
+            if response.status_code == 200:
+                raw_data = response.json()
+                states = raw_data.get("states", []) or []
+                
+                filtered_aircraft = []
                 for s in states:
-                    # s structure: [icao24, callsign, origin_country, time_position, last_contact, long, lat, baro_altitude, on_ground, velocity, true_track, vertical_rate, sensors, geo_altitude, squawk, spi, position_source]
-                    
                     icao24 = s[0].lower() if s[0] else ""
                     callsign = s[1].strip().lower() if s[1] else ""
                     lat = s[6]
@@ -57,17 +81,15 @@ def get_aircraft_data():
                     if not lat or not lon:
                         continue
 
-                    # Check match
                     matched_info = None
                     
                     # 1. Check ICAO Hex
                     if icao24 in TRACKED_AIRCRAFT:
-                         matched_info = TRACKED_AIRCRAFT[icao24]
+                        matched_info = TRACKED_AIRCRAFT[icao24]
                     
                     # 2. Check Callsign (contains)
                     if not matched_info:
                         for key, info in TRACKED_AIRCRAFT.items():
-                            # key could be "lv-bcu"
                             if key in callsign:
                                 matched_info = info
                                 break
@@ -75,24 +97,34 @@ def get_aircraft_data():
                     if matched_info:
                         filtered_aircraft.append({
                             "icao24": icao24,
-                            "callsign": s[1].strip(), # Original Case
+                            "callsign": s[1].strip(),
                             "reg": matched_info["reg"],
                             "lat": lat,
                             "lon": lon,
                             "heading": heading,
-                            "altitude": s[7], # Barometric
+                            "altitude": s[7],  # Barometric (meters)
                             "velocity": s[9],
-                            "on_ground": s[8]
+                            "on_ground": s[8],
+                            "source": "opensky"
                         })
 
-            _cache["data"] = filtered_aircraft
-            _cache["last_update"] = now
-            return filtered_aircraft
-            
-        else:
-            logging.error(f"OpenSky API Error: {response.status_code}")
-            return _cache["data"] # Return stale data on error
+                _opensky_cache["data"] = filtered_aircraft
+                _opensky_cache["last_update"] = now
+            else:
+                logging.error(f"OpenSky API Error: {response.status_code}")
 
-    except Exception as e:
-        logging.error(f"Error fetching aircraft data: {e}")
-        return _cache["data"]
+        except Exception as e:
+            logging.error(f"Error fetching aircraft data from OpenSky: {e}")
+
+    # Merge: Local data takes priority (more accurate/real-time).
+    # Use reg as the merge key to avoid duplicates.
+    local_data = _get_local_aircraft()
+    local_regs = {ac["reg"] for ac in local_data}
+
+    # Add OpenSky planes that are NOT already tracked locally
+    opensky_unique = [
+        ac for ac in _opensky_cache["data"]
+        if ac.get("reg") not in local_regs
+    ]
+
+    return local_data + opensky_unique

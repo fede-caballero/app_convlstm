@@ -1,0 +1,6 @@
+#!/bin/bash
+while true ; do
+clear
+SpdbQuery -unique latest -url spdbp:://localhost::spdb/ac_posn | $TITAN_HOME/system/scripts/convierte.awk
+sleep 5s
+done

@@ -854,6 +854,38 @@ def get_aircraft():
         logging.error(f"Error fetching aircraft: {e}")
         return jsonify({"error": "Failed to fetch aircraft data"}), 500
 
+# --- TITAN Local Telemetry Ingest Endpoint ---
+INGEST_SECRET_KEY = os.environ.get("INGEST_SECRET_KEY", "cambiar_esta_clave_en_el_dot_env")
+
+@app.route('/api/aircraft/ingest', methods=['POST'])
+def ingest_aircraft():
+    """
+    Receives real-time position from the local telemetry_streamer.py 
+    running on the work PC. Secured via shared secret key in the header.
+    """
+    # 1. Verify shared secret
+    provided_key = request.headers.get("X-Ingest-Key", "")
+    if provided_key != INGEST_SECRET_KEY:
+        logging.warning("[Ingest] Unauthorized attempt.")
+        return jsonify({"error": "Unauthorized"}), 401
+
+    # 2. Parse body
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    required_fields = ["callsign", "lat", "lon"]
+    if not all(f in data for f in required_fields):
+        return jsonify({"error": f"Missing required fields: {required_fields}"}), 400
+
+    # 3. Forward to in-memory tracker
+    try:
+        aircraft_tracker.update_local_aircraft(data)
+        return jsonify({"status": "ok"}), 200
+    except Exception as e:
+        logging.error(f"[Ingest] Error updating local aircraft: {e}")
+        return jsonify({"error": "Internal error"}), 500
+
 @app.route('/api/reports', methods=['POST'])
 def create_report():
     # 1. Verify Auth

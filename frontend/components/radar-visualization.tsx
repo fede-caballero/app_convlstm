@@ -414,21 +414,19 @@ export function RadarVisualization({
           )
         }
 
-        {/* Aircraft Trail Layer (breadcrumb path) */}
-        {trailGeoJSON.features.length > 0 && (
-          <Source id="aircraft-trail-source" type="geojson" data={trailGeoJSON}>
-            <Layer
-              id="aircraft-trail-layer"
-              type="line"
-              paint={{
-                'line-color': '#4ade80',
-                'line-width': 1.5,
-                'line-opacity': 0.6,
-                'line-dasharray': [2, 3],
-              }}
-            />
-          </Source>
-        )}
+        {/* Aircraft Trail Layer (breadcrumb path) — always mounted so MapLibre can setData() correctly */}
+        <Source id="aircraft-trail-source" type="geojson" data={trailGeoJSON}>
+          <Layer
+            id="aircraft-trail-layer"
+            type="line"
+            paint={{
+              'line-color': '#4ade80',
+              'line-width': 1.5,
+              'line-opacity': 0.6,
+              'line-dasharray': [2, 3],
+            }}
+          />
+        </Source>
 
         {/* Aircraft Layer (TITAN Telemetry + OpenSky) */}
         {aircraftData.map((ac) => (

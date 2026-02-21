@@ -21,6 +21,7 @@ services:
       - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
       - FRONTEND_URL=${FRONTEND_URL}
       - RCLONE_REMOTE_BASE=${RCLONE_REMOTE_BASE} # e.g. gdrive:RadarMendoza/cart_no_clutter
+      - INGEST_SECRET_KEY=${INGEST_SECRET_KEY} # Shared key for TITAN telemetry streamer
     ports:
       - "3000:3000" # Frontend
       - "8000:8000" # Backend API

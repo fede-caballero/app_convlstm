@@ -130,7 +130,7 @@ export function RadarVisualization({
       });
     };
     pollAircraft(); // Initial fetch
-    const acInterval = setInterval(pollAircraft, 10000); // 10s
+    const acInterval = setInterval(pollAircraft, 5000); // 5s
     return () => clearInterval(acInterval);
   }, []);
 

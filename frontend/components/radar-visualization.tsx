@@ -55,7 +55,8 @@ export function RadarVisualization({
   // Aircraft State
   const [aircraftData, setAircraftData] = useState<Aircraft[]>([])
   // Trail: Map of callsign -> array of [lon, lat] positions (last 30)
-  const aircraftTrailRef = useRef<Map<string, [number, number][]>>(new Map())
+  // NOTE: Must use globalThis.Map, because 'Map' is imported from react-map-gl and shadows the native constructor
+  const aircraftTrailRef = useRef<globalThis.Map<string, [number, number][]>>(new globalThis.Map())
   const [trailGeoJSON, setTrailGeoJSON] = useState<any>({ type: 'FeatureCollection', features: [] })
   const MAX_TRAIL_POINTS = 30
 

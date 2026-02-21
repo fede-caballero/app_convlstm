@@ -13,10 +13,10 @@ BBOX = {"lamin": -36.0, "lomin": -70.5, "lamax": -31.5, "lomax": -66.0}
 # Dict mapping identifier (ICAO or Callsign) to details
 TRACKED_AIRCRAFT = {
     "e020d4": {"reg": "LV-BCT", "type": "T-MaybeSeed"}, # Known Hex
+    "e020d2": {"reg": "LV-BCR", "type": "T-MaybeSeed"}, # Known Hex
     "lv-bcu": {"reg": "LV-BCU", "type": "T-MaybeSeed"}, # Filter by Callsign
-    "lq-bcr": {"reg": "LQ-BCR", "type": "T-MaybeSeed"},  # Filter by Callsign
-    "lq-bcp": {"reg": "LQ-BCP", "type": "T-MaybeSeed"}, # From research
-    "lq-bcu": {"reg": "LQ-BCU", "type": "T-MaybeSeed"}, # From research
+    "lq-bcu": {"reg": "LQ-BCU", "type": "T-MaybeSeed"}, # No ADS-B Out likely, but keeping fallback
+    "lq-bcp": {"reg": "LQ-BCP", "type": "T-MaybeSeed"}, 
 }
 
 # Cache to avoid hitting rate limits (OpenSky Free = 10s for anon, though we'll query every 30s)

@@ -448,14 +448,14 @@ export function RadarVisualization({
             : 'GOES-East_ABI_Band13_Clean_Infrared'; // Band 13 Clean IR (confirmed)
           // WMS endpoint: PNG+TRANSPARENT=true → no-data tiles return a transparent PNG
           // instead of an XML ServiceException that MapLibre cannot decode as an image
-          const wmsUrl = `https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&FORMAT=image%2Fpng&TRANSPARENT=true&LAYERS=${layerName}&SRS=EPSG%3A3857&STYLES=&WIDTH=256&HEIGHT=256&EXCEPTIONS=INIMAGE&BBOX={bbox-epsg-3857}`;
+          const wmsUrl = `https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&FORMAT=image%2Fpng&TRANSPARENT=true&LAYERS=${layerName}&SRS=EPSG%3A3857&STYLES=&WIDTH=512&HEIGHT=512&EXCEPTIONS=INIMAGE&BBOX={bbox-epsg-3857}`;
           return (
             <Source
               key={`satellite-${satelliteMode}`}
               id="satellite-source"
               type="raster"
               tiles={[wmsUrl]}
-              tileSize={256}
+              tileSize={512}
               attribution="NASA GIBS / GOES-East"
             >
               <Layer

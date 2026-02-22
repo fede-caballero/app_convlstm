@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-TITAN Telemetry Streamer
-========================
-Run this script on the work PC (where TITAN runs) to stream aircraft
-position data in real-time to the VPS backend.
+TITAN Telemetry Streamer (SPDB Binary Parser)
+=============================================
+Reads TITAN's binary SPDB ac_posn files directly and streams aircraft
+positions to the VPS backend in real-time.
 
 Usage:
     python3 telemetry_streamer.py
@@ -11,10 +11,18 @@ Usage:
 Requirements:
     pip install requests
 
-Configuration (Edit the lines below):
+SPDB Binary Format (reverse-engineered from xxd of 20260222.data):
+  Each record is 96 bytes, big-endian IEEE 754 floats.
+  Offset  0:  fl32  lat        (degrees, MISSING=-9999.0)
+  Offset  4:  fl32  lon        (degrees, MISSING=-9999.0)
+  Offset  8:  fl32  heading    (degrees true, MISSING=-9999.0)
+  Offset 12:  char  callsign[32]  (null-terminated)
+  Offset 44:  fl32  alt_ft     (feet, MISSING=-9999.0)
+  Offset 48+: other fields (speed, etc.) — mostly MISSING in practice
 """
 
 import os
+import struct
 import time
 import logging
 import requests
@@ -24,20 +32,12 @@ from datetime import date
 # CONFIGURA ESTOS VALORES ANTES DE EJECUTAR
 # ============================================================
 
-# URL de tu VPS (con el túnel de Cloudflare)
-VPS_API_URL = "https://vps-api.hail-cast-mendoza.com/api/aircraft/ingest"
-
-# Clave secreta compartida con el servidor (debe coincidir con la del .env del VPS)
+VPS_API_URL      = "https://vps-api.hail-cast-mendoza.com/api/aircraft/ingest"
 INGEST_SECRET_KEY = "t3l3m3try"
+VERIFY_SSL       = False
 
-# Verificación SSL. Cambiar a False si la red corporativa tiene certificados desactualizados.
-# La seguridad está garantizada de todas formas por INGEST_SECRET_KEY.
-VERIFY_SSL = False
-
-# Directorio donde TITAN guarda los archivos ascii_ac_posn
-# Ej: /home/titan/data/spbd/ascii_ac_posn  o  $DATA_DIR/spbd/ascii_ac_posn
-DATA_DIR = os.environ.get("DATA_DIR", "/home/titan5/projDir/data")
-ASCII_AC_POSN_DIR = os.path.join(DATA_DIR, "spbd", "ascii_ac_posn")
+DATA_DIR          = os.environ.get("DATA_DIR", "/home/titan5/projDir/data")
+SPDB_AC_POSN_DIR  = os.path.join(DATA_DIR, "spdb", "ac_posn")
 
 # ============================================================
 # FIN DE CONFIGURACIÓN
@@ -46,7 +46,6 @@ ASCII_AC_POSN_DIR = os.path.join(DATA_DIR, "spbd", "ascii_ac_posn")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 log = logging.getLogger("telemetry_streamer")
 
-# Callsign mapping (TITAN uses "V" prefix, we map to real reg)
 CALLSIGN_MAP = {
     "VBCR": "LV-BCR",
     "VBCT": "LV-BCT",
@@ -55,125 +54,152 @@ CALLSIGN_MAP = {
     "VBBB": "LV-BBB",
 }
 
+# TITAN uses -9999.0 as the "no data" sentinel for float fields.
+MISSING = -9999.0
+MISSING_BYTES = struct.pack(">f", MISSING)   # b'\xc6\x1c<\x00'
 
-def get_today_file():
-    """Returns the path to today's telemetry file."""
+# Argentine geographic bounds (sanity check).
+LAT_MIN, LAT_MAX = -55.0, -20.0
+LON_MIN, LON_MAX =  -75.0, -50.0
+
+# SPDB record layout constants.
+RECORD_SIZE      = 96
+CALLSIGN_OFFSET  = 12
+CALLSIGN_LEN     = 32   # includes null padding
+
+
+def get_today_file() -> str:
     today = date.today().strftime("%Y%m%d")
-    return os.path.join(ASCII_AC_POSN_DIR, f"{today}.data")
+    return os.path.join(SPDB_AC_POSN_DIR, f"{today}.data")
 
 
-def parse_line(line: str) -> dict | None:
+def is_valid_coord(val: float, lo: float, hi: float) -> bool:
+    return lo <= val <= hi
+
+
+def parse_record(record: bytes, seen_keys: set) -> dict | None:
     """
-    Parse a telemetry line. Format:
-    CALLSIGN,YYYY,MM,DD,HH,MM,SS,LAT,LON,ALT_FT,GS_KT,HEADING_X10,...
-
-    Returns a dict or None if the line is invalid.
+    Parse a single 96-byte SPDB ac_posn record.
+    Returns a position dict or None if invalid / no new data.
     """
-    line = line.strip()
-    if not line or line.startswith("#"):
+    if len(record) < RECORD_SIZE:
         return None
 
-    parts = line.split(",")
-    if len(parts) < 11:
+    # ── unpack the float fields (big-endian) ──────────────────
+    lat,     = struct.unpack_from(">f", record,  0)
+    lon,     = struct.unpack_from(">f", record,  4)
+    heading, = struct.unpack_from(">f", record,  8)
+    alt_ft,  = struct.unpack_from(">f", record, 44)
+    speed_kt,= struct.unpack_from(">f", record, 48)  # may be MISSING
+
+    # ── callsign ──────────────────────────────────────────────
+    raw_cs = record[CALLSIGN_OFFSET: CALLSIGN_OFFSET + CALLSIGN_LEN]
+    callsign_raw = raw_cs.split(b"\x00")[0].decode("ascii", errors="replace").strip()
+    if not callsign_raw:
         return None
 
+    # ── validate coordinates (skip records with MISSING lat/lon) ─
+    valid_lat = is_valid_coord(lat, LAT_MIN, LAT_MAX)
+    valid_lon = is_valid_coord(lon, LON_MIN, LON_MAX)
+    if not (valid_lat and valid_lon):
+        return None
+
+    # ── de-duplicate: skip if lat/lon/callsign haven't changed ──
+    dedup_key = (callsign_raw, round(lat, 4), round(lon, 4))
+    if dedup_key in seen_keys:
+        return None
+    seen_keys.add(dedup_key)
+    # Keep the set bounded so it doesn't grow unboundedly.
+    if len(seen_keys) > 5000:
+        seen_keys.clear()
+
+    alt_m   = round(alt_ft * 0.3048) if alt_ft != MISSING else 0
+    gs_ms   = round(speed_kt * 0.514444, 2) if speed_kt != MISSING else 0.0
+    hdg     = round(heading) if heading != MISSING else 0
+
+    reg = CALLSIGN_MAP.get(callsign_raw, callsign_raw)
+
+    return {
+        "callsign":  callsign_raw,
+        "reg":       reg,
+        "lat":       round(lat, 6),
+        "lon":       round(lon, 6),
+        "altitude":  alt_m,
+        "velocity":  gs_ms,
+        "heading":   hdg,
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "source":    "titan",
+    }
+
+
+def send_to_vps(aircraft: dict) -> None:
     try:
-        callsign_raw = parts[0].strip()
-        reg = CALLSIGN_MAP.get(callsign_raw, callsign_raw)  # Fallback to raw if unknown
-
-        year, month, day = parts[1], parts[2], parts[3]
-        hour, minute, sec = parts[4], parts[5], parts[6]
-        timestamp = f"{year}-{month}-{day}T{hour}:{minute}:{sec}Z"
-
-        lat = float(parts[7])
-        lon = float(parts[8])
-        alt_ft = int(parts[9])
-        alt_m = round(alt_ft * 0.3048)
-        gs_kt = int(parts[10])
-        gs_ms = round(gs_kt * 0.514444, 2)
-
-        heading = round(int(parts[11]) / 10.0) if len(parts) > 11 else 0.0
-
-        return {
-            "callsign": callsign_raw,
-            "reg": reg,
-            "lat": lat,
-            "lon": lon,
-            "altitude": alt_m,
-            "velocity": gs_ms,
-            "heading": heading,
-            "timestamp": timestamp,
-            "source": "titan",
-        }
-    except (ValueError, IndexError) as e:
-        log.warning(f"Error parsing line: '{line}' -> {e}")
-        return None
-
-
-def send_to_vps(aircraft: dict):
-    """POST a single aircraft position to the VPS."""
-    try:
-        response = requests.post(
+        r = requests.post(
             VPS_API_URL,
             json=aircraft,
             headers={
                 "X-Ingest-Key": INGEST_SECRET_KEY,
                 "Content-Type": "application/json",
-                "User-Agent": "Mozilla/5.0 (compatible; TitanStreamer/1.0)",
+                "User-Agent":   "TitanStreamer/2.0",
             },
             timeout=5,
             verify=VERIFY_SSL,
         )
-        if response.status_code == 200:
-            log.info(f"✅ Enviado: {aircraft['reg']} @ ({aircraft['lat']:.4f}, {aircraft['lon']:.4f})")
+        if r.status_code == 200:
+            log.info(f"✅ {aircraft['reg']} ({aircraft['lat']:.4f}, {aircraft['lon']:.4f})")
         else:
-            log.warning(f"⚠️  VPS respondió {response.status_code}: {response.text[:100]}")
+            log.warning(f"⚠️  VPS {r.status_code}: {r.text[:80]}")
     except requests.exceptions.ConnectionError:
-        log.error("❌ No se pudo conectar al VPS. Reintentando en el próximo update...")
+        log.error("❌ Sin conexión al VPS.")
     except Exception as e:
-        log.error(f"❌ Error al enviar datos: {e}")
+        log.error(f"❌ Error HTTP: {e}")
 
 
-def tail_file(filepath: str):
-    """Generator that yields new lines appended to a file (like `tail -f`).
-    Opens in BINARY mode + explicit latin-1 decode to avoid TextIOWrapper
-    seek(0, 2) undefined-behaviour that triggers false utf-8 decode errors.
+def tail_binary(filepath: str, seen_keys: set):
     """
-    log.info(f"📡 Monitoreando archivo: {filepath}")
-    with open(filepath, "rb") as f:          # binary mode: seek always works
-        f.seek(0, 2)                          # go to end (only new data)
+    Generator that yields parsed aircraft dicts from newly appended
+    SPDB records.  Opens in BINARY mode to avoid any encoding issues.
+    """
+    log.info(f"📡 Monitoreando: {filepath}")
+    with open(filepath, "rb") as f:
+        f.seek(0, 2)          # seek to end — only watch NEW records
+        buf = b""
         while True:
-            raw = f.readline()
-            if raw:
-                line = raw.decode("latin-1", errors="replace")
-                yield line
-
+            chunk = f.read(4096)
+            if chunk:
+                buf += chunk
+                # Process all complete 96-byte records in the buffer.
+                while len(buf) >= RECORD_SIZE:
+                    record = buf[:RECORD_SIZE]
+                    buf    = buf[RECORD_SIZE:]
+                    result = parse_record(record, seen_keys)
+                    if result:
+                        yield result
             else:
                 time.sleep(1)
 
 
-def main():
-    log.info("🛩️  TITAN Telemetry Streamer iniciado.")
-    log.info(f"📤 Enviando a: {VPS_API_URL}")
+def main() -> None:
+    log.info("🛩️  TITAN Telemetry Streamer v2 (SPDB binary parser) iniciado.")
+    log.info(f"📤 VPS: {VPS_API_URL}")
+
+    seen_keys: set = set()
 
     while True:
         filepath = get_today_file()
 
         if not os.path.exists(filepath):
-            log.warning(f"Archivo de hoy no existe aún: {filepath}. Reintentando en 30s...")
+            log.warning(f"Archivo aún no existe: {filepath}. Reintentando en 30s...")
             time.sleep(30)
             continue
 
         try:
-            for line in tail_file(filepath):
-                aircraft = parse_line(line)
-                if aircraft:
-                    send_to_vps(aircraft)
-                    
-                # Check if the file date has changed (midnight rollover)
+            for aircraft in tail_binary(filepath, seen_keys):
+                send_to_vps(aircraft)
+
                 if get_today_file() != filepath:
-                    log.info("🌙 Nuevo día detectado, cambiando al archivo de mañana...")
-                    break  # Exit inner loop to re-open the new day's file
+                    log.info("🌙 Cambio de día, reabriendo archivo...")
+                    break
 
         except FileNotFoundError:
             log.error(f"Archivo desapareció: {filepath}. Esperando 10s...")

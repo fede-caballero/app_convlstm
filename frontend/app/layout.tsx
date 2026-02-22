@@ -32,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="es" translate="no">
       <head>
         <style>{`
 html {

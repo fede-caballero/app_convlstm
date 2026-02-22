@@ -34,6 +34,9 @@ export default function RootLayout({
   return (
     <html lang="es" translate="no">
       <head>
+        <link rel="icon" type="image/png" href="/favicon-32.png" sizes="32x32" />
+        <link rel="shortcut icon" href="/favicon-32.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <style>{`
 html {
   font-family: ${GeistSans.style.fontFamily};

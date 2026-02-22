@@ -22,11 +22,12 @@ from datetime import date
 RECORD_SIZE = 96
 MISSING = -9999.0
 
-# Simulated aircraft orbiting around Mendoza radar
+# Simulated aircraft departing from San Rafael airport (SAMR: -34.5883, -68.4047)
+# Coordinates confirmed from real VBCT telemetry: -34.5901, -68.4045
 AIRCRAFT = [
-    {"callsign": "VBCR", "center_lat": -32.89, "center_lon": -68.85, "radius": 0.15, "alt_ft": 8500,  "speed_kt": 180},
-    {"callsign": "VBCT", "center_lat": -33.10, "center_lon": -68.40, "radius": 0.20, "alt_ft": 12000, "speed_kt": 220},
-    {"callsign": "VDC2", "center_lat": -32.50, "center_lon": -68.70, "radius": 0.10, "alt_ft": 5500,  "speed_kt": 140},
+    {"callsign": "VBCR", "center_lat": -34.5883, "center_lon": -68.4047, "radius": 0.18, "alt_ft": 8500,  "speed_kt": 180},
+    {"callsign": "VBCT", "center_lat": -34.5883, "center_lon": -68.4047, "radius": 0.22, "alt_ft": 2461,  "speed_kt": 0},
+    {"callsign": "VBCU", "center_lat": -34.5883, "center_lon": -68.4047, "radius": 0.14, "alt_ft": 5500,  "speed_kt": 140},
 ]
 
 

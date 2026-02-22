@@ -446,8 +446,9 @@ export function RadarVisualization({
           const layerName = satelliteMode === 'visible'
             ? 'GOES_East_SatelliteImagery_Visible'
             : 'GOES_East_SatelliteImagery_CleanIR';
-          // WMS endpoint: MapLibre replaces {bbox-epsg-3857} with actual tile bounds
-          const wmsUrl = `https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&FORMAT=image%2Fjpeg&TRANSPARENT=false&LAYERS=${layerName}&SRS=EPSG%3A3857&STYLES=&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}`;
+          // WMS endpoint: PNG+TRANSPARENT=true → no-data tiles return a transparent PNG
+          // instead of an XML ServiceException that MapLibre cannot decode as an image
+          const wmsUrl = `https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&FORMAT=image%2Fpng&TRANSPARENT=true&LAYERS=${layerName}&SRS=EPSG%3A3857&STYLES=&WIDTH=256&HEIGHT=256&EXCEPTIONS=INIMAGE&BBOX={bbox-epsg-3857}`;
           return (
             <Source
               key={`satellite-${satelliteMode}`}

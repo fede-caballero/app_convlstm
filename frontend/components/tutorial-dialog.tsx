@@ -6,7 +6,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Bot, MapPin, AlertCircle, Zap, Bell, BellRing, Play } from "lucide-react"
+import { Bot, MapPin, AlertCircle, Zap, Bell, BellRing, Play, Layers, Cloud } from "lucide-react"
 
 interface TutorialDialogProps {
     open: boolean
@@ -49,6 +49,20 @@ export function TutorialDialog({ open, onOpenChange }: TutorialDialogProps) {
             icon: <BellRing className="h-6 w-6 text-green-500" />,
             title: "Gestión de Alertas",
             description: "Usa la campanita en la pantalla principal para activar o desactivar la recepción de notificaciones en tu dispositivo."
+        },
+        {
+            icon: <Layers className="h-6 w-6 text-sky-400" />,
+            title: "Capas Satelitales",
+            description: "Tocá el botón de capas (🗭️) en el mapa para superponer imágenes satelitales GOES-East en tiempo real: visible (VIS) o infrarrojo (IR)."
+        },
+        {
+            icon: (
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="#00ffff" stroke="rgba(0,0,0,0.4)" strokeWidth="0.5">
+                    <circle cx="12" cy="12" r="6" />
+                </svg>
+            ),
+            title: "Aviones de Siembra",
+            description: "Los círculos de colores sobre el mapa representan aviones de siembra de nubes rastreados en tiempo real por el sistema TITAN. Tocá uno para ver su matricúla, altitud y velocidad."
         }
     ]
 

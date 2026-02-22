@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle, Pencil, Plane, Cloud } from "lucide-react"
+import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle, Pencil, Plane, Cloud, Layers } from "lucide-react"
 import { ImageWithBounds, WeatherReport, deleteReport, fetchAircraft, Aircraft } from "@/lib/api"
 import Map, { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, GeolocateControl, MapRef, Popup, Marker } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -413,23 +413,25 @@ export function RadarVisualization({
 
 
 
-        {/* Satellite Toggle Button — cycles: off → visible → IR → off */}
-        <div className="absolute top-[53px] left-2 z-50">
+        {/* Satellite / Layers toggle — icon button below zoom controls (top-right) */}
+        <div className="absolute top-[106px] right-2 z-50">
           <button
             onClick={() => setSatelliteMode(m => m === 'off' ? 'visible' : m === 'visible' ? 'ir' : 'off')}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-lg border transition-all
+            title={satelliteMode === 'off' ? 'Capas satelitales (GOES-East)' : satelliteMode === 'visible' ? 'Satélite visible — clic para IR' : 'Satélite IR — clic para apagar'}
+            className={`relative flex items-center justify-center w-8 h-8 rounded shadow-lg border transition-all
               ${satelliteMode === 'off'
-                ? 'bg-black/60 border-white/20 text-white/60 hover:bg-black/80 hover:text-white'
+                ? 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
                 : satelliteMode === 'visible'
-                  ? 'bg-sky-500/80 border-sky-300 text-white shadow-sky-500/40'
-                  : 'bg-indigo-600/80 border-indigo-300 text-white shadow-indigo-500/40'
+                  ? 'bg-sky-500 border-sky-300 text-white shadow-sky-500/40'
+                  : 'bg-indigo-600 border-indigo-400 text-white shadow-indigo-500/40'
               }`}
-            title="Capa satélite GOES-East (NASA GIBS)"
           >
-            <Cloud className="h-3.5 w-3.5" />
-            <span>
-              {satelliteMode === 'off' ? 'SATÉLITE' : satelliteMode === 'visible' ? '☀ VIS' : '🌙 IR'}
-            </span>
+            <Layers className="h-4 w-4" />
+            {satelliteMode !== 'off' && (
+              <span className="absolute -bottom-1 -right-1 text-[9px] font-bold leading-none px-[3px] py-[1px] rounded bg-black/70 text-white">
+                {satelliteMode === 'visible' ? 'VIS' : 'IR'}
+              </span>
+            )}
           </button>
         </div>
 

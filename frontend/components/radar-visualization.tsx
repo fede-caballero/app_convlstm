@@ -537,13 +537,12 @@ export function RadarVisualization({
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 24 24"
-                      width="22" height="22"
+                      width="16" height="16"
                       fill={color}
-                      stroke="rgba(0,0,0,0.5)"
-                      strokeWidth="0.5"
+                      stroke="rgba(0,0,0,0.6)"
+                      strokeWidth="1.5"
                     >
-                      {/* Fuselage pointing UP (north) */}
-                      <path d="M12 2 L14.5 9 L21 10 L14.5 13 L16 21 L12 18 L8 21 L9.5 13 L3 10 L9.5 9 Z" />
+                      <circle cx="12" cy="12" r="6" />
                     </svg>
                   </div>
 

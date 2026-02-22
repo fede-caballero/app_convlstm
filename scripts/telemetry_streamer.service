@@ -1,0 +1,27 @@
+[Unit]
+Description=TITAN Telemetry Streamer (HailCast)
+# Esperar a que haya red antes de iniciar (necesario para mandar datos al VPS)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=titan5
+# Cambiar esta ruta si el script está en otra ubicación
+ExecStart=/usr/bin/python3 /home/titan5/projDir/scripts/telemetry_streamer.py
+
+# Reiniciar si se cae por cualquier motivo (error, señal, etc.)
+Restart=on-failure
+RestartSec=10s
+
+# Variables de entorno
+Environment=PYTHONUNBUFFERED=1
+# Environment=DATA_DIR=/home/titan5/projDir/data
+
+# Dónde guardar los logs (también van a journalctl)
+StandardOutput=append:/home/titan5/projDir/logs/telemetry_streamer.log
+StandardError=append:/home/titan5/projDir/logs/telemetry_streamer.log
+
+[Install]
+# Activar para que arranque con el sistema
+WantedBy=multi-user.target

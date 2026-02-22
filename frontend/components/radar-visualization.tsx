@@ -427,52 +427,71 @@ export function RadarVisualization({
           )
         }
 
-        {/* Aircraft Trail Layer (breadcrumb path) — always mounted so MapLibre can setData() correctly */}
+        {/* Aircraft Trail Layer — per-callsign color via data-driven MapLibre match */}
         <Source id="aircraft-trail-source" type="geojson" data={trailGeoJSON}>
           <Layer
             id="aircraft-trail-layer"
             type="line"
             paint={{
-              'line-color': '#ef4444',
-              'line-width': 2.5,
-              'line-opacity': 0.85,
+              'line-color': [
+                'match', ['get', 'callsign'],
+                'VBCR', '#ffa500',  // Lucha 2 — naranja
+                'VBCT', '#00ffff',  // Lucha 3 — cyan
+                'VBCU', '#00ff00',  // Lucha 4 — verde
+                '#ffffff'           // resto (OpenSky, etc.)
+              ] as any,
+              'line-width': 1.5,
+              'line-opacity': 0.75,
             }}
           />
         </Source>
 
         {/* Aircraft Layer (TITAN Telemetry + OpenSky) */}
-        {aircraftData.map((ac) => (
-          <Marker
-            key={ac.callsign}
-            longitude={ac.lon}
-            latitude={ac.lat}
-            anchor="center"
-          >
-            <div
-              className="relative group cursor-pointer"
-              title={`${ac.reg} | ${ac.callsign}\nAlt: ${ac.altitude ? Math.round(ac.altitude) + 'm' : 'N/A'} | Vel: ${ac.velocity ? Math.round(ac.velocity) + 'm/s' : 'N/A'}`}
-            >
-              {/* Plane icon rotated to heading */}
-              <div
-                style={{ transform: `rotate(${ac.heading ?? 0}deg)` }}
-                className="text-green-400 drop-shadow-[0_0_6px_rgba(74,222,128,0.8)]"
-              >
-                <Plane className="h-6 w-6" strokeWidth={1.5} />
-              </div>
+        {(() => {
+          // Per-callsign color palette for TITAN aircraft
+          const AC_COLORS: Record<string, string> = {
+            'VBCR': '#ffa500',  // Lucha 2 — naranja
+            'VBCT': '#00ffff',  // Lucha 3 — cyan
+            'VBCU': '#00ff00',  // Lucha 4 — verde
+          };
+          const getColor = (cs: string) => AC_COLORS[cs] ?? '#ffffff';
 
-              {/* Tooltip on hover */}
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50 pointer-events-none">
-                <div className="bg-black/80 border border-green-500/50 text-green-300 text-xs rounded px-2 py-1 whitespace-nowrap font-mono">
-                  <div className="font-bold text-green-400">{ac.reg}</div>
-                  <div>Alt: {ac.altitude ? `${Math.round(ac.altitude)}m` : '--'}</div>
-                  <div>Vel: {ac.velocity ? `${Math.round(ac.velocity * 1.94)}kt` : '--'}</div>
-                  {ac.source === 'titan' && <div className="text-yellow-400 text-[10px]">● TITAN</div>}
+          return aircraftData.map((ac) => {
+            const color = getColor(ac.callsign);
+            return (
+              <Marker
+                key={ac.callsign}
+                longitude={ac.lon}
+                latitude={ac.lat}
+                anchor="center"
+              >
+                <div
+                  className="relative group cursor-pointer"
+                  title={`${ac.reg} | ${ac.callsign}\nAlt: ${ac.altitude ? Math.round(ac.altitude) + 'm' : 'N/A'} | Vel: ${ac.velocity ? Math.round(ac.velocity * 1.94) + 'kt' : 'N/A'}`}
+                >
+                  {/* Plane icon rotated to heading, colored per callsign */}
+                  <div style={{ transform: `rotate(${ac.heading ?? 0}deg)`, color, filter: `drop-shadow(0 0 5px ${color}99)` }}>
+                    <Plane className="h-6 w-6" strokeWidth={1.5} />
+                  </div>
+
+                  {/* Tooltip on hover */}
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50 pointer-events-none">
+                    <div
+                      className="bg-black/80 text-xs rounded px-2 py-1 whitespace-nowrap font-mono"
+                      style={{ border: `1px solid ${color}80`, color: '#e5e7eb' }}
+                    >
+                      <div className="font-bold" style={{ color }}>{ac.reg}</div>
+                      <div>Alt: {ac.altitude ? `${Math.round(ac.altitude)}m` : '--'}</div>
+                      <div>Vel: {ac.velocity ? `${Math.round(ac.velocity * 1.94)}kt` : '--'}</div>
+                      {ac.source === 'titan' && <div className="text-yellow-400 text-[10px]">● TITAN</div>}
+                    </div>
+                    <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent" style={{ borderTopColor: `${color}80` }} />
+                  </div>
                 </div>
-                <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-green-500/50" />
-              </div>
-            </div>
-          </Marker>
-        ))}
+              </Marker>
+            );
+          });
+        })()}
 
         {/* Report Popup */}
         {

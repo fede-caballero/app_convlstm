@@ -54,6 +54,7 @@ export function RadarVisualization({
 
   // Aircraft State
   const [aircraftData, setAircraftData] = useState<Aircraft[]>([])
+  const [selectedAircraft, setSelectedAircraft] = useState<string | null>(null) // callsign tapped on mobile
   // Trail: Map of callsign -> array of [lon, lat] positions (last 30)
   // NOTE: Must use globalThis.Map, because 'Map' is imported from react-map-gl and shadows the native constructor
   const aircraftTrailRef = useRef<globalThis.Map<string, [number, number][]>>(new globalThis.Map())
@@ -448,16 +449,16 @@ export function RadarVisualization({
 
         {/* Aircraft Layer (TITAN Telemetry + OpenSky) */}
         {(() => {
-          // Per-callsign color palette for TITAN aircraft
           const AC_COLORS: Record<string, string> = {
-            'VBCR': '#ffa500',  // Lucha 2 — naranja
-            'VBCT': '#00ffff',  // Lucha 3 — cyan
-            'VBCU': '#00ff00',  // Lucha 4 — verde
+            'VBCR': '#ffa500',
+            'VBCT': '#00ffff',
+            'VBCU': '#00ff00',
           };
           const getColor = (cs: string) => AC_COLORS[cs] ?? '#ffffff';
 
           return aircraftData.map((ac) => {
             const color = getColor(ac.callsign);
+            const isSelected = selectedAircraft === ac.callsign;
             return (
               <Marker
                 key={ac.callsign}
@@ -467,17 +468,24 @@ export function RadarVisualization({
               >
                 <div
                   className="relative group cursor-pointer"
-                  title={`${ac.reg} | ${ac.callsign}\nAlt: ${ac.altitude ? Math.round(ac.altitude) + 'm' : 'N/A'} | Vel: ${ac.velocity ? Math.round(ac.velocity * 1.94) + 'kt' : 'N/A'}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedAircraft(isSelected ? null : ac.callsign);
+                  }}
                 >
                   {/* Plane icon rotated to heading, colored per callsign */}
                   <div style={{ transform: `rotate(${ac.heading ?? 0}deg)`, color, filter: `drop-shadow(0 0 5px ${color}99)` }}>
                     <Plane className="h-6 w-6" strokeWidth={1.5} />
                   </div>
 
-                  {/* Tooltip on hover */}
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50 pointer-events-none">
+                  {/* Tooltip: visible on hover (desktop) OR when tapped/selected (mobile) */}
+                  <div
+                    className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex flex-col items-center z-50 pointer-events-none"
+                    style={{ display: isSelected ? 'flex' : undefined }}
+                  >
                     <div
-                      className="bg-black/80 text-xs rounded px-2 py-1 whitespace-nowrap font-mono"
+                      className={`bg-black/80 text-xs rounded px-2 py-1 whitespace-nowrap font-mono
+                        ${isSelected ? 'flex flex-col' : 'hidden group-hover:flex flex-col'}`}
                       style={{ border: `1px solid ${color}80`, color: '#e5e7eb' }}
                     >
                       <div className="font-bold" style={{ color }}>{ac.reg}</div>
@@ -485,7 +493,11 @@ export function RadarVisualization({
                       <div>Vel: {ac.velocity ? `${Math.round(ac.velocity * 1.94)}kt` : '--'}</div>
                       {ac.source === 'titan' && <div className="text-yellow-400 text-[10px]">● TITAN</div>}
                     </div>
-                    <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent" style={{ borderTopColor: `${color}80` }} />
+                    <div
+                      className={`w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent
+                        ${isSelected ? 'block' : 'hidden group-hover:block'}`}
+                      style={{ borderTopColor: `${color}80` }}
+                    />
                   </div>
                 </div>
               </Marker>

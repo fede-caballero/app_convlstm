@@ -25,9 +25,9 @@ _opensky_cache = {
     "data": []
 }
 
-# Local (TITAN) telemetry cache: keyed by callsign, expires in 120s if no update
+# Local (TITAN) telemetry cache: keyed by callsign, expires in 30s if no update
 _local_cache: dict[str, dict] = {}
-LOCAL_TTL_SECONDS = 120  # If no update for 2 min, consider the aircraft gone
+LOCAL_TTL_SECONDS = 30  # If no update for 30s, consider the aircraft gone
 
 
 def update_local_aircraft(aircraft: dict):

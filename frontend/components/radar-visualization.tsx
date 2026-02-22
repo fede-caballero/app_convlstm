@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle, Pencil, Plane } from "lucide-react"
+import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle, Pencil, Plane, Cloud } from "lucide-react"
 import { ImageWithBounds, WeatherReport, deleteReport, fetchAircraft, Aircraft } from "@/lib/api"
 import Map, { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, GeolocateControl, MapRef, Popup, Marker } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -50,6 +50,7 @@ export function RadarVisualization({
 }: RadarVisualizationProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
+  const [sliderDragValue, setSliderDragValue] = useState<number | null>(null) // visual position while dragging
   const [boundariesData, setBoundariesData] = useState<any>(null)
 
   // Aircraft State
@@ -62,6 +63,8 @@ export function RadarVisualization({
   const MAX_TRAIL_POINTS = 30
 
   const [districtsData, setDistrictsData] = useState<any>(null)
+  // Satellite layer state: 'off' | 'visible' | 'ir'
+  const [satelliteMode, setSatelliteMode] = useState<'off' | 'visible' | 'ir'>('off')
   const [selectedReport, setSelectedReport] = useState<{
     longitude: number,
     latitude: number,
@@ -410,6 +413,26 @@ export function RadarVisualization({
 
 
 
+        {/* Satellite Toggle Button — cycles: off → visible → IR → off */}
+        <div className="absolute top-2 left-2 z-50">
+          <button
+            onClick={() => setSatelliteMode(m => m === 'off' ? 'visible' : m === 'visible' ? 'ir' : 'off')}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-lg border transition-all
+              ${satelliteMode === 'off'
+                ? 'bg-black/60 border-white/20 text-white/60 hover:bg-black/80 hover:text-white'
+                : satelliteMode === 'visible'
+                  ? 'bg-sky-500/80 border-sky-300 text-white shadow-sky-500/40'
+                  : 'bg-indigo-600/80 border-indigo-300 text-white shadow-indigo-500/40'
+              }`}
+            title="Capa satélite GOES-East (NASA GIBS)"
+          >
+            <Cloud className="h-3.5 w-3.5" />
+            <span>
+              {satelliteMode === 'off' ? 'SAT' : satelliteMode === 'visible' ? '☀ VIS' : '🌙 IR'}
+            </span>
+          </button>
+        </div>
+
         {
           boundariesData && (
             <Source id="boundaries-source" type="geojson" data={boundariesData}>
@@ -417,6 +440,35 @@ export function RadarVisualization({
             </Source>
           )
         }
+
+        {/* GOES-East Satellite Layer (NASA GIBS — free, no API key) */}
+        {satelliteMode !== 'off' && (() => {
+          const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+          const layerName = satelliteMode === 'visible'
+            ? 'GOES_East_SatelliteImagery_Visible'
+            : 'GOES_East_SatelliteImagery_CleanIR';
+          const tileUrl = `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${layerName}/default/${today}/GoogleMapsCompatible/{z}/{y}/{x}.jpg`;
+          return (
+            <Source
+              key={`satellite-${satelliteMode}`}
+              id="satellite-source"
+              type="raster"
+              tiles={[tileUrl]}
+              tileSize={256}
+              attribution="NASA GIBS / GOES-East"
+            >
+              <Layer
+                id="satellite-layer"
+                type="raster"
+                paint={{
+                  'raster-opacity': 0.7,
+                  'raster-resampling': 'linear',
+                }}
+                beforeId="aircraft-trail-layer"
+              />
+            </Source>
+          );
+        })()}
 
         {/* Reports Layer (Crowdsourcing) */}
         {
@@ -671,10 +723,23 @@ export function RadarVisualization({
 
               {/* The Slider Component */}
               <Slider
-                value={[currentFrameIndex]}
-                onValueChange={(value) => { setIsPlaying(false); setCurrentFrameIndex(value[0]); }}
+                value={[sliderDragValue ?? currentFrameIndex]}
+                min={0}
                 max={Math.max(0, totalFrames - 1)}
-                step={1}
+                step={0.01}
+                onValueChange={(value) => {
+                  // Move thumb smoothly; only switch frame when crossing an integer
+                  setIsPlaying(false);
+                  setSliderDragValue(value[0]);
+                  const rounded = Math.round(value[0]);
+                  if (rounded !== currentFrameIndex) setCurrentFrameIndex(rounded);
+                }}
+                onValueCommit={(value) => {
+                  // Commit exact frame on pointer/touch release
+                  const rounded = Math.round(value[0]);
+                  setCurrentFrameIndex(rounded);
+                  setSliderDragValue(null);
+                }}
                 className={`cursor-pointer z-10 ${isPrediction ? '[&_.bg-primary]:bg-blue-500 [&_.border-primary]:border-blue-500' : '[&_.bg-primary]:bg-yellow-500 [&_.border-primary]:border-yellow-500'}`}
               />
 

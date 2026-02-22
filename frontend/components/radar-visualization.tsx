@@ -414,7 +414,7 @@ export function RadarVisualization({
 
 
         {/* Satellite / Layers toggle — icon button below zoom controls (top-right) */}
-        <div className="absolute top-[165px] right-2 z-50">
+        <div className="absolute top-[255px] right-2 z-50">
           <button
             onClick={() => setSatelliteMode(m => m === 'off' ? 'visible' : m === 'visible' ? 'ir' : 'off')}
             title={satelliteMode === 'off' ? 'Capas satelitales (GOES-East)' : satelliteMode === 'visible' ? 'Satélite visible — clic para IR' : 'Satélite IR — clic para apagar'}

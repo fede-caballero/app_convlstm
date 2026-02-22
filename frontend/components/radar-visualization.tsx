@@ -414,7 +414,7 @@ export function RadarVisualization({
 
 
         {/* Satellite Toggle Button — cycles: off → visible → IR → off */}
-        <div className="absolute top-2 left-2 z-50">
+        <div className="absolute top-12 left-2 z-50">
           <button
             onClick={() => setSatelliteMode(m => m === 'off' ? 'visible' : m === 'visible' ? 'ir' : 'off')}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-lg border transition-all
@@ -441,19 +441,19 @@ export function RadarVisualization({
           )
         }
 
-        {/* GOES-East Satellite Layer (NASA GIBS — free, no API key) */}
+        {/* GOES-East Satellite Layer via NASA GIBS WMS (bbox-based, no tile-coordinate issues) */}
         {satelliteMode !== 'off' && (() => {
-          const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
           const layerName = satelliteMode === 'visible'
             ? 'GOES_East_SatelliteImagery_Visible'
             : 'GOES_East_SatelliteImagery_CleanIR';
-          const tileUrl = `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${layerName}/default/${today}/GoogleMapsCompatible/{z}/{y}/{x}.jpg`;
+          // WMS endpoint: MapLibre replaces {bbox-epsg-3857} with actual tile bounds
+          const wmsUrl = `https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&FORMAT=image%2Fjpeg&TRANSPARENT=false&LAYERS=${layerName}&SRS=EPSG%3A3857&STYLES=&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}`;
           return (
             <Source
               key={`satellite-${satelliteMode}`}
               id="satellite-source"
               type="raster"
-              tiles={[tileUrl]}
+              tiles={[wmsUrl]}
               tileSize={256}
               attribution="NASA GIBS / GOES-East"
             >

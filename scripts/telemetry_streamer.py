@@ -136,16 +136,18 @@ def send_to_vps(aircraft: dict):
 
 def tail_file(filepath: str):
     """Generator that yields new lines appended to a file (like `tail -f`).
-    Uses latin-1 encoding since TITAN writes in ISO-8859-1, not UTF-8.
+    Opens in BINARY mode + explicit latin-1 decode to avoid TextIOWrapper
+    seek(0, 2) undefined-behaviour that triggers false utf-8 decode errors.
     """
     log.info(f"📡 Monitoreando archivo: {filepath}")
-    with open(filepath, "r", encoding="latin-1", errors="replace") as f:
-        # Go to the end of the file first (only new data)
-        f.seek(0, 2)
+    with open(filepath, "rb") as f:          # binary mode: seek always works
+        f.seek(0, 2)                          # go to end (only new data)
         while True:
-            line = f.readline()
-            if line:
+            raw = f.readline()
+            if raw:
+                line = raw.decode("latin-1", errors="replace")
                 yield line
+
             else:
                 time.sleep(1)
 

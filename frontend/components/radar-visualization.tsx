@@ -444,8 +444,8 @@ export function RadarVisualization({
         {/* GOES-East Satellite Layer via NASA GIBS WMS (bbox-based, no tile-coordinate issues) */}
         {satelliteMode !== 'off' && (() => {
           const layerName = satelliteMode === 'visible'
-            ? 'GOES_East_SatelliteImagery_Visible'
-            : 'GOES_East_SatelliteImagery_CleanIR';
+            ? 'GOES-East_ABI_GeoColor'              // True-color composite (confirmed via GetCapabilities)
+            : 'GOES-East_ABI_Band13_Clean_Infrared'; // Band 13 Clean IR (confirmed)
           // WMS endpoint: PNG+TRANSPARENT=true → no-data tiles return a transparent PNG
           // instead of an XML ServiceException that MapLibre cannot decode as an image
           const wmsUrl = `https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&FORMAT=image%2Fpng&TRANSPARENT=true&LAYERS=${layerName}&SRS=EPSG%3A3857&STYLES=&WIDTH=256&HEIGHT=256&EXCEPTIONS=INIMAGE&BBOX={bbox-epsg-3857}`;

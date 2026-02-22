@@ -414,7 +414,7 @@ export function RadarVisualization({
 
 
         {/* Satellite Toggle Button — cycles: off → visible → IR → off */}
-        <div className="absolute top-12 left-2 z-50">
+        <div className="absolute top-[53px] left-2 z-50">
           <button
             onClick={() => setSatelliteMode(m => m === 'off' ? 'visible' : m === 'visible' ? 'ir' : 'off')}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-lg border transition-all
@@ -428,7 +428,7 @@ export function RadarVisualization({
           >
             <Cloud className="h-3.5 w-3.5" />
             <span>
-              {satelliteMode === 'off' ? 'SAT' : satelliteMode === 'visible' ? '☀ VIS' : '🌙 IR'}
+              {satelliteMode === 'off' ? 'SATÉLITE' : satelliteMode === 'visible' ? '☀ VIS' : '🌙 IR'}
             </span>
           </button>
         </div>

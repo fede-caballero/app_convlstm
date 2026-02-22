@@ -54,7 +54,7 @@ export function WeatherSidebar({ userLocation }: { userLocation: { lat: number, 
     }, [location])
 
     if (loading) {
-        return <div className="absolute top-20 left-4 z-40 bg-black/50 p-4 rounded-xl text-white backdrop-blur-md w-64">
+        return <div className="absolute top-[85px] left-4 z-40 bg-black/50 p-4 rounded-xl text-white backdrop-blur-md w-64">
             <Skeleton className="h-6 w-3/4 mb-4 bg-white/20" />
             <Skeleton className="h-20 w-full bg-white/10" />
         </div>
@@ -71,7 +71,7 @@ export function WeatherSidebar({ userLocation }: { userLocation: { lat: number, 
     const nextHours = hourly.time.slice(startIndex, startIndex + 24) // Show next 24 hours
 
     return (
-        <div className={`absolute top-20 left-4 z-30 transition-all duration-300 ${isOpen ? 'w-80' : 'w-auto'}`}>
+        <div className={`absolute top-[85px] left-4 z-30 transition-all duration-300 ${isOpen ? 'w-80' : 'w-auto'}`}>
             <Card className="bg-black/40 backdrop-blur-md border-white/10 text-white shadow-2xl overflow-hidden">
                 <div
                     className="p-3 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors"

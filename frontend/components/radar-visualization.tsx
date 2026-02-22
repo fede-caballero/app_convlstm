@@ -60,7 +60,7 @@ export function RadarVisualization({
   // NOTE: Must use globalThis.Map, because 'Map' is imported from react-map-gl and shadows the native constructor
   const aircraftTrailRef = useRef<globalThis.Map<string, [number, number][]>>(new globalThis.Map())
   const [trailGeoJSON, setTrailGeoJSON] = useState<any>({ type: 'FeatureCollection', features: [] })
-  const MAX_TRAIL_POINTS = 30
+  const MAX_TRAIL_POINTS = 7
 
   const [districtsData, setDistrictsData] = useState<any>(null)
   // Satellite layer state: 'off' | 'visible' | 'ir'

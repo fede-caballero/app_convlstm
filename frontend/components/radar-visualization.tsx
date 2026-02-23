@@ -60,7 +60,7 @@ export function RadarVisualization({
   // NOTE: Must use globalThis.Map, because 'Map' is imported from react-map-gl and shadows the native constructor
   const aircraftTrailRef = useRef<globalThis.Map<string, [number, number][]>>(new globalThis.Map())
   const [trailGeoJSON, setTrailGeoJSON] = useState<any>({ type: 'FeatureCollection', features: [] })
-  const MAX_TRAIL_POINTS = 40
+  const MAX_TRAIL_POINTS = 70
 
   const [districtsData, setDistrictsData] = useState<any>(null)
   // Satellite layer state: 'off' | 'visible' | 'ir'
@@ -237,6 +237,7 @@ export function RadarVisualization({
   // Assuming inputs are every 15 min and predictions every 3 min (based on previous context)
   // But for simplicity in UI, we'll just show "Past" vs "Forecast +X min"
   const getTimeLabel = () => {
+    if (isOffline) return "Radar apagado";
     if (!currentImage) return "Esperando datos del radar...";
 
     if (currentImage.target_time) {
@@ -265,7 +266,7 @@ export function RadarVisualization({
       const now = new Date().getTime();
       const diffHours = (now - lastTime) / (1000 * 60 * 60);
 
-      return diffHours > 2;
+      return diffHours > 1;
     } catch (e) {
       console.error("Error checking offline status", e);
       return false;

@@ -65,6 +65,7 @@ export function RadarVisualization({
   const [districtsData, setDistrictsData] = useState<any>(null)
   // Satellite layer state: 'off' | 'visible' | 'ir'
   const [satelliteMode, setSatelliteMode] = useState<'off' | 'visible' | 'ir'>('off')
+  const [satelliteEstimTime, setSatelliteEstimTime] = useState<string>("")
   const [selectedReport, setSelectedReport] = useState<{
     longitude: number,
     latitude: number,
@@ -81,6 +82,22 @@ export function RadarVisualization({
       setShowLocationHint(false);
     }
   }, [userLocation]);
+
+  useEffect(() => {
+    if (satelliteMode === 'off') {
+      setSatelliteEstimTime("");
+      return;
+    }
+    const updateTime = () => {
+      const d = new Date();
+      d.setMinutes(d.getMinutes() - 30);
+      d.setMinutes(Math.floor(d.getMinutes() / 10) * 10, 0, 0);
+      setSatelliteEstimTime("~" + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Argentina/Mendoza' }));
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 60 * 1000);
+    return () => clearInterval(interval);
+  }, [satelliteMode]);
 
   // Merge frames: Inputs + Predictions
   const frames = useMemo(() => {
@@ -434,6 +451,13 @@ export function RadarVisualization({
               </span>
             )}
           </button>
+
+          {/* Satellite Estimated Timestamp Badge */}
+          {satelliteMode !== 'off' && satelliteEstimTime && (
+            <div className="absolute top-[36px] right-0 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded border border-white/20 whitespace-nowrap shadow-md">
+              {satelliteEstimTime}
+            </div>
+          )}
         </div>
 
         {

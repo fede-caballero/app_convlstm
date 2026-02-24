@@ -381,8 +381,8 @@ export function RadarVisualization({
 
   const handleShare = async () => {
     const timeLabel = getTimeLabel();
-    const textStr = `🌩️ Mirá la tormenta en Mendoza (${timeLabel}) en vivo desde el radar de HailCast:`;
-    const urlStr = "https://hailcast.app";
+    const textStr = `🌩️ Mirá la tormenta (${timeLabel}) en vivo desde el radar de HailCast:`;
+    const urlStr = "https://hail-cast.vercel.app/";
 
     if (navigator.share) {
       try {

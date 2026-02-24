@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle, Pencil, Plane, Cloud, Layers } from "lucide-react"
+import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle, Pencil, Plane, Cloud, Layers, Share2 } from "lucide-react"
 import { ImageWithBounds, WeatherReport, deleteReport, fetchAircraft, Aircraft } from "@/lib/api"
 import Map, { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, GeolocateControl, MapRef, Popup, Marker } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -379,7 +379,28 @@ export function RadarVisualization({
     }
   };
 
+  const handleShare = async () => {
+    const timeLabel = getTimeLabel();
+    const textStr = `🌩️ Mirá la tormenta en Mendoza (${timeLabel}) en vivo desde el radar de HailCast:`;
+    const urlStr = "https://hailcast.app";
 
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Alerta de Tormenta - HailCast',
+          text: textStr,
+          url: urlStr,
+        });
+        return;
+      } catch (err) {
+        console.warn('Error sharing via Web Share API:', err);
+      }
+    }
+
+    // Fallback to WhatsApp Web/App
+    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(textStr + " " + urlStr)}`;
+    window.open(whatsappUrl, '_blank');
+  };
 
   return (
     <div className="relative w-full h-full bg-black">
@@ -458,6 +479,17 @@ export function RadarVisualization({
               {satelliteEstimTime}
             </div>
           )}
+        </div>
+
+        {/* WhatsApp Share Button */}
+        <div className="absolute top-[345px] right-2 z-50">
+          <button
+            onClick={(e) => { e.stopPropagation(); handleShare(); }}
+            title="Compartir radar por WhatsApp"
+            className="flex items-center justify-center w-8 h-8 rounded shadow-lg border transition-all bg-[#25D366] border-[#128C7E] text-white hover:bg-[#128C7E] shadow-[#25D366]/40"
+          >
+            <Share2 className="h-4 w-4" />
+          </button>
         </div>
 
         {

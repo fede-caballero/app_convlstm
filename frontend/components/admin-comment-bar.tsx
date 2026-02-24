@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useAuth } from '@/lib/auth-context'
+import { usePush } from '@/lib/push-context'
 
 interface Comment {
     id: number
@@ -25,6 +26,8 @@ export function AdminCommentBar() {
     const [editContent, setEditContent] = useState('')
     const [loading, setLoading] = useState(false)
     const [isOpen, setIsOpen] = useState(false) // Dropdown open state
+
+    const { isSubscribed, isSupported, permissionStatus, subscribe, unsubscribe, loading: pushLoading } = usePush()
 
     const isAdmin = user?.role === 'admin'
 
@@ -97,49 +100,19 @@ export function AdminCommentBar() {
         } catch (e) { console.error(e) }
     }
 
-    const [isSubscribed, setIsSubscribed] = useState(false)
-    const [isSupported, setIsSupported] = useState(false)
-    const [permissionStatus, setPermissionStatus] = useState("checking")
-
-    useEffect(() => {
-        // Check sw support
-        if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
-            setIsSupported(true)
-            setPermissionStatus(Notification.permission)
-
-            navigator.serviceWorker.ready.then(registration => {
-                registration.pushManager.getSubscription().then(sub => {
-                    if (sub) setIsSubscribed(true)
-                })
-            })
-        } else {
-            setPermissionStatus("unsupported")
-        }
-    }, [])
-
     const handleTogglePush = async () => {
-        setLoading(true)
         try {
-            const { subscribeToPushNotifications, unsubscribeFromPush } = await import('@/lib/push-notifications')
-
             if (isSubscribed) {
-                const success = await unsubscribeFromPush()
-                if (success) {
-                    setIsSubscribed(false)
-                    alert("Notificaciones desactivadas")
-                }
+                const success = await unsubscribe()
+                if (success) alert("Notificaciones desactivadas")
             } else {
-                const result = await subscribeToPushNotifications()
-                if (result) {
-                    setIsSubscribed(true)
-                    alert("Notificaciones activadas")
-                }
+                const result = await subscribe()
+                if (result) alert("Notificaciones activadas")
             }
         } catch (e: any) {
             console.error(e)
             alert("Error: " + (e.message || e))
         }
-        finally { setLoading(false) }
     }
 
 
@@ -292,11 +265,11 @@ export function AdminCommentBar() {
                                             }
                                             await handleTogglePush()
                                         }}
-                                        disabled={loading}
+                                        disabled={pushLoading}
                                         className={`w-full justify-between px-2 ${isSubscribed ? "text-green-400 hover:text-red-400 hover:bg-red-500/10" : "text-gray-400 hover:text-white"}`}
                                     >
                                         <span className="text-xs">
-                                            {loading ? "Procesando..." : (isSubscribed ? "Notificaciones Activas" : "Activar Notificaciones")}
+                                            {pushLoading ? "Procesando..." : (isSubscribed ? "Notificaciones Activas" : "Activar Notificaciones")}
                                         </span>
                                         {isSubscribed ? <BellRing className="w-3 h-3" /> : <BellOff className="w-3 h-3" />}
                                     </Button>

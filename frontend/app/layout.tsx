@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css'
 import { AuthProvider } from '@/lib/auth-context'
 import { ServiceWorkerRegister } from '@/components/sw-register'
 import ErrorBoundary from '@/components/error-boundary'
+import { PushProvider } from '@/lib/push-context'
 import { Analytics } from "@vercel/analytics/react"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 
@@ -50,10 +51,12 @@ html {
       <body className="bg-black text-white antialiased overflow-hidden overscroll-none touch-none">
         <ErrorBoundary>
           <AuthProvider>
-            <ServiceWorkerRegister />
-            {children}
-            <Analytics />
-            <SpeedInsights />
+            <PushProvider>
+              <ServiceWorkerRegister />
+              {children}
+              <Analytics />
+              <SpeedInsights />
+            </PushProvider>
           </AuthProvider>
         </ErrorBoundary>
       </body>

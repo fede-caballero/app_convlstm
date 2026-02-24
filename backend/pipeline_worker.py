@@ -130,11 +130,11 @@ def check_proximity_alerts(storm_cells):
         # 1. Get Users with Location and Push Subscriptions
         # We join to ensure they have a subscription
         cursor.execute("""
-            SELECT DISTINCT u.id, u.latitude, u.longitude, u.last_proximity_alert, 
+            SELECT DISTINCT u.id, s.latitude, s.longitude, u.last_proximity_alert, 
                    s.endpoint, s.p256dh, s.auth
             FROM users u
             JOIN push_subscriptions s ON u.id = s.user_id
-            WHERE u.latitude IS NOT NULL AND u.longitude IS NOT NULL
+            WHERE s.latitude IS NOT NULL AND s.longitude IS NOT NULL
         """)
         users_subs = cursor.fetchall()
         

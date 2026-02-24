@@ -110,10 +110,16 @@ def init_db():
                 endpoint TEXT NOT NULL UNIQUE,
                 p256dh TEXT NOT NULL,
                 auth TEXT NOT NULL,
+                latitude REAL,
+                longitude REAL,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(user_id) REFERENCES users(id)
             )
         ''')
+        
+        # Migrations for existing DB instances
+        add_column_if_not_exists("push_subscriptions", "latitude", "REAL")
+        add_column_if_not_exists("push_subscriptions", "longitude", "REAL")
         
         conn.commit()
         conn.close()

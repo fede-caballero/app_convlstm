@@ -53,7 +53,7 @@ export function TutorialDialog({ open, onOpenChange }: TutorialDialogProps) {
         {
             icon: <Layers className="h-6 w-6 text-sky-400" />,
             title: "Capas Satelitales",
-            description: "Tocá el botón de capas (🗭️) en el mapa para superponer imágenes satelitales GOES-East en tiempo real: visible (VIS) o infrarrojo (IR)."
+            description: "Tocá el botón de capas en el mapa para superponer imágenes satelitales GOES-East en tiempo real: visible (VIS) o infrarrojo (IR)."
         },
         {
             icon: (
@@ -62,7 +62,7 @@ export function TutorialDialog({ open, onOpenChange }: TutorialDialogProps) {
                 </svg>
             ),
             title: "Aviones de Siembra",
-            description: "Los círculos de colores sobre el mapa representan aviones de siembra de nubes rastreados en tiempo real por el sistema TITAN. Tocá uno para ver su matricúla, altitud y velocidad."
+            description: "Los círculos de colores sobre el mapa representan aviones de siembra de nubes rastreados en tiempo real por el sistema TITAN. Tocá uno para ver su matrícula, altitud y velocidad."
         }
     ]
 

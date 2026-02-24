@@ -314,6 +314,9 @@ def get_vapid_public_key():
 def subscribe_push():
     data = request.get_json()
     subscription = data.get('subscription') # Expecting standard PushSubscription object
+    lat = data.get('latitude')
+    lon = data.get('longitude')
+    
     if not subscription:
         return jsonify({"error": "No subscription data"}), 400
 
@@ -344,9 +347,9 @@ def subscribe_push():
         # Upsert or Insert (SQLite UPSERT syntax or basic check)
         # Using INSERT OR REPLACE to update keys if endpoint exists
         cursor.execute("""
-            INSERT OR REPLACE INTO push_subscriptions (user_id, endpoint, p256dh, auth)
-            VALUES (?, ?, ?, ?)
-        """, (user_id, endpoint, p256dh, auth_key))
+            INSERT OR REPLACE INTO push_subscriptions (user_id, endpoint, p256dh, auth, latitude, longitude)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (user_id, endpoint, p256dh, auth_key, lat, lon))
         
         conn.commit()
         return jsonify({"message": "Subscribed successfully"}), 201

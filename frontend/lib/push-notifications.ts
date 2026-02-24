@@ -67,12 +67,30 @@ export async function subscribeToPushNotifications() {
             applicationServerKey: convertedVapidKey
         });
 
-        // 3. Send subscription to Backend
+        // 3. Get User Location (Required for proximity alerts)
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            });
+        }).catch(err => {
+            console.warn("Could not get precise location for push subscription:", err);
+            return null;
+        });
+
+        // 4. Send subscription to Backend
         const token = localStorage.getItem('token');
+
+        const payload: any = { subscription };
+        if (position) {
+            payload.latitude = position.coords.latitude;
+            payload.longitude = position.coords.longitude;
+        }
 
         const subscribeResponse = await fetch('/api/notifications/subscribe', {
             method: 'POST',
-            body: JSON.stringify({ subscription }),
+            body: JSON.stringify(payload),
             headers: {
                 'Content-Type': 'application/json',
                 ...(token ? { 'Authorization': `Bearer ${token}` } : {})

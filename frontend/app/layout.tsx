@@ -7,6 +7,7 @@ import { AuthProvider } from '@/lib/auth-context'
 import { ServiceWorkerRegister } from '@/components/sw-register'
 import ErrorBoundary from '@/components/error-boundary'
 import { PushProvider } from '@/lib/push-context'
+import { LanguageProvider } from '@/lib/language-context'
 import { Analytics } from "@vercel/analytics/react"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 
@@ -50,14 +51,16 @@ html {
       </head>
       <body className="bg-black text-white antialiased overflow-hidden overscroll-none touch-none">
         <ErrorBoundary>
-          <AuthProvider>
-            <PushProvider>
-              <ServiceWorkerRegister />
-              {children}
-              <Analytics />
-              <SpeedInsights />
-            </PushProvider>
-          </AuthProvider>
+          <LanguageProvider>
+            <AuthProvider>
+              <PushProvider>
+                <ServiceWorkerRegister />
+                {children}
+                <Analytics />
+                <SpeedInsights />
+              </PushProvider>
+            </AuthProvider>
+          </LanguageProvider>
         </ErrorBoundary>
       </body>
     </html>

@@ -317,6 +317,11 @@ def subscribe_push():
     lat = data.get('latitude')
     lon = data.get('longitude')
     
+    # Optional preferences
+    alert_admin = 1 if data.get('alert_admin', True) else 0
+    alert_proximity = 1 if data.get('alert_proximity', True) else 0
+    alert_aircraft = 1 if data.get('alert_aircraft', False) else 0
+    
     if not subscription:
         return jsonify({"error": "No subscription data"}), 400
 
@@ -347,9 +352,10 @@ def subscribe_push():
         # Upsert or Insert (SQLite UPSERT syntax or basic check)
         # Using INSERT OR REPLACE to update keys if endpoint exists
         cursor.execute("""
-            INSERT OR REPLACE INTO push_subscriptions (user_id, endpoint, p256dh, auth, latitude, longitude)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (user_id, endpoint, p256dh, auth_key, lat, lon))
+            INSERT OR REPLACE INTO push_subscriptions 
+            (user_id, endpoint, p256dh, auth, latitude, longitude, alert_admin, alert_proximity, alert_aircraft)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (user_id, endpoint, p256dh, auth_key, lat, lon, alert_admin, alert_proximity, alert_aircraft))
         
         conn.commit()
         return jsonify({"message": "Subscribed successfully"}), 201
@@ -400,7 +406,7 @@ def _send_push_to_all(title, message, url):
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        cursor.execute("SELECT endpoint, p256dh, auth FROM push_subscriptions")
+        cursor.execute("SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE alert_admin = 1")
         subscriptions = cursor.fetchall()
         conn.close()
     except Exception as e:

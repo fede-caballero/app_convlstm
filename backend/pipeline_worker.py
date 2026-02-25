@@ -24,6 +24,7 @@ from config import (MDV_INBOX_DIR, MDV_ARCHIVE_DIR, INPUT_DIR, OUTPUT_DIR, ARCHI
                     DATA_CONFIG, STATUS_FILE_PATH, MDV_OUTPUT_DIR, IMAGE_OUTPUT_DIR, DB_PATH,
                     VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL, FRONTEND_URL)
 from model.predict import ModelPredictor
+import aircraft_tracker
 
 from pywebpush import webpush, WebPushException
 try:
@@ -134,7 +135,9 @@ def check_proximity_alerts(storm_cells):
                    s.endpoint, s.p256dh, s.auth
             FROM users u
             JOIN push_subscriptions s ON u.id = s.user_id
-            WHERE s.latitude IS NOT NULL AND s.longitude IS NOT NULL
+            WHERE s.latitude IS NOT NULL 
+              AND s.longitude IS NOT NULL
+              AND s.alert_proximity = 1
         """)
         users_subs = cursor.fetchall()
         
@@ -237,6 +240,80 @@ def check_proximity_alerts(storm_cells):
 
     except Exception as e:
         logging.error(f"Error in check_proximity_alerts: {e}")
+
+def check_and_send_aircraft_alerts(sent_aircraft_alerts):
+    """
+    Verifica si hay aviones antigranizo en el tracking y envía push a quienes lo solicitaron.
+    Usa un diccionario en memoria para no spamear (cooldown de 6 horas por avión).
+    """
+    try:
+        data = aircraft_tracker.get_aircraft_data()
+        if not data:
+            return
+
+        now = datetime.now(timezone.utc)
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # Get users interested in aircraft alerts
+        cursor.execute("SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE alert_aircraft = 1")
+        subscriptions = cursor.fetchall()
+        
+        if not subscriptions:
+            conn.close()
+            return
+
+        # Prepare VAPID
+        vapid_obj = None
+        if Vapid and VAPID_PRIVATE_KEY:
+            try:
+                vapid_obj = Vapid.from_pem(VAPID_PRIVATE_KEY.encode('utf-8'))
+            except Exception:
+                pass
+
+        for ac in data:
+            reg = ac.get("reg") or ac.get("callsign", "Desconocido")
+            
+            # Check if we already alerted for this aircraft recently (6 hours cooldown)
+            last_alert_time = sent_aircraft_alerts.get(reg)
+            if last_alert_time and (now - last_alert_time).total_seconds() < 21600:
+                continue
+                
+            logging.info(f"New aircraft flight detected: {reg}. Sending alerts...")
+            sent_aircraft_alerts[reg] = now
+            
+            notification_data = json.dumps({
+                "title": "¡Avión Antigranizo!",
+                "body": f"✈️ Avión en vuelo ({reg}) detectado en el radar.",
+                "url": "/",
+                "icon": "/icon-192x192.png"
+            })
+
+            headers = {"TTL": "60", "Urgency": "high"}
+            for sub in subscriptions:
+                endpoint, p256dh, auth_key = sub
+                try:
+                    sub_headers = headers.copy()
+                    if vapid_obj:
+                         auth_headers = vapid_obj.get_authorization_header(endpoint, VAPID_CLAIM_EMAIL)
+                         if isinstance(auth_headers, dict): sub_headers.update(auth_headers)
+                         elif isinstance(auth_headers, (str, bytes)):
+                             if isinstance(auth_headers, bytes): auth_headers = auth_headers.decode()
+                             sub_headers["Authorization"] = auth_headers
+                    
+                    webpush(
+                        subscription_info={"endpoint": endpoint, "keys": {"p256dh": p256dh, "auth": auth_key}},
+                        data=notification_data,
+                        vapid_private_key=None,
+                        vapid_claims=None,
+                        headers=sub_headers
+                    )
+                except Exception as e:
+                    logging.error(f"Aircraft Push Error: {e}")
+                    
+        conn.close()
+    except Exception as e:
+        logging.error(f"Error checking aircraft alerts: {e}")
 
 def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: str, skip_levels: int = 2):
     """
@@ -677,9 +754,17 @@ def main():
     
     predictor = ModelPredictor(MODEL_PATH)
 
+    sent_aircraft_alerts = {}
+    last_aircraft_check = 0
     
     while True:
         try:
+            # Polling aircraft telemetry independent of MDV files pacing
+            now_ts = time.time()
+            if now_ts - last_aircraft_check >= 60: # Check every minute
+                check_and_send_aircraft_alerts(sent_aircraft_alerts)
+                last_aircraft_check = now_ts
+                
             mdv_files = sorted([f for f in os.listdir(MDV_INBOX_DIR) if f.endswith('.mdv')])
             if mdv_files:
                 mdv_file_to_process = mdv_files[0]

@@ -35,7 +35,7 @@ export async function registerServiceWorker() {
     return null;
 }
 
-export async function subscribeToPushNotifications() {
+export async function subscribeToPushNotifications(preferences?: any) {
     if (!('serviceWorker' in navigator)) {
         console.warn("No Service Worker support");
         return;
@@ -82,7 +82,10 @@ export async function subscribeToPushNotifications() {
         // 4. Send subscription to Backend
         const token = localStorage.getItem('token');
 
-        const payload: any = { subscription };
+        const payload: any = {
+            subscription,
+            ...preferences
+        };
         if (position) {
             payload.latitude = position.coords.latitude;
             payload.longitude = position.coords.longitude;

@@ -112,6 +112,9 @@ def init_db():
                 auth TEXT NOT NULL,
                 latitude REAL,
                 longitude REAL,
+                alert_admin INTEGER DEFAULT 1,
+                alert_proximity INTEGER DEFAULT 1,
+                alert_aircraft INTEGER DEFAULT 0,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(user_id) REFERENCES users(id)
             )
@@ -120,6 +123,9 @@ def init_db():
         # Migrations for existing DB instances
         add_column_if_not_exists("push_subscriptions", "latitude", "REAL")
         add_column_if_not_exists("push_subscriptions", "longitude", "REAL")
+        add_column_if_not_exists("push_subscriptions", "alert_admin", "INTEGER DEFAULT 1")
+        add_column_if_not_exists("push_subscriptions", "alert_proximity", "INTEGER DEFAULT 1")
+        add_column_if_not_exists("push_subscriptions", "alert_aircraft", "INTEGER DEFAULT 0")
         
         conn.commit()
         conn.close()

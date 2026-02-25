@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Download, Zap, Clock, MapPin, RefreshCw, AlertCircle, CheckCircle, Folder, Server, Activity, Database, Menu, X, Navigation } from 'lucide-react'
+import { Download, Zap, Clock, MapPin, RefreshCw, AlertCircle, CheckCircle, Folder, Server, Activity, Database, Menu, X, Navigation, Settings } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -16,6 +16,7 @@ import { useAuth } from "@/lib/auth-context"
 import { ReportDialog } from "@/components/report-dialog"
 import { PushSubscriptionButton } from "@/components/push-subscription-button"
 import { TutorialDialog } from "@/components/tutorial-dialog"
+import { SettingsDialog } from "@/components/settings-dialog"
 
 import { WeatherSidebar } from "@/components/weather-sidebar"
 import Link from "next/link"
@@ -46,6 +47,7 @@ export default function RadarPredictionRealtime() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false)
   const [isTutorialOpen, setIsTutorialOpen] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [reports, setReports] = useState<WeatherReport[]>([])
   const [showReports, setShowReports] = useState(true)
 
@@ -253,7 +255,15 @@ export default function RadarPredictionRealtime() {
               </div>
             )}
 
-
+            {/* Settings Button */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setIsSettingsOpen(true)}
+              className="bg-black/40 backdrop-blur-md border-white/10 text-white hover:bg-white/20 h-9 w-9 rounded-full"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
 
             {/* Auth Buttons */}
             {user ? (
@@ -465,6 +475,14 @@ export default function RadarPredictionRealtime() {
         <TutorialDialog
           open={isTutorialOpen}
           onOpenChange={setIsTutorialOpen}
+        />
+      )}
+
+      {/* Settings Dialog */}
+      {isMounted && (
+        <SettingsDialog
+          open={isSettingsOpen}
+          onOpenChange={setIsSettingsOpen}
         />
       )}
     </div>

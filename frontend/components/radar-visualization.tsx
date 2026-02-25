@@ -53,6 +53,7 @@ export function RadarVisualization({
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [sliderDragValue, setSliderDragValue] = useState<number | null>(null) // visual position while dragging
+  const [radarChannels, setRadarChannels] = useState<{ even: number, odd: number }>({ even: 0, odd: 0 })
   const [boundariesData, setBoundariesData] = useState<any>(null)
 
   // Aircraft State
@@ -177,10 +178,24 @@ export function RadarVisualization({
           if (prev >= totalFrames - 1) return 0; // Loop back to start
           return prev + 1;
         })
-      }, 2000) // 2000ms per frame (slower for better loading on high latency)
+      }, 1500) // 1500ms per frame to allow smooth crossfade
     }
     return () => clearInterval(interval)
   }, [isPlaying, totalFrames])
+
+  // Update ping-pong channels based on current frame
+  useEffect(() => {
+    if (totalFrames === 0) return;
+    setRadarChannels(prev => {
+      const isEven = currentFrameIndex % 2 === 0;
+      if (isEven && prev.even === currentFrameIndex) return prev;
+      if (!isEven && prev.odd === currentFrameIndex) return prev;
+      return {
+        even: isEven ? currentFrameIndex : prev.even,
+        odd: !isEven ? currentFrameIndex : prev.odd
+      }
+    })
+  }, [currentFrameIndex, totalFrames])
 
   // Reset when data changes significantly
   useEffect(() => {
@@ -214,7 +229,13 @@ export function RadarVisualization({
     ] as [[number, number], [number, number], [number, number], [number, number]];
   }
 
-  const imageCoordinates = useMemo(() => getImageCoordinates(currentImage), [currentImage]);
+  const evenFrame = frames[radarChannels.even];
+  const oddFrame = frames[radarChannels.odd];
+  const evenCoords = useMemo(() => getImageCoordinates(evenFrame), [evenFrame]);
+  const oddCoords = useMemo(() => getImageCoordinates(oddFrame), [oddFrame]);
+
+  const evenOpacity = currentFrameIndex % 2 === 0 ? 0.8 : 0;
+  const oddOpacity = currentFrameIndex % 2 !== 0 ? 0.8 : 0;
 
   // Calculate center of LAST OBSERVED image for proximity distance
   // Always use the last input image, NOT the current frame (which may be a prediction)
@@ -386,16 +407,42 @@ export function RadarVisualization({
     const textStr = t(`🌩️ Mirá la tormenta (${timeLabel}) en vivo desde el radar de HailCast:`, `🌩️ Watch the storm (${timeLabel}) live on HailCast radar:`);
     const urlStr = "https://hail-cast.vercel.app/";
 
+    // Intentar capturar la imagen del mapa
+    let fileToShare: File | null = null;
+    try {
+      const map = mapRef.current?.getMap();
+      if (map) {
+        const canvas = map.getCanvas();
+        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/jpeg", 0.8));
+        if (blob) {
+          fileToShare = new File([blob], "hailcast-radar.jpg", { type: "image/jpeg" });
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to capture map screenshot:", err);
+    }
+
     if (navigator.share) {
       try {
-        await navigator.share({
+        const shareData: ShareData = {
           title: t('Alerta de Tormenta - HailCast', 'Storm Alert - HailCast'),
           text: textStr,
           url: urlStr,
-        });
+        };
+
+        // Incluir la imagen si es soportado por el navegador
+        if (fileToShare && navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
+          shareData.files = [fileToShare];
+        }
+
+        await navigator.share(shareData);
         return;
-      } catch (err) {
-        console.warn('Error sharing via Web Share API:', err);
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          console.warn('Error sharing via Web Share API:', err);
+        } else {
+          return; // Usuario canceló la acción
+        }
       }
     }
 
@@ -411,6 +458,8 @@ export function RadarVisualization({
         initialViewState={INITIAL_VIEW_STATE}
         style={{ width: '100%', height: '100%' }}
         mapStyle={MAP_STYLE}
+        // @ts-expect-error react-map-gl doesn't include preserveDrawingBuffer in type definition
+        preserveDrawingBuffer={true}
         attributionControl={false}
         onClick={(event) => {
           const feature = event.features?.[0];
@@ -733,20 +782,41 @@ export function RadarVisualization({
           )
         }
 
+        {/* Ping-Pong Layers for Smooth Transitions */}
         {
-          currentImage && imageCoordinates && (
+          evenFrame && evenCoords && (
             <Source
-              id="radar-source"
+              id="radar-source-even"
               type="image"
-              url={currentImage.url}
-              coordinates={imageCoordinates}
+              url={evenFrame.url}
+              coordinates={evenCoords}
             >
               <Layer
-                id="radar-layer"
+                id="radar-layer-even"
                 type="raster"
                 paint={{
-                  "raster-opacity": 0.8,
-                  "raster-fade-duration": 0
+                  "raster-opacity": evenOpacity,
+                  "raster-opacity-transition": { duration: 800 }
+                }}
+              />
+            </Source>
+          )
+        }
+
+        {
+          oddFrame && oddCoords && (
+            <Source
+              id="radar-source-odd"
+              type="image"
+              url={oddFrame.url}
+              coordinates={oddCoords}
+            >
+              <Layer
+                id="radar-layer-odd"
+                type="raster"
+                paint={{
+                  "raster-opacity": oddOpacity,
+                  "raster-opacity-transition": { duration: 800 }
                 }}
               />
             </Source>

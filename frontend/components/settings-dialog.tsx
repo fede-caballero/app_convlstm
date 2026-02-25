@@ -10,8 +10,9 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { usePush } from "@/lib/push-context"
 import { useLanguage } from "@/lib/language-context"
-import { Bell, AlertTriangle, Plane, Globe, Settings as SettingsIcon } from "lucide-react"
+import { Bell, AlertTriangle, Plane, Globe, Settings as SettingsIcon, BellRing } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useToast } from "@/components/ui/use-toast"
 
 interface SettingsDialogProps {
     open: boolean
@@ -19,8 +20,42 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
-    const { isSubscribed, preferences, updatePreferences, isSupported } = usePush()
+    const { isSubscribed, preferences, updatePreferences, isSupported, subscribe, unsubscribe, loading } = usePush()
     const { language, setLanguage, t } = useLanguage()
+    const { toast } = useToast()
+
+    const handleMasterToggle = async (checked: boolean) => {
+        try {
+            if (checked) {
+                const result = await subscribe()
+                if (result) {
+                    toast({
+                        title: t("Notificaciones Activas", "Notifications Enabled"),
+                        description: t("Recibirás alertas de tormentas severas.", "You will receive severe storm alerts."),
+                    })
+                } else {
+                    toast({
+                        variant: "destructive",
+                        title: t("Error", "Error"),
+                        description: t("No se pudo activar. Verifica permisos.", "Could not enable. Check permissions."),
+                    })
+                }
+            } else {
+                await unsubscribe()
+                toast({
+                    title: t("Notificaciones Desactivadas", "Notifications Disabled"),
+                    description: t("Ya no recibirás alertas en este dispositivo.", "You will no longer receive alerts on this device."),
+                })
+            }
+        } catch (error: any) {
+            console.error(error)
+            toast({
+                variant: "destructive",
+                title: t("Error de Suscripción", "Subscription Error"),
+                description: error.message || t("Ocurrió un problema desconocido.", "An unknown issue occurred."),
+            })
+        }
+    }
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -71,11 +106,27 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                             <p className="text-sm text-yellow-500 bg-yellow-500/10 p-3 rounded-lg border border-yellow-500/20">
                                 {t('Tu dispositivo no soporta notificaciones web.', 'Your device does not support web push notifications.')}
                             </p>
-                        ) : !isSubscribed ? (
-                            <p className="text-sm text-amber-500 bg-amber-500/10 p-3 rounded-lg border border-amber-500/20 font-medium">
-                                {t('⚠️ Debes suscribirte primero usando el ícono de la campana en la pantalla principal o el radar.', '⚠️ You must subscribe first using the bell icon on the main screen or map.')}
-                            </p>
-                        ) : null}
+                        ) : (
+                            <div className="flex items-center justify-between bg-[#2c2c2e] p-4 rounded-xl border border-white/5 shadow-sm">
+                                <div className="space-y-1 max-w-[80%] pr-4">
+                                    <div className="flex items-center gap-2">
+                                        <BellRing className={`h-4 w-4 ${isSubscribed ? 'text-green-400' : 'text-zinc-500'}`} />
+                                        <span className="font-semibold text-sm">
+                                            {t('Recibir Notificaciones', 'Receive Notifications')}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-400 leading-snug">
+                                        {t('Activar o desactivar to das las alertas en este dispositivo.', 'Enable or disable all alerts on this device.')}
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={isSubscribed}
+                                    disabled={loading}
+                                    onCheckedChange={handleMasterToggle}
+                                    className="data-[state=checked]:bg-green-500"
+                                />
+                            </div>
+                        )}
 
                         <div className={`space-y-5 bg-[#2c2c2e] p-4 rounded-xl ${!isSubscribed ? 'opacity-50 pointer-events-none grayscale-[0.5]' : ''}`}>
                             {/* Alertas Manuales */}

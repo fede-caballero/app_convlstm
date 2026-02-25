@@ -244,7 +244,7 @@ def check_proximity_alerts(storm_cells):
 def check_and_send_aircraft_alerts(sent_aircraft_alerts):
     """
     Verifica si hay aviones antigranizo en el tracking y envía push a quienes lo solicitaron.
-    Usa un diccionario en memoria para no spamear (cooldown de 6 horas por avión).
+    Usa un diccionario en memoria para no spamear (cooldown de 4 horas por avión).
     """
     try:
         data = aircraft_tracker.get_aircraft_data()
@@ -274,9 +274,9 @@ def check_and_send_aircraft_alerts(sent_aircraft_alerts):
         for ac in data:
             reg = ac.get("reg") or ac.get("callsign", "Desconocido")
             
-            # Check if we already alerted for this aircraft recently (6 hours cooldown)
+            # Check if we already alerted for this aircraft recently (4 hours cooldown)
             last_alert_time = sent_aircraft_alerts.get(reg)
-            if last_alert_time and (now - last_alert_time).total_seconds() < 21600:
+            if last_alert_time and (now - last_alert_time).total_seconds() < 14400:
                 continue
                 
             logging.info(f"New aircraft flight detected: {reg}. Sending alerts...")

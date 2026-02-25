@@ -244,7 +244,7 @@ export default function RadarPredictionRealtime() {
           </div>
 
           {/* RIGHT: Status | Auth | Menu */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 sm:gap-2">
             {/* System Status (Admin Only) */}
             {user?.role === 'admin' && (
               <div className="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 h-9">
@@ -255,27 +255,17 @@ export default function RadarPredictionRealtime() {
               </div>
             )}
 
-            {/* Settings Button */}
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setIsSettingsOpen(true)}
-              className="bg-black/40 backdrop-blur-md border-white/10 text-white hover:bg-white/20 h-9 w-9 rounded-full"
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
-
             {/* Auth Buttons */}
             {user ? (
-              <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md border border-white/10 p-1.5 rounded-xl">
+              <div className="flex items-center gap-1 sm:gap-2 bg-black/40 backdrop-blur-md border border-white/10 p-1 sm:p-1.5 rounded-xl">
                 <span className="text-xs text-gray-300 px-2 hidden sm:inline-block">Hola, {user.username}</span>
-                <Button variant="ghost" size="sm" onClick={logout} className="h-6 text-xs hover:bg-white/10 text-white">
+                <Button variant="ghost" size="sm" onClick={logout} className="h-6 px-2 text-xs hover:bg-white/10 text-white shrink-0">
                   Salir
                 </Button>
               </div>
             ) : (
               <Link href="/login">
-                <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg h-9">
+                <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3">
                   Ingresar
                 </Button>
               </Link>
@@ -285,8 +275,8 @@ export default function RadarPredictionRealtime() {
             {user?.role === 'admin' && (
               <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="outline" size="icon" className="bg-black/40 backdrop-blur-md border-white/10 text-white hover:bg-white/20 h-9 w-9">
-                    <Menu className="h-5 w-5" />
+                  <Button variant="outline" size="icon" className="bg-black/40 backdrop-blur-md border-white/10 text-white hover:bg-white/20 h-8 w-8 sm:h-9 sm:w-9 shrink-0">
+                    <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
                   </Button>
                 </SheetTrigger>
                 <SheetContent className="bg-black/80 backdrop-blur-xl border-l border-white/10 w-[400px] sm:w-[540px] overflow-y-auto text-white">
@@ -443,7 +433,7 @@ export default function RadarPredictionRealtime() {
       {/* Push Notifications Switch (Below Report Button) */}
       <div className="absolute bottom-64 left-4 z-50 flex justify-center w-14">
         <div className="bg-black/60 backdrop-blur-md rounded-full p-2 border border-white/10 shadow-lg hover:bg-black/80 transition-all">
-          {isMounted && <PushSubscriptionButton />}
+          {isMounted && <PushSubscriptionButton onClick={() => setIsSettingsOpen(true)} />}
         </div>
       </div>
 

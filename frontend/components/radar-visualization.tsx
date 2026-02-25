@@ -412,8 +412,13 @@ export function RadarVisualization({
     try {
       const map = mapRef.current?.getMap();
       if (map) {
-        const canvas = map.getCanvas();
-        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/jpeg", 0.8));
+        // Force a render to ensure WebGL buffer is ready and populated
+        const blob = await new Promise<Blob | null>((resolve) => {
+          map.once('render', () => {
+            map.getCanvas().toBlob(resolve, "image/jpeg", 0.8);
+          });
+          map.triggerRepaint();
+        });
         if (blob) {
           fileToShare = new File([blob], "hailcast-radar.jpg", { type: "image/jpeg" });
         }

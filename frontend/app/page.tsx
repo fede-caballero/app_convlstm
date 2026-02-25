@@ -20,6 +20,7 @@ import { SettingsDialog } from "@/components/settings-dialog"
 
 import { WeatherSidebar } from "@/components/weather-sidebar"
 import Link from "next/link"
+import { useLanguage } from "@/lib/language-context"
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   var R = 6371; // Radius of the earth in km
@@ -40,6 +41,7 @@ function deg2rad(deg: number) {
 }
 
 export default function RadarPredictionRealtime() {
+  const { t } = useLanguage()
   const [status, setStatus] = useState<ApiStatus | null>(null)
   const [images, setImages] = useState<ApiImages>({ input_images: [], prediction_images: [] })
   const [error, setError] = useState<string | null>(null)
@@ -71,7 +73,7 @@ export default function RadarPredictionRealtime() {
 
     const getLocation = (highAccuracy = true) => {
       if (!("geolocation" in navigator)) {
-        setLocationError("Navegador sin soporte GPS");
+        setLocationError(t("Navegador sin soporte GPS", "Browser without GPS support"));
         return;
       }
 
@@ -103,9 +105,9 @@ export default function RadarPredictionRealtime() {
             getLocation(false);
           } else {
             // Final failure
-            let msg = "Ubicación no disponible";
-            if (error.code === 1) msg = "Permiso de GPS denegado";
-            if (error.code === 3) msg = "Tiempo de espera agotado (GPS)";
+            let msg = t("Ubicación no disponible", "Location unavailable");
+            if (error.code === 1) msg = t("Permiso de GPS denegado", "GPS permission denied");
+            if (error.code === 3) msg = t("Tiempo de espera agotado (GPS)", "GPS timeout");
             setLocationError(msg);
           }
         },
@@ -185,7 +187,7 @@ export default function RadarPredictionRealtime() {
       setReports(reportsData)
       setError(null)
     } catch (e) {
-      setError("Failed to connect to the backend API. Is it running?")
+      setError(t("Error al conectar con el servidor.", "Failed to connect to the backend API. Is it running?"))
       console.error(e)
     }
   }
@@ -238,7 +240,7 @@ export default function RadarPredictionRealtime() {
                 onCheckedChange={setShowReports}
                 className="data-[state=checked]:bg-primary h-5 w-9"
               />
-              <span className="text-xs text-gray-300 font-medium ml-1">Reportes</span>
+              <span className="text-xs text-gray-300 font-medium ml-1">{t("Reportes", "Reports")}</span>
               <MapPin className={`h-3 w-3 ${showReports ? 'text-primary' : 'text-gray-500'}`} />
             </div>
           </div>
@@ -258,15 +260,15 @@ export default function RadarPredictionRealtime() {
             {/* Auth Buttons */}
             {user ? (
               <div className="flex items-center gap-1 sm:gap-2 bg-black/40 backdrop-blur-md border border-white/10 p-1 sm:p-1.5 rounded-xl">
-                <span className="text-xs text-gray-300 px-2 hidden sm:inline-block">Hola, {user.username}</span>
+                <span className="text-xs text-gray-300 px-2 hidden sm:inline-block">{t(`Hola, ${user.username}`, `Hello, ${user.username}`)}</span>
                 <Button variant="ghost" size="sm" onClick={logout} className="h-6 px-2 text-xs hover:bg-white/10 text-white shrink-0">
-                  Salir
+                  {t("Salir", "Logout")}
                 </Button>
               </div>
             ) : (
               <Link href="/login">
                 <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3">
-                  Ingresar
+                  {t("Ingresar", "Login")}
                 </Button>
               </Link>
             )}
@@ -286,25 +288,25 @@ export default function RadarPredictionRealtime() {
                       <img src="/logo.png" alt="Hailcast Logo" className="w-24 h-24 object-contain drop-shadow-lg" />
                       <h2 className="text-xl font-bold mt-2 text-center text-red-500">HAILCAST</h2>
                       <p className="text-xs text-red-200 font-medium bg-red-900/30 px-2 py-0.5 rounded-full mt-1 border border-red-500/20">
-                        Sistema de Predicción Meteorológica
+                        {t("Sistema de Predicción Meteorológica", "Weather Prediction System")}
                       </p>
                     </div>
 
                     <div className="flex justify-between items-center bg-red-950/30 p-2 rounded-lg border border-red-500/10">
-                      <SheetTitle className="text-xl font-bold text-red-100">Panel de Control</SheetTitle>
+                      <SheetTitle className="text-xl font-bold text-red-100">{t("Panel de Control", "Control Panel")}</SheetTitle>
                       <Badge variant={userLocation ? "outline" : "destructive"} className="border-red-500/50 text-red-200">
-                        {userLocation ? "GPS Activo" : "Sin GPS"}
+                        {userLocation ? t("GPS Activo", "GPS Active") : t("Sin GPS", "No GPS")}
                       </Badge>
                     </div>
                     <SheetDescription className="text-center mt-2 text-red-300">
-                      Métricas y estado del sistema.
+                      {t("Métricas y estado del sistema.", "System metrics and status.")}
                     </SheetDescription>
                   </SheetHeader>
 
                   <div className="space-y-6">
                     {/* Worker Status */}
                     <MetricCard
-                      title="Estado del Worker"
+                      title={t("Estado del Worker", "Worker Status")}
                       icon={<Server className="h-4 w-4" />} // Icon color handled in component
                       value={status?.status ?? "..."}
                       subtext={status?.status}
@@ -314,7 +316,7 @@ export default function RadarPredictionRealtime() {
                     <Card className="bg-white/5 border-white/10 text-white">
                       <CardHeader className="pb-2">
                         <div className="flex justify-between items-center">
-                          <CardTitle className="text-sm font-medium text-red-200">Buffer de Entrada</CardTitle>
+                          <CardTitle className="text-sm font-medium text-red-200">{t("Buffer de Entrada", "Input Buffer")}</CardTitle>
                           <Database className="h-4 w-4 text-red-400" />
                         </div>
                       </CardHeader>
@@ -330,26 +332,26 @@ export default function RadarPredictionRealtime() {
                     {/* Pipeline Steps */}
                     <Card className="bg-white/5 border-white/10 text-white">
                       <CardHeader>
-                        <CardTitle className="text-sm font-medium text-red-200">Pipeline Activo</CardTitle>
+                        <CardTitle className="text-sm font-medium text-red-200">{t("Pipeline Activo", "Active Pipeline")}</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <PipelineStep
-                          label="Ingesta MDV"
+                          label={t("Ingesta MDV", "MDV Ingestion")}
                           active={!!status?.status}
                           icon={<Folder className="h-3 w-3" />}
                         />
                         <PipelineStep
-                          label="Conversión NetCDF"
+                          label={t("Conversión NetCDF", "NetCDF Conversion")}
                           active={status?.status === "PROCESSING"}
                           icon={<RefreshCw className="h-3 w-3" />}
                         />
                         <PipelineStep
-                          label="Inferencia convLSTM"
+                          label={t("Inferencia convLSTM", "convLSTM Inference")}
                           active={status?.status === "PREDICTING"}
                           icon={<Zap className="h-3 w-3" />}
                         />
                         <PipelineStep
-                          label="Post-procesamiento"
+                          label={t("Post-procesamiento", "Post-processing")}
                           active={false} // Usually instant
                           icon={<Download className="h-3 w-3" />}
                         />
@@ -359,7 +361,7 @@ export default function RadarPredictionRealtime() {
                     {/* Last Update */}
                     <div className="text-center pt-4 border-t border-border">
                       <p className="text-xs text-muted-foreground font-mono">
-                        Última actualización: {lastPredictionTime}
+                        {t("Última actualización: ", "Last update: ")}{lastPredictionTime}
                       </p>
                     </div>
 
@@ -392,9 +394,9 @@ export default function RadarPredictionRealtime() {
               <div className="flex items-center gap-3 px-4 py-3 bg-red-950/90 backdrop-blur-xl text-white rounded-xl shadow-2xl border border-red-500/50 w-64">
                 <Zap className="h-8 w-8 text-yellow-400 fill-yellow-400 animate-pulse" />
                 <div className="flex flex-col">
-                  <span className="text-xs font-bold uppercase tracking-wider text-red-200">Tormenta Detectada</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-red-200">{t("Tormenta Detectada", "Storm Detected")}</span>
                   <span className="text-lg font-black tracking-tight">{nearestStorm.distance.toFixed(1)} km</span>
-                  <span className="text-[10px] text-red-300">Se recomienda precaución.</span>
+                  <span className="text-[10px] text-red-300">{t("Se recomienda precaución.", "Caution is recommended.")}</span>
                 </div>
               </div>
             </div>
@@ -406,7 +408,7 @@ export default function RadarPredictionRealtime() {
             className={`h-14 w-14 rounded-full shadow-[0_0_20px_rgba(220,38,38,0.6)] border-2 flex flex-col items-center justify-center gap-0.5 transition-all duration-300 ${showStormAlert ? 'bg-white text-red-600 border-white' : 'bg-red-600 hover:bg-red-700 text-white border-red-400/50'}`}
           >
             <Zap className={`h-6 w-6 ${showStormAlert ? 'text-red-600 fill-current' : 'text-yellow-300 fill-yellow-300 animate-pulse'}`} />
-            <span className="text-[8px] font-bold uppercase">{showStormAlert ? 'Cerrar' : 'Alerta'}</span>
+            <span className="text-[8px] font-bold uppercase">{showStormAlert ? t('Cerrar', 'Close') : t('Alerta', 'Alert')}</span>
           </Button>
         </div>
       )}
@@ -416,7 +418,7 @@ export default function RadarPredictionRealtime() {
         <Button
           onClick={() => {
             if (!user) {
-              setError("Por favor crea una cuenta para reportar.");
+              setError(t("Por favor crea una cuenta para reportar.", "Please create an account to report."));
               // Auto-clear error after 3 seconds
               setTimeout(() => setError(null), 3000);
               return;
@@ -426,7 +428,7 @@ export default function RadarPredictionRealtime() {
           className="h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-700 shadow-[0_0_20px_rgba(37,99,235,0.5)] border-2 border-blue-400/50 flex flex-col items-center justify-center gap-0.5"
         >
           <AlertCircle className="h-6 w-6 text-white" />
-          <span className="text-[9px] font-bold text-white uppercase">Reportar</span>
+          <span className="text-[9px] font-bold text-white uppercase">{t("Reportar", "Report")}</span>
         </Button>
       </div>
 

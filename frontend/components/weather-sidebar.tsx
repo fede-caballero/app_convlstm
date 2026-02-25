@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Cloud, CloudRain, Thermometer, Wind, Droplets, ArrowRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useLanguage } from "@/lib/language-context"
 
 interface WeatherData {
     current: {
@@ -22,13 +23,14 @@ interface WeatherData {
 }
 
 export function WeatherSidebar({ userLocation }: { userLocation: { lat: number, lon: number } | null }) {
+    const { t } = useLanguage()
     const [weather, setWeather] = useState<WeatherData | null>(null)
     const [loading, setLoading] = useState(true)
     const [isOpen, setIsOpen] = useState(false) // Collapsible state
 
     const location = useMemo(() => {
         return userLocation
-            ? { lat: userLocation.lat, lon: userLocation.lon, name: "Mi Ubicación" }
+            ? { lat: userLocation.lat, lon: userLocation.lon, name: t("Mi Ubicación", "My Location") }
             : { lat: -34.6177, lon: -68.3301, name: "San Rafael" } // Fallback
     }, [userLocation?.lat, userLocation?.lon])
 
@@ -90,7 +92,7 @@ export function WeatherSidebar({ userLocation }: { userLocation: { lat: number, 
 
                     {isOpen && (
                         <div className="text-right">
-                            <div className="text-xs text-zinc-400">Sensación</div>
+                            <div className="text-xs text-zinc-400">{t("Sensación", "Feels like")}</div>
                             <div className="font-semibold">{Math.round(current.apparent_temperature)}°C</div>
                         </div>
                     )}
@@ -108,7 +110,7 @@ export function WeatherSidebar({ userLocation }: { userLocation: { lat: number, 
                             <div className="flex flex-col items-center p-2 bg-white/5 rounded-lg">
                                 <Droplets className="w-4 h-4 text-zinc-400 mb-1" />
                                 <span className="text-sm font-bold">{current.relative_humidity_2m}%</span>
-                                <span className="text-[10px] text-zinc-500">Humedad</span>
+                                <span className="text-[10px] text-zinc-500">{t("Humedad", "Humidity")}</span>
                             </div>
                             <div className="flex flex-col items-center p-2 bg-white/5 rounded-lg">
                                 <CloudRain className="w-4 h-4 text-zinc-400 mb-1" />
@@ -119,7 +121,7 @@ export function WeatherSidebar({ userLocation }: { userLocation: { lat: number, 
 
                         {/* Hourly Forecast (Mini) */}
                         <div>
-                            <h4 className="text-xs font-bold uppercase text-zinc-500 mb-2">Próximas 24 Horas</h4>
+                            <h4 className="text-xs font-bold uppercase text-zinc-500 mb-2">{t("Próximas 24 Horas", "Next 24 Hours")}</h4>
                             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                                 {nextHours.map((t, i) => {
                                     const date = new Date(t)

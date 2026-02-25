@@ -9,6 +9,7 @@ import Map, { Source, Layer, NavigationControl, ScaleControl, FullscreenControl,
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useAuth } from "@/lib/auth-context"
 import { ReportDialog } from "./report-dialog"
+import { useLanguage } from "@/lib/language-context"
 
 interface RadarVisualizationProps {
   inputFiles: ImageWithBounds[]
@@ -48,6 +49,7 @@ export function RadarVisualization({
   userLocation,
   onReportUpdate
 }: RadarVisualizationProps) {
+  const { t } = useLanguage()
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [sliderDragValue, setSliderDragValue] = useState<number | null>(null) // visual position while dragging
@@ -254,14 +256,14 @@ export function RadarVisualization({
   // Assuming inputs are every 15 min and predictions every 3 min (based on previous context)
   // But for simplicity in UI, we'll just show "Past" vs "Forecast +X min"
   const getTimeLabel = () => {
-    if (isOffline) return "Radar apagado";
-    if (!currentImage) return "Esperando datos del radar...";
+    if (isOffline) return t("Radar apagado", "Radar offline");
+    if (!currentImage) return t("Esperando datos del radar...", "Waiting for radar data...");
 
     if (currentImage.target_time) {
       if (isPrediction) {
-        return `Pronóstico ${currentImage.target_time}`;
+        return `${t("Pronóstico", "Forecast")} ${currentImage.target_time}`;
       } else {
-        return `Observación ${currentImage.target_time}`;
+        return `${t("Observación", "Observation")} ${currentImage.target_time}`;
       }
     }
     return ""; // Fallback empty
@@ -381,13 +383,13 @@ export function RadarVisualization({
 
   const handleShare = async () => {
     const timeLabel = getTimeLabel();
-    const textStr = `🌩️ Mirá la tormenta (${timeLabel}) en vivo desde el radar de HailCast:`;
+    const textStr = t(`🌩️ Mirá la tormenta (${timeLabel}) en vivo desde el radar de HailCast:`, `🌩️ Watch the storm (${timeLabel}) live on HailCast radar:`);
     const urlStr = "https://hail-cast.vercel.app/";
 
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Alerta de Tormenta - HailCast',
+          title: t('Alerta de Tormenta - HailCast', 'Storm Alert - HailCast'),
           text: textStr,
           url: urlStr,
         });
@@ -442,7 +444,7 @@ export function RadarVisualization({
             onClick={() => setShowLocationHint(false)}
           >
             <div className="bg-primary text-primary-foreground text-xs font-bold px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(255,255,255,0.3)] flex items-center gap-2 border border-white/20">
-              <span>¿Activar tu ubicación?</span>
+              <span>{t("¿Activar tu ubicación?", "Enable your location?")}</span>
               <MapPin className="h-3 w-3 animate-pulse" />
             </div>
             {/* Arrow pointing right towards the geolocation button */}
@@ -456,7 +458,7 @@ export function RadarVisualization({
         <div className="absolute top-[285px] right-2 z-50">
           <button
             onClick={() => setSatelliteMode(m => m === 'off' ? 'visible' : m === 'visible' ? 'ir' : 'off')}
-            title={satelliteMode === 'off' ? 'Capas satelitales (GOES-East)' : satelliteMode === 'visible' ? 'Satélite visible — clic para IR' : 'Satélite IR — clic para apagar'}
+            title={satelliteMode === 'off' ? t('Capas satelitales (GOES-East)', 'Satellite layers (GOES-East)') : satelliteMode === 'visible' ? t('Satélite visible — clic para IR', 'Visible satellite — click for IR') : t('Satélite IR — clic para apagar', 'IR satellite — click to turn off')}
             className={`relative flex items-center justify-center w-8 h-8 rounded shadow-lg border transition-all
               ${satelliteMode === 'off'
                 ? 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
@@ -485,7 +487,7 @@ export function RadarVisualization({
         <div className="absolute top-[345px] right-2 z-50">
           <button
             onClick={(e) => { e.stopPropagation(); handleShare(); }}
-            title="Compartir radar por WhatsApp"
+            title={t("Compartir radar por WhatsApp", "Share radar via WhatsApp")}
             className="flex items-center justify-center w-8 h-8 rounded shadow-lg border transition-all bg-[#25D366] border-[#128C7E] text-white hover:bg-[#128C7E] shadow-[#25D366]/40"
           >
             <Share2 className="h-4 w-4" />
@@ -696,7 +698,7 @@ export function RadarVisualization({
                           setSelectedReport(null); // Close popup
                         }}
                         className="text-zinc-400 hover:text-white p-1"
-                        title="Editar Reporte"
+                        title={t("Editar Reporte", "Edit Report")}
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
@@ -704,18 +706,18 @@ export function RadarVisualization({
                     {user?.role === 'admin' && (
                       <button
                         onClick={async () => {
-                          if (confirm("¿Eliminar este reporte permanentemente?")) {
+                          if (confirm(t("¿Eliminar este reporte permanentemente?", "Permanently delete this report?"))) {
                             try {
                               await deleteReport(selectedReport.properties.id, token!);
                               if (onReportUpdate) onReportUpdate();
                               setSelectedReport(null);
                             } catch (e) {
-                              alert("Error al eliminar");
+                              alert(t("Error al eliminar", "Error deleting"));
                             }
                           }
                         }}
                         className="text-red-500 hover:text-red-400 p-1"
-                        title="Eliminar Reporte (Admin)"
+                        title={t("Eliminar Reporte (Admin)", "Delete Report (Admin)")}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -766,7 +768,7 @@ export function RadarVisualization({
             <div className="flex justify-between items-end px-2 mb-1">
               <div className="flex flex-col">
                 <span className={`text-xs font-bold uppercase tracking-wider ${isPrediction ? 'text-primary' : 'text-muted-foreground'}`}>
-                  {isPrediction ? 'Modelo Predictivo' : 'Datos Observados'}
+                  {isPrediction ? t('Modelo Predictivo', 'Predictive Model') : t('Datos Observados', 'Observed Data')}
                 </span>
                 <span className="text-2xl font-bold text-white drop-shadow-md flex items-center gap-2 tracking-wide">
                   {isPrediction ? <Clock className="w-6 h-6 text-white" /> : <Calendar className="w-6 h-6 text-white/80" />}
@@ -840,18 +842,18 @@ export function RadarVisualization({
               {/* Labels */}
               <div className="absolute top-full left-0 right-0 mt-1 h-5 text-sm font-mono uppercase tracking-widest text-muted-foreground">
                 {/* Past Label */}
-                <span className="absolute left-0 text-yellow-500/70">Pasado</span>
+                <span className="absolute left-0 text-yellow-500/70">{t("Pasado", "Past")}</span>
 
                 {/* Now Label (Centered at split) */}
                 <span
                   className="absolute -translate-x-1/2 text-white font-bold"
                   style={{ left: '22%' }}
                 >
-                  ACTUAL
+                  {t("ACTUAL", "NOW")}
                 </span>
 
                 {/* Future Label */}
-                <span className="absolute right-0 text-blue-500/70">Futuro</span>
+                <span className="absolute right-0 text-blue-500/70">{t("Futuro", "Future")}</span>
               </div>
             </div>
 

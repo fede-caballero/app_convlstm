@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useAuth } from '@/lib/auth-context'
 import { usePush } from '@/lib/push-context'
+import { useLanguage } from "@/lib/language-context"
 
 interface Comment {
     id: number
@@ -18,6 +19,7 @@ interface Comment {
 }
 
 export function AdminCommentBar() {
+    const { t } = useLanguage()
     const { user, token } = useAuth()
     const [comments, setComments] = useState<Comment[]>([])
     const [visible, setVisible] = useState(true)
@@ -77,7 +79,7 @@ export function AdminCommentBar() {
     }
 
     const handleDelete = async (id: number) => {
-        if (!confirm("¿Eliminar alerta?")) return
+        if (!confirm(t("¿Eliminar alerta?", "Delete alert?"))) return
         try {
             await fetch(`/api/comments/${id}`, {
                 method: 'DELETE',
@@ -104,20 +106,20 @@ export function AdminCommentBar() {
         try {
             if (isSubscribed) {
                 const success = await unsubscribe()
-                if (success) alert("Notificaciones desactivadas")
+                if (success) alert(t("Notificaciones desactivadas", "Notifications disabled"))
             } else {
                 const result = await subscribe()
-                if (result) alert("Notificaciones activadas")
+                if (result) alert(t("Notificaciones activadas", "Notifications enabled"))
             }
         } catch (e: any) {
             console.error(e)
-            alert("Error: " + (e.message || e))
+            alert(t("Error: ", "Error: ") + (e.message || e))
         }
     }
 
 
 
-    const [pushTitle, setPushTitle] = useState('Alerta Meteorológica')
+    const [pushTitle, setPushTitle] = useState(t('Alerta Meteorológica', 'Weather Alert'))
     const [pushMessage, setPushMessage] = useState('')
 
     const handleSendPush = async () => {
@@ -135,13 +137,13 @@ export function AdminCommentBar() {
             })
             if (res.ok) {
                 setPushMessage('')
-                alert("Notificación enviada con éxito")
+                alert(t("Notificación enviada con éxito", "Notification sent successfully"))
             } else {
-                alert("Error al enviar notificación")
+                alert(t("Error al enviar notificación", "Error sending notification"))
             }
         } catch (e) {
             console.error(e)
-            alert("Error de red")
+            alert(t("Error de red", "Network error"))
         } finally {
             setLoading(false)
         }
@@ -165,7 +167,7 @@ export function AdminCommentBar() {
                             size="sm"
                         >
                             <Bell className={`w-4 h-4 mr-2 ${hasActiveAlerts ? 'animate-pulse text-red-400' : ''}`} />
-                            Alertas
+                            {t("Alertas", "Alerts")}
                             {hasActiveAlerts && <Badge variant="secondary" className="ml-2 h-5 min-w-[1.25rem] px-1 bg-red-500 text-white border-none">{visibleComments.length}</Badge>}
                         </Button>
                     </PopoverTrigger>
@@ -175,14 +177,14 @@ export function AdminCommentBar() {
                             {/* Header & Tabs */}
                             <div className="flex flex-col gap-2 border-b border-white/10 pb-2">
                                 <div className="flex justify-between items-center">
-                                    <h4 className="font-semibold text-lg">Centro de Alertas</h4>
+                                    <h4 className="font-semibold text-lg">{t("Centro de Alertas", "Alert Center")}</h4>
                                     {isAdmin && <Badge variant="outline" className="text-xs border-white/20 text-white">Admin</Badge>}
                                 </div>
 
                                 {isAdmin && (
                                     <div className="mt-1">
                                         <p className="text-[10px] text-gray-400">
-                                            Tus comentarios se enviarán como Notificación Push a todos los usuarios.
+                                            {t("Tus comentarios se enviarán como Notificación Push a todos los usuarios.", "Your comments will be sent as a Push Notification to all users.")}
                                         </p>
                                     </div>
                                 )}
@@ -195,7 +197,7 @@ export function AdminCommentBar() {
                                 {isAdmin && (
                                     <div className="flex gap-2">
                                         <Input
-                                            placeholder="Nueva alerta..."
+                                            placeholder={t("Nueva alerta...", "New alert...")}
                                             value={newContent}
                                             onChange={e => setNewContent(e.target.value)}
                                             onKeyDown={e => { if (e.key === 'Enter') handlePost() }}
@@ -210,7 +212,7 @@ export function AdminCommentBar() {
                                 {/* List */}
                                 <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
                                     {visibleComments.length === 0 ? (
-                                        <p className="text-center text-sm text-gray-400 py-4">No hay alertas activas recientes.</p>
+                                        <p className="text-center text-sm text-gray-400 py-4">{t("No hay alertas activas recientes.", "No recent active alerts.")}</p>
                                     ) : (
                                         visibleComments.map(comment => (
                                             <div key={comment.id} className="relative bg-white/5 rounded-lg p-3 border-l-4 border-red-500">
@@ -240,7 +242,7 @@ export function AdminCommentBar() {
                                                             )}
                                                         </div>
                                                         <p className="text-sm font-medium mt-1 leading-snug">{comment.content}</p>
-                                                        <p className="text-[10px] text-gray-500 mt-1 text-right">Autor: {comment.author}</p>
+                                                        <p className="text-[10px] text-gray-500 mt-1 text-right">{t("Autor:", "Author:")} {comment.author}</p>
                                                     </>
                                                 )}
                                             </div>
@@ -260,7 +262,7 @@ export function AdminCommentBar() {
                                         size="sm"
                                         onClick={async () => {
                                             if (!isSubscribed && Notification.permission === 'denied') {
-                                                alert("Has bloqueado las notificaciones. Habilítalas en la configuración del navegador.")
+                                                alert(t("Has bloqueado las notificaciones. Habilítalas en la configuración del navegador.", "You have blocked notifications. Enable them in your browser settings."))
                                                 return;
                                             }
                                             await handleTogglePush()
@@ -269,7 +271,7 @@ export function AdminCommentBar() {
                                         className={`w-full justify-between px-2 ${isSubscribed ? "text-green-400 hover:text-red-400 hover:bg-red-500/10" : "text-gray-400 hover:text-white"}`}
                                     >
                                         <span className="text-xs">
-                                            {pushLoading ? "Procesando..." : (isSubscribed ? "Notificaciones Activas" : "Activar Notificaciones")}
+                                            {pushLoading ? t("Procesando...", "Processing...") : (isSubscribed ? t("Notificaciones Activas", "Notifications Enabled") : t("Activar Notificaciones", "Enable Notifications"))}
                                         </span>
                                         {isSubscribed ? <BellRing className="w-3 h-3" /> : <BellOff className="w-3 h-3" />}
                                     </Button>
@@ -277,10 +279,10 @@ export function AdminCommentBar() {
                                     {!isSubscribed && (
                                         <div className="text-center mt-1">
                                             <p className="text-[10px] text-gray-500">
-                                                Recibe alertas de tormentas severas.
+                                                {t("Recibe alertas de tormentas severas.", "Receive severe storm alerts.")}
                                             </p>
                                             <p className="text-[9px] text-gray-600 mt-1">
-                                                Estado: {permissionStatus} | Soporte: {isSupported ? 'OK' : 'No'}
+                                                {t("Estado:", "Status:")} {permissionStatus} | {t("Soporte:", "Support:")} {isSupported ? 'OK' : 'No'}
                                             </p>
                                         </div>
                                     )}

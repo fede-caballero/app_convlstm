@@ -364,22 +364,22 @@ export default function RadarPredictionRealtime() {
                       <CardContent className="pt-4 space-y-3">
                         <PipelineStep
                           label={t("Ingesta MDV", "MDV Ingestion")}
-                          active={!!status?.status}
+                          active={!!status?.status && (status.status.includes("MDV") || status.status.includes("IDLE") || status.status.includes("Esperando"))}
                           icon={<Folder className="h-3.5 w-3.5" />}
                         />
                         <PipelineStep
                           label={t("Conversión NetCDF", "NetCDF Conversion")}
-                          active={status?.status === "PROCESSING"}
+                          active={!!status?.status && (status.status.includes("Procesando secuencia") || status.status.includes("NetCDF"))}
                           icon={<RefreshCw className="h-3.5 w-3.5" />}
                         />
                         <PipelineStep
                           label={t("Inferencia convLSTM", "convLSTM Inference")}
-                          active={status?.status === "PREDICTING"}
+                          active={!!status?.status && status.status.includes("Inferencia")}
                           icon={<Cpu className="h-3.5 w-3.5" />}
                         />
                         <PipelineStep
                           label={t("Generación de Imágenes", "Image Generation")}
-                          active={status?.status === "GENERATING_IMAGES"}
+                          active={!!status?.status && status.status.includes("Post-procesamiento")}
                           icon={<ImageIcon className="h-3.5 w-3.5" />}
                         />
                       </CardContent>

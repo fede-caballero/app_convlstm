@@ -96,6 +96,69 @@ export function TutorialDialog({ open, onOpenChange }: TutorialDialogProps) {
                             </div>
                         ))}
                     </div>
+
+                    {/* Radar Color Legend */}
+                    <div className="mt-8 mb-4 border-t border-white/10 pt-6">
+                        <h4 className="font-bold text-lg text-zinc-100 mb-4 flex items-center gap-2">
+                            <Cloud className="w-5 h-5 text-gray-400" />
+                            {t("Escala del Radar (dBZ)", "Radar Scale (dBZ)")}
+                        </h4>
+                        <div className="space-y-3 bg-black/40 rounded-xl p-4 border border-white/5">
+                            <div className="flex items-center gap-3">
+                                <div className="flex flex-col gap-1">
+                                    <div className="w-6 h-2 rounded bg-[#007000] shadow-[0_0_5px_rgba(0,112,0,0.5)]" />
+                                    <div className="w-6 h-2 rounded bg-[#087fdb] shadow-[0_0_5px_rgba(8,127,219,0.5)]" />
+                                    <div className="w-6 h-2 rounded bg-[#1c47e8] shadow-[0_0_5px_rgba(28,71,232,0.5)]" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-semibold text-zinc-200">{"< 36 dBZ"}</p>
+                                    <p className="text-xs text-zinc-400">{t("Lluvia débil", "Light rain")}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="flex flex-col gap-1">
+                                    <div className="w-6 h-3 rounded bg-[#6e0dc6] shadow-[0_0_5px_rgba(110,13,198,0.5)]" />
+                                    <div className="w-6 h-3 rounded bg-[#c80f86] shadow-[0_0_5px_rgba(200,15,134,0.5)]" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-semibold text-zinc-200">{"36 - 42 dBZ"}</p>
+                                    <p className="text-xs text-zinc-400">{t("Lluvia moderada", "Moderate rain")}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="flex flex-col gap-0.5">
+                                    <div className="w-6 h-2 rounded bg-[#c06487] shadow-[0_0_5px_rgba(192,100,135,0.5)]" />
+                                    <div className="w-6 h-2 rounded bg-[#d2883b] shadow-[0_0_5px_rgba(210,136,59,0.5)]" />
+                                    <div className="w-6 h-2 rounded bg-[#fac431] shadow-[0_0_5px_rgba(250,196,49,0.5)]" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-semibold text-zinc-200">{"42 - 51 dBZ"}</p>
+                                    <p className="text-xs text-zinc-400">{t("Lluvia fuerte", "Heavy rain")}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="flex flex-col gap-1">
+                                    <div className="w-6 h-3 rounded bg-[#fefa03] shadow-[0_0_5px_rgba(254,250,3,0.5)]" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-semibold text-zinc-200">{"51 - 54 dBZ"}</p>
+                                    <p className="text-xs text-zinc-400">{t("Lluvia torrencial y probable granizo", "Torrential rain, probable hail")}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="flex flex-col gap-0.5">
+                                    <div className="w-6 h-1.5 rounded bg-[#fe9a58] shadow-[0_0_5px_rgba(254,154,88,0.5)]" />
+                                    <div className="w-6 h-1.5 rounded bg-[#fe5f05] shadow-[0_0_5px_rgba(254,95,5,0.5)]" />
+                                    <div className="w-6 h-1.5 rounded bg-[#fd341c] shadow-[0_0_5px_rgba(253,52,28,0.5)]" />
+                                    <div className="w-6 h-1.5 rounded bg-[#bebebe] shadow-[0_0_5px_rgba(190,190,190,0.5)]" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-semibold text-zinc-200">{"> 55 dBZ"}</p>
+                                    <p className="text-xs text-zinc-400">{t("Lluvia torrencial y granizo seguro", "Torrential rain and definite hail")}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </ScrollArea>
             </DialogContent>
         </Dialog>

@@ -815,7 +815,7 @@ export function RadarVisualization({
                 <Button
                   size="icon"
                   variant="secondary"
-                  className="h-10 w-10 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_15px_rgba(133,153,51,0.5)]"
+                  className="h-10 w-10 rounded-full bg-orange-400 text-black hover:bg-orange-500 shadow-[0_0_15px_rgba(251,146,60,0.5)]"
                   onClick={togglePlay}
                 >
                   {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-1" />}

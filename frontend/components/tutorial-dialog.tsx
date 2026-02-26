@@ -23,7 +23,7 @@ export function TutorialDialog({ open, onOpenChange }: TutorialDialogProps) {
             description: t("Nuestra app utiliza un modelo de IA avanzado para escanear imágenes de radar y predecir el movimiento de tormentas a corto plazo.", "Our app uses an advanced AI model to scan radar images and predict short-term storm movement.")
         },
         {
-            icon: <Play className="h-6 w-6 text-white" />,
+            icon: <div className="flex items-center justify-center h-8 w-8 rounded-full bg-orange-400 text-black shadow-md shadow-orange-500/30"><Play className="h-4 w-4 ml-0.5" /></div>,
             title: t("Control del Tiempo", "Time Control"),
             description: t("Dale 'Play' al reproductor inferior para ver la animación: primero verás los datos observados (pasado) y luego la predicción (futuro).", "Hit 'Play' on the bottom player to see the animation: first you'll see observed data (past) followed by the prediction (future).")
         },

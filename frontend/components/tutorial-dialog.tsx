@@ -83,11 +83,11 @@ export function TutorialDialog({ open, onOpenChange }: TutorialDialogProps) {
                 </DialogHeader>
                 <Tabs defaultValue="features" className="w-full">
                     <TabsList className="grid w-full grid-cols-2 bg-orange-400 mb-2">
-                        <TabsTrigger value="features" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                        <TabsTrigger value="features" className="data-[state=active]:bg-black/90 data-[state=active]:text-primary-foreground">
                             <Info className="w-4 h-4 mr-2" />
                             {t("Funcionalidades", "Features")}
                         </TabsTrigger>
-                        <TabsTrigger value="scale" className="data-[state=active]:bg-orange-400 data-[state=active]:text-primary-foreground">
+                        <TabsTrigger value="scale" className="data-[state=active]:bg-black/90 data-[state=active]:text-primary-foreground">
                             <Cloud className="w-4 h-4 mr-2" />
                             {t("Escala de Radar", "Radar Scale")}
                         </TabsTrigger>

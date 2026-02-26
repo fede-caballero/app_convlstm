@@ -915,9 +915,9 @@ export function RadarVisualization({
               />
 
               {/* Labels */}
-              <div className="absolute top-full left-0 right-0 mt-1 h-5 text-sm font-mono uppercase tracking-widest text-muted-foreground">
+              <div className="absolute top-full left-0 right-0 mt-1 h-5 text-[10px] sm:text-xs md:text-sm font-sans uppercase tracking-wider text-muted-foreground">
                 {/* Past Label */}
-                <span className="absolute left-0 text-yellow-500/70">{t("Pasado", "Past")}</span>
+                <span className="absolute left-0 text-yellow-500 font-semibold">{t("Pasado", "Past")}</span>
 
                 {/* Now Label (Centered at split) */}
                 <span
@@ -928,7 +928,7 @@ export function RadarVisualization({
                 </span>
 
                 {/* Future Label */}
-                <span className="absolute right-0 text-blue-500/70">{t("Futuro", "Future")}</span>
+                <span className="absolute right-0 text-blue-500 font-semibold">{t("Futuro", "Future")}</span>
               </div>
             </div>
 

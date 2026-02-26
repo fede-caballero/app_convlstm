@@ -9,6 +9,7 @@ import Link from "next/link"
 import { API_BASE_URL } from "@/lib/api"
 import { GoogleLoginButton } from "@/components/google-login-button"
 import { LightningBackground } from "@/components/lightning-background"
+import { Eye, EyeOff } from "lucide-react"
 
 export default function RegisterPage() {
     const [username, setUsername] = useState("")
@@ -16,6 +17,7 @@ export default function RegisterPage() {
     const [email, setEmail] = useState("")
     const [firstName, setFirstName] = useState("")
     const [lastName, setLastName] = useState("")
+    const [showPassword, setShowPassword] = useState(false)
 
     const [error, setError] = useState("")
     const router = useRouter()
@@ -107,11 +109,20 @@ export default function RegisterPage() {
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-bold text-white leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="password">Contraseña</label>
-                            <Input id="password" type="password" required
-                                placeholder="••••••••"
-                                value={password} onChange={(e) => setPassword(e.target.value)}
-                                className="bg-zinc-800 border-zinc-700 text-zinc-100 focus:ring-primary focus:border-primary"
-                            />
+                            <div className="relative">
+                                <Input id="password" type={showPassword ? "text" : "password"} required
+                                    placeholder="••••••••"
+                                    value={password} onChange={(e) => setPassword(e.target.value)}
+                                    className="bg-zinc-800 border-zinc-700 text-zinc-100 focus:ring-primary focus:border-primary pr-10"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                                >
+                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
                             <p className="text-[10px] text-gray-400">Mínimo 8 caracteres, letras y números.</p>
                         </div>
 

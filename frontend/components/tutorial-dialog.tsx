@@ -6,7 +6,8 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Bot, MapPin, AlertCircle, Zap, Bell, BellRing, Play, Layers, Cloud } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Bot, MapPin, AlertCircle, Zap, Bell, BellRing, Play, Layers, Cloud, Info } from "lucide-react"
 import { useLanguage } from "@/lib/language-context"
 
 interface TutorialDialogProps {
@@ -80,86 +81,103 @@ export function TutorialDialog({ open, onOpenChange }: TutorialDialogProps) {
                         {t("Guía rápida de funcionalidades", "Quick feature guide")}
                     </DialogDescription>
                 </DialogHeader>
-                <ScrollArea className="h-[60vh] pr-4">
-                    <div className="flex flex-col gap-6 py-4">
-                        {steps.map((step, index) => (
-                            <div key={index} className="flex gap-4 items-start">
-                                <div className="mt-1 bg-white/5 p-2 rounded-lg">
-                                    {step.icon}
-                                </div>
-                                <div className="space-y-1">
-                                    <h4 className="font-semibold text-sm text-zinc-100 leading-none">{step.title}</h4>
-                                    <p className="text-sm text-zinc-400 leading-snug">
-                                        {step.description}
-                                    </p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                <Tabs defaultValue="features" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 bg-white/10 mb-2">
+                        <TabsTrigger value="features" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                            <Info className="w-4 h-4 mr-2" />
+                            {t("Funcionalidades", "Features")}
+                        </TabsTrigger>
+                        <TabsTrigger value="scale" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                            <Cloud className="w-4 h-4 mr-2" />
+                            {t("Escala de Radar", "Radar Scale")}
+                        </TabsTrigger>
+                    </TabsList>
 
-                    {/* Radar Color Legend */}
-                    <div className="mt-8 mb-4 border-t border-white/10 pt-6">
-                        <h4 className="font-bold text-lg text-zinc-100 mb-4 flex items-center gap-2">
-                            <Cloud className="w-5 h-5 text-gray-400" />
-                            {t("Escala del Radar (dBZ)", "Radar Scale (dBZ)")}
-                        </h4>
-                        <div className="space-y-3 bg-black/40 rounded-xl p-4 border border-white/5">
-                            <div className="flex items-center gap-3">
-                                <div className="flex flex-col gap-1">
-                                    <div className="w-6 h-2 rounded bg-[#007000] shadow-[0_0_5px_rgba(0,112,0,0.5)]" />
-                                    <div className="w-6 h-2 rounded bg-[#087fdb] shadow-[0_0_5px_rgba(8,127,219,0.5)]" />
-                                    <div className="w-6 h-2 rounded bg-[#1c47e8] shadow-[0_0_5px_rgba(28,71,232,0.5)]" />
-                                </div>
-                                <div className="flex-1">
-                                    <p className="text-sm font-semibold text-zinc-200">{"< 36 dBZ"}</p>
-                                    <p className="text-xs text-zinc-400">{t("Lluvia débil", "Light rain")}</p>
+                    <TabsContent value="features" className="m-0 mt-2">
+                        <ScrollArea className="h-[55vh] pr-4">
+                            <div className="flex flex-col gap-6 py-2">
+                                {steps.map((step, index) => (
+                                    <div key={index} className="flex gap-4 items-start">
+                                        <div className="mt-1 bg-white/5 p-2 rounded-lg">
+                                            {step.icon}
+                                        </div>
+                                        <div className="space-y-1">
+                                            <h4 className="font-semibold text-sm text-zinc-100 leading-none">{step.title}</h4>
+                                            <p className="text-sm text-zinc-400 leading-snug">
+                                                {step.description}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </ScrollArea>
+                    </TabsContent>
+
+                    <TabsContent value="scale" className="m-0 mt-2">
+                        <ScrollArea className="h-[55vh] pr-4">
+                            <div className="flex flex-col gap-4 py-2">
+                                <p className="text-sm text-zinc-400 mb-2">
+                                    {t("Esta escala indica la intensidad de la precipitación (en decibelios de reflectividad - dBZ) detectada por el radar meteorológico TITAN.", "This scale indicates the precipitation intensity (in reflectivity decibels - dBZ) detected by the TITAN weather radar.")}
+                                </p>
+                                <div className="space-y-3 bg-black/40 rounded-xl p-4 border border-white/5">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex flex-col gap-1 w-6">
+                                            <div className="w-full h-2 rounded bg-[#007000] shadow-[0_0_5px_rgba(0,112,0,0.5)]" />
+                                            <div className="w-full h-2 rounded bg-[#087fdb] shadow-[0_0_5px_rgba(8,127,219,0.5)]" />
+                                            <div className="w-full h-2 rounded bg-[#1c47e8] shadow-[0_0_5px_rgba(28,71,232,0.5)]" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-semibold text-zinc-200">{"< 36 dBZ"}</p>
+                                            <p className="text-xs text-zinc-400">{t("Lluvia débil", "Light rain")}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex flex-col gap-1 w-6">
+                                            <div className="w-full h-3 rounded bg-[#6e0dc6] shadow-[0_0_5px_rgba(110,13,198,0.5)]" />
+                                            <div className="w-full h-3 rounded bg-[#c80f86] shadow-[0_0_5px_rgba(200,15,134,0.5)]" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-semibold text-zinc-200">{"36 - 42 dBZ"}</p>
+                                            <p className="text-xs text-zinc-400">{t("Lluvia moderada", "Moderate rain")}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex flex-col gap-0.5 w-6">
+                                            <div className="w-full h-2 rounded bg-[#c06487] shadow-[0_0_5px_rgba(192,100,135,0.5)]" />
+                                            <div className="w-full h-2 rounded bg-[#d2883b] shadow-[0_0_5px_rgba(210,136,59,0.5)]" />
+                                            <div className="w-full h-2 rounded bg-[#fac431] shadow-[0_0_5px_rgba(250,196,49,0.5)]" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-semibold text-zinc-200">{"42 - 51 dBZ"}</p>
+                                            <p className="text-xs text-zinc-400">{t("Lluvia fuerte", "Heavy rain")}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex flex-col gap-1 w-6">
+                                            <div className="w-full h-3 rounded bg-[#fefa03] shadow-[0_0_5px_rgba(254,250,3,0.5)]" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-semibold text-zinc-200">{"51 - 54 dBZ"}</p>
+                                            <p className="text-xs text-zinc-400">{t("Lluvia torrencial y probable granizo", "Torrential rain, probable hail")}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex flex-col gap-0.5 w-6">
+                                            <div className="w-full h-1.5 rounded bg-[#fe9a58] shadow-[0_0_5px_rgba(254,154,88,0.5)]" />
+                                            <div className="w-full h-1.5 rounded bg-[#fe5f05] shadow-[0_0_5px_rgba(254,95,5,0.5)]" />
+                                            <div className="w-full h-1.5 rounded bg-[#fd341c] shadow-[0_0_5px_rgba(253,52,28,0.5)]" />
+                                            <div className="w-full h-1.5 rounded bg-[#bebebe] shadow-[0_0_5px_rgba(190,190,190,0.5)]" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-semibold text-zinc-200">{"> 55 dBZ"}</p>
+                                            <p className="text-xs text-zinc-400">{t("Lluvia torrencial y granizo seguro", "Torrential rain and definite hail")}</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3">
-                                <div className="flex flex-col gap-1">
-                                    <div className="w-6 h-3 rounded bg-[#6e0dc6] shadow-[0_0_5px_rgba(110,13,198,0.5)]" />
-                                    <div className="w-6 h-3 rounded bg-[#c80f86] shadow-[0_0_5px_rgba(200,15,134,0.5)]" />
-                                </div>
-                                <div className="flex-1">
-                                    <p className="text-sm font-semibold text-zinc-200">{"36 - 42 dBZ"}</p>
-                                    <p className="text-xs text-zinc-400">{t("Lluvia moderada", "Moderate rain")}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <div className="flex flex-col gap-0.5">
-                                    <div className="w-6 h-2 rounded bg-[#c06487] shadow-[0_0_5px_rgba(192,100,135,0.5)]" />
-                                    <div className="w-6 h-2 rounded bg-[#d2883b] shadow-[0_0_5px_rgba(210,136,59,0.5)]" />
-                                    <div className="w-6 h-2 rounded bg-[#fac431] shadow-[0_0_5px_rgba(250,196,49,0.5)]" />
-                                </div>
-                                <div className="flex-1">
-                                    <p className="text-sm font-semibold text-zinc-200">{"42 - 51 dBZ"}</p>
-                                    <p className="text-xs text-zinc-400">{t("Lluvia fuerte", "Heavy rain")}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <div className="flex flex-col gap-1">
-                                    <div className="w-6 h-3 rounded bg-[#fefa03] shadow-[0_0_5px_rgba(254,250,3,0.5)]" />
-                                </div>
-                                <div className="flex-1">
-                                    <p className="text-sm font-semibold text-zinc-200">{"51 - 54 dBZ"}</p>
-                                    <p className="text-xs text-zinc-400">{t("Lluvia torrencial y probable granizo", "Torrential rain, probable hail")}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <div className="flex flex-col gap-0.5">
-                                    <div className="w-6 h-1.5 rounded bg-[#fe9a58] shadow-[0_0_5px_rgba(254,154,88,0.5)]" />
-                                    <div className="w-6 h-1.5 rounded bg-[#fe5f05] shadow-[0_0_5px_rgba(254,95,5,0.5)]" />
-                                    <div className="w-6 h-1.5 rounded bg-[#fd341c] shadow-[0_0_5px_rgba(253,52,28,0.5)]" />
-                                    <div className="w-6 h-1.5 rounded bg-[#bebebe] shadow-[0_0_5px_rgba(190,190,190,0.5)]" />
-                                </div>
-                                <div className="flex-1">
-                                    <p className="text-sm font-semibold text-zinc-200">{"> 55 dBZ"}</p>
-                                    <p className="text-xs text-zinc-400">{t("Lluvia torrencial y granizo seguro", "Torrential rain and definite hail")}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </ScrollArea>
+                        </ScrollArea>
+                    </TabsContent>
+                </Tabs>
             </DialogContent>
         </Dialog>
     )

@@ -73,7 +73,7 @@ export function TutorialDialog({ open, onOpenChange }: TutorialDialogProps) {
             <DialogContent className="sm:max-w-md bg-black/90 border-white/10 text-white backdrop-blur-xl">
                 <DialogHeader>
                     <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                        <Bot className="h-5 w-5 text-blue-500" />
+                        <img src="/logo.png" alt="Hailcast Logo" className="w-6 h-6 object-contain" />
                         {t("Bienvenido a HailCast", "Welcome to HailCast")}
                     </DialogTitle>
                     <DialogDescription className="text-zinc-400">

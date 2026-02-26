@@ -357,7 +357,7 @@ export function RadarVisualization({
     id: 'districts-line',
     type: 'line' as const,
     paint: {
-      'line-color': '#4ade80', // Greenish for districts
+      'line-color': '#d4d4d8', // Light Gray for districts to contrast with 30dBZ
       'line-width': 1,
       'line-opacity': 0.5,
       'line-dasharray': [2, 2]
@@ -376,7 +376,7 @@ export function RadarVisualization({
       'text-max-width': 8
     },
     paint: {
-      'text-color': '#4ade80',
+      'text-color': '#d4d4d8',
       'text-halo-color': '#000000',
       'text-halo-width': 1.5,
       'text-opacity': 0.8

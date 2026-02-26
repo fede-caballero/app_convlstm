@@ -238,7 +238,7 @@ export default function RadarPredictionRealtime() {
               <Switch
                 checked={showReports}
                 onCheckedChange={setShowReports}
-                className="data-[state=checked]:bg-primary h-5 w-9"
+                className="data-[state=checked]:bg-orange-400 h-5 w-9"
               />
               <span className="text-xs text-gray-300 font-medium ml-1">{t("Reportes", "Reports")}</span>
               <MapPin className={`h-3 w-3 ${showReports ? 'text-primary' : 'text-gray-500'}`} />
@@ -267,7 +267,7 @@ export default function RadarPredictionRealtime() {
               </div>
             ) : (
               <Link href="/login">
-                <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3">
+                <Button size="sm" className="bg-orange-400 text-black hover:bg-orange-500 shadow-lg h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3 font-semibold">
                   {t("Ingresar", "Login")}
                 </Button>
               </Link>

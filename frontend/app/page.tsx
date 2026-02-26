@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Download, Zap, Clock, MapPin, RefreshCw, AlertCircle, CheckCircle, Folder, Server, Activity, Database, Menu, X, Navigation, Settings } from 'lucide-react'
+import { Download, Zap, Clock, MapPin, RefreshCw, AlertCircle, CheckCircle, Folder, Server, Activity, Database, Menu, X, Navigation, Settings, LocateFixed, AlertTriangle, Layers, Cpu, ImageIcon, Info } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -281,91 +281,126 @@ export default function RadarPredictionRealtime() {
                     <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent className="bg-black/80 backdrop-blur-xl border-l border-white/10 w-[400px] sm:w-[540px] overflow-y-auto text-white">
-                  <SheetHeader className="mb-6">
-                    {/* LOGO IN SIDEBAR */}
-                    <div className="flex flex-col items-center justify-center mb-6 pt-4">
-                      <img src="/logo.png" alt="Hailcast Logo" className="w-24 h-24 object-contain drop-shadow-lg" />
-                      <h2 className="text-xl font-bold mt-2 text-center text-red-500">HAILCAST</h2>
-                      <p className="text-xs text-red-200 font-medium bg-red-900/30 px-2 py-0.5 rounded-full mt-1 border border-red-500/20">
-                        {t("Sistema de Predicción Meteorológica", "Weather Prediction System")}
-                      </p>
-                    </div>
-
-                    <div className="flex justify-between items-center bg-red-950/30 p-2 rounded-lg border border-red-500/10">
-                      <SheetTitle className="text-xl font-bold text-red-100">{t("Panel de Control", "Control Panel")}</SheetTitle>
-                      <Badge variant={userLocation ? "outline" : "destructive"} className="border-red-500/50 text-red-200">
-                        {userLocation ? t("GPS Activo", "GPS Active") : t("Sin GPS", "No GPS")}
-                      </Badge>
-                    </div>
-                    <SheetDescription className="text-center mt-2 text-red-300">
-                      {t("Métricas y estado del sistema.", "System metrics and status.")}
-                    </SheetDescription>
-                  </SheetHeader>
-
-                  <div className="space-y-6">
-                    {/* Worker Status */}
-                    <MetricCard
-                      title={t("Estado del Worker", "Worker Status")}
-                      icon={<Server className="h-4 w-4" />} // Icon color handled in component
-                      value={status?.status ?? "..."}
-                      subtext={status?.status}
-                      statusColor={status?.status === "IDLE" ? "text-green-400" : "text-blue-400"}
-                    />
-                    {/* Buffer Status */}
-                    <Card className="bg-white/5 border-white/10 text-white">
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between items-center">
-                          <CardTitle className="text-sm font-medium text-red-200">{t("Buffer de Entrada", "Input Buffer")}</CardTitle>
-                          <Database className="h-4 w-4 text-red-400" />
+                <SheetContent className="bg-zinc-950/80 backdrop-blur-2xl border-l border-white/10 w-[400px] sm:w-[500px] overflow-y-auto text-zinc-100 p-0">
+                  <div className="bg-gradient-to-b from-zinc-900/80 to-transparent p-6 pb-2 border-b border-white/5">
+                    <SheetHeader className="mb-4">
+                      {/* LOGO IN SIDEBAR */}
+                      <div className="flex flex-col items-center justify-center mb-6 pt-4">
+                        <div className="relative">
+                          <div className="absolute inset-0 bg-blue-500/20 blur-xl rounded-full" />
+                          <img src="/logo.png" alt="Hailcast Logo" className="w-20 h-20 object-contain drop-shadow-2xl relative z-10" />
                         </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex justify-between items-end mb-2">
-                          <span className="text-2xl font-bold text-foreground">{bufferSize}</span>
-                          <span className="text-xs text-muted-foreground mb-1">/ {bufferMaxSize} frames</span>
+                        <h2 className="text-xl font-bold mt-3 text-center tracking-wide text-zinc-100">HAILCAST <span className="text-blue-400 font-light">OS</span></h2>
+                        <p className="text-[10px] uppercase tracking-widest text-zinc-400 mt-1">
+                          {t("Panel de Administración", "Administration Panel")}
+                        </p>
+                      </div>
+
+                      <div className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-white/5 shadow-inner">
+                        <div className="flex items-center gap-2">
+                          <Activity className="w-4 h-4 text-zinc-400" />
+                          <SheetTitle className="text-sm font-semibold text-zinc-200 m-0">{t("Estado del Sistema", "System Status")}</SheetTitle>
                         </div>
-                        <Progress value={(bufferSize / bufferMaxSize) * 100} className="h-1 bg-muted" />
-                      </CardContent>
-                    </Card>
+                        <Badge variant="outline" className={`border-0 bg-white/5 ${userLocation ? "text-green-400" : "text-amber-400"}`}>
+                          {userLocation ? (
+                            <div className="flex items-center gap-1.5"><LocateFixed className="w-3 h-3" /> {t("GPS Activo", "GPS Active")}</div>
+                          ) : (
+                            <div className="flex items-center gap-1.5"><AlertTriangle className="w-3 h-3" /> {t("Sin GPS", "No GPS")}</div>
+                          )}
+                        </Badge>
+                      </div>
+                    </SheetHeader>
+                  </div>
+
+                  <div className="p-6 space-y-6">
+                    {/* Worker Status & Buffer Status - Flex Row */}
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Worker Status */}
+                      <Card className="bg-black/40 border-white/5 text-zinc-100 shadow-xl overflow-hidden relative group">
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <CardHeader className="pb-2 pt-4 px-4">
+                          <div className="flex justify-between items-center">
+                            <CardTitle className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">{t("Worker", "Worker")}</CardTitle>
+                            <Server className="h-3.5 w-3.5 text-zinc-500" />
+                          </div>
+                        </CardHeader>
+                        <CardContent className="px-4 pb-4">
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] ${status?.status === "IDLE" ? "bg-green-400 text-green-400" : status?.status ? "bg-blue-400 text-blue-400 animate-pulse" : "bg-zinc-600 text-zinc-600"}`} />
+                            <span className="text-lg font-bold tracking-tight">
+                              {status?.status || "OFFLINE"}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Buffer Status */}
+                      <Card className="bg-black/40 border-white/5 text-zinc-100 shadow-xl overflow-hidden relative group">
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <CardHeader className="pb-2 pt-4 px-4">
+                          <div className="flex justify-between items-center">
+                            <CardTitle className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">{t("Buffer", "Buffer")}</CardTitle>
+                            <Database className="h-3.5 w-3.5 text-zinc-500" />
+                          </div>
+                        </CardHeader>
+                        <CardContent className="px-4 pb-4">
+                          <div className="flex justify-between items-end mb-2 mt-1">
+                            <span className="text-xl font-bold tracking-tight leading-none">{bufferSize}</span>
+                            <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">/ {bufferMaxSize} fr</span>
+                          </div>
+                          <Progress value={(bufferSize / bufferMaxSize) * 100} className="h-1 bg-white/5 [&>div]:bg-blue-400" />
+                        </CardContent>
+                      </Card>
+                    </div>
 
                     {/* Pipeline Steps */}
-                    <Card className="bg-white/5 border-white/10 text-white">
-                      <CardHeader>
-                        <CardTitle className="text-sm font-medium text-red-200">{t("Pipeline Activo", "Active Pipeline")}</CardTitle>
+                    <Card className="bg-black/40 border-white/5 text-zinc-100 shadow-xl">
+                      <CardHeader className="pb-3 border-b border-white/5">
+                        <CardTitle className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+                          <Layers className="w-3.5 h-3.5" />
+                          {t("Pipeline Activo", "Active Pipeline")}
+                        </CardTitle>
                       </CardHeader>
-                      <CardContent className="space-y-4">
+                      <CardContent className="pt-4 space-y-3">
                         <PipelineStep
                           label={t("Ingesta MDV", "MDV Ingestion")}
                           active={!!status?.status}
-                          icon={<Folder className="h-3 w-3" />}
+                          icon={<Folder className="h-3.5 w-3.5" />}
                         />
                         <PipelineStep
                           label={t("Conversión NetCDF", "NetCDF Conversion")}
                           active={status?.status === "PROCESSING"}
-                          icon={<RefreshCw className="h-3 w-3" />}
+                          icon={<RefreshCw className="h-3.5 w-3.5" />}
                         />
                         <PipelineStep
                           label={t("Inferencia convLSTM", "convLSTM Inference")}
                           active={status?.status === "PREDICTING"}
-                          icon={<Zap className="h-3 w-3" />}
+                          icon={<Cpu className="h-3.5 w-3.5" />}
                         />
                         <PipelineStep
-                          label={t("Post-procesamiento", "Post-processing")}
-                          active={false} // Usually instant
-                          icon={<Download className="h-3 w-3" />}
+                          label={t("Generación de Imágenes", "Image Generation")}
+                          active={status?.status === "GENERATING_IMAGES"}
+                          icon={<ImageIcon className="h-3.5 w-3.5" />}
                         />
                       </CardContent>
                     </Card>
 
+                    {/* Information Section */}
+                    <Card className="bg-blue-950/10 border-blue-500/10 text-blue-100/80 shadow-none">
+                      <CardContent className="p-4 flex gap-3 text-sm">
+                        <Info className="w-5 h-5 text-blue-400 shrink-0" />
+                        <p className="leading-snug">
+                          {t("Este panel te permite monitorear el estado en vivo del proceso de ingestión de datos del radar TITAN y el modelo de IA interactuando en segundo plano.", "This panel allows you to monitor the live status of the TITAN radar data ingestion process and the AI model interacting in the background.")}
+                        </p>
+                      </CardContent>
+                    </Card>
+
                     {/* Last Update */}
-                    <div className="text-center pt-4 border-t border-border">
-                      <p className="text-xs text-muted-foreground font-mono">
+                    <div className="text-center pt-2">
+                      <p className="text-[10px] text-zinc-500 font-mono tracking-wider uppercase">
                         {t("Última actualización: ", "Last update: ")}{lastPredictionTime}
                       </p>
                     </div>
-
-
                   </div>
                 </SheetContent>
               </Sheet>

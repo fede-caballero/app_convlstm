@@ -82,7 +82,7 @@ export function TutorialDialog({ open, onOpenChange }: TutorialDialogProps) {
                     </DialogDescription>
                 </DialogHeader>
                 <Tabs defaultValue="features" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 bg-black/90 mb-2">
+                    <TabsList className="grid w-full grid-cols-2 bg-blue-200 mb-2">
                         <TabsTrigger value="features" className="data-[state=active]:bg-gray-600 data-[state=active]:text-primary-foreground">
                             <Info className="w-4 h-4 mr-2" />
                             {t("Funciones", "Features")}

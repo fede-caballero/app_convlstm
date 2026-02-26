@@ -53,7 +53,6 @@ export function RadarVisualization({
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [sliderDragValue, setSliderDragValue] = useState<number | null>(null) // visual position while dragging
-  const [radarChannels, setRadarChannels] = useState<{ even: number, odd: number }>({ even: 0, odd: 0 })
   const [boundariesData, setBoundariesData] = useState<any>(null)
 
   // Aircraft State
@@ -183,19 +182,7 @@ export function RadarVisualization({
     return () => clearInterval(interval)
   }, [isPlaying, totalFrames])
 
-  // Update ping-pong channels based on current frame
-  useEffect(() => {
-    if (totalFrames === 0) return;
-    setRadarChannels(prev => {
-      const isEven = currentFrameIndex % 2 === 0;
-      if (isEven && prev.even === currentFrameIndex) return prev;
-      if (!isEven && prev.odd === currentFrameIndex) return prev;
-      return {
-        even: isEven ? currentFrameIndex : prev.even,
-        odd: !isEven ? currentFrameIndex : prev.odd
-      }
-    })
-  }, [currentFrameIndex, totalFrames])
+
 
   // Reset when data changes significantly
   useEffect(() => {
@@ -229,13 +216,7 @@ export function RadarVisualization({
     ] as [[number, number], [number, number], [number, number], [number, number]];
   }
 
-  const evenFrame = frames[radarChannels.even];
-  const oddFrame = frames[radarChannels.odd];
-  const evenCoords = useMemo(() => getImageCoordinates(evenFrame), [evenFrame]);
-  const oddCoords = useMemo(() => getImageCoordinates(oddFrame), [oddFrame]);
-
-  const evenOpacity = currentFrameIndex % 2 === 0 ? 0.8 : 0;
-  const oddOpacity = currentFrameIndex % 2 !== 0 ? 0.8 : 0;
+  const imageCoordinates = useMemo(() => getImageCoordinates(currentImage), [currentImage]);
 
   // Calculate center of LAST OBSERVED image for proximity distance
   // Always use the last input image, NOT the current frame (which may be a prediction)
@@ -787,41 +768,20 @@ export function RadarVisualization({
           )
         }
 
-        {/* Ping-Pong Layers for Smooth Transitions */}
         {
-          evenFrame && evenCoords && (
+          currentImage && imageCoordinates && (
             <Source
-              id="radar-source-even"
+              id="radar-source"
               type="image"
-              url={evenFrame.url}
-              coordinates={evenCoords}
+              url={currentImage.url}
+              coordinates={imageCoordinates}
             >
               <Layer
-                id="radar-layer-even"
+                id="radar-layer"
                 type="raster"
                 paint={{
-                  "raster-opacity": evenOpacity,
-                  "raster-opacity-transition": { duration: 800 }
-                }}
-              />
-            </Source>
-          )
-        }
-
-        {
-          oddFrame && oddCoords && (
-            <Source
-              id="radar-source-odd"
-              type="image"
-              url={oddFrame.url}
-              coordinates={oddCoords}
-            >
-              <Layer
-                id="radar-layer-odd"
-                type="raster"
-                paint={{
-                  "raster-opacity": oddOpacity,
-                  "raster-opacity-transition": { duration: 800 }
+                  "raster-opacity": 0.8,
+                  "raster-fade-duration": 0
                 }}
               />
             </Source>

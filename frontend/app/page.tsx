@@ -238,7 +238,7 @@ export default function RadarPredictionRealtime() {
               <Switch
                 checked={showReports}
                 onCheckedChange={setShowReports}
-                className="data-[state=checked]:bg-orange-400 h-5 w-9"
+                className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500 h-5 w-9"
               />
               <span className="text-xs text-gray-300 font-medium ml-1">{t("Reportes", "Reports")}</span>
               <MapPin className={`h-3 w-3 ${showReports ? 'text-primary' : 'text-gray-500'}`} />

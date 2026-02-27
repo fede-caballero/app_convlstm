@@ -258,7 +258,13 @@ export function RadarVisualization({
   // Assuming inputs are every 15 min and predictions every 3 min (based on previous context)
   // But for simplicity in UI, we'll just show "Past" vs "Forecast +X min"
   const getTimeLabel = () => {
-    if (isOffline) return t("Radar apagado", "Radar offline");
+    if (isOffline) {
+      const lastInput = inputFiles && inputFiles.length > 0 ? inputFiles[inputFiles.length - 1] : null;
+      if (lastInput && lastInput.target_time) {
+        return `${t("Radar apagado", "Radar offline")} (Última: ${lastInput.target_time})`;
+      }
+      return t("Radar apagado", "Radar offline");
+    }
     if (!currentImage) return t("Esperando datos del radar...", "Waiting for radar data...");
 
     if (currentImage.target_time) {

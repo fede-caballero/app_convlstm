@@ -158,15 +158,15 @@ export default function RadarPredictionRealtime() {
     let minDist = Infinity;
     let closestCell: StormCell | null = null;
 
-    allCells.forEach(cell => {
+    for (const cell of allCells) {
       const d = getDistanceFromLatLonInKm(userLocation.lat, userLocation.lon, cell.lat, cell.lon);
       if (d < minDist) {
         minDist = d;
         closestCell = cell;
       }
-    });
+    }
 
-    if (closestCell && minDist <= 20) {
+    if (closestCell && minDist <= 20 && closestCell.max_dbz > 50) {
       setNearestStorm({
         distance: minDist,
         cell: closestCell

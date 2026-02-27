@@ -285,9 +285,9 @@ export function RadarVisualization({
     try {
       const lastTime = new Date(latestInput.timestamp_iso).getTime();
       const now = new Date().getTime();
-      const diffHours = (now - lastTime) / (1000 * 60 * 60);
+      const diffMinutes = (now - lastTime) / (1000 * 60);
 
-      return diffHours > 1;
+      return diffMinutes > 15;
     } catch (e) {
       console.error("Error checking offline status", e);
       return false;

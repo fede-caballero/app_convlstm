@@ -218,6 +218,7 @@ export default function RadarPredictionRealtime() {
           isProcessing={!!(status?.status?.includes("PROCESSING") || status?.status?.includes("PREDICTING"))}
           reports={showReports ? reports : undefined}
           userLocation={userLocation}
+          nearestStorm={nearestStorm}
           onReportUpdate={fetchData}
         />
 

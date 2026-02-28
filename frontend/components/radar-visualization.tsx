@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useMemo, useRef, memo } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle, Pencil, Plane, Cloud, Layers, Share2 } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
+import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle, Pencil, Plane, Cloud, Layers, Share2, Zap } from "lucide-react"
 import { ImageWithBounds, WeatherReport, deleteReport, fetchAircraft, fetchHailSwathToday, Aircraft } from "@/lib/api"
 import { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, GeolocateControl, MapRef, Popup, Marker } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -24,6 +25,7 @@ interface RadarVisualizationProps {
   isProcessing: boolean
   reports?: WeatherReport[]
   userLocation?: { lat: number, lon: number } | null
+  nearestStorm?: { distance: number, cell: any } | null
   onReportUpdate?: () => void
 }
 
@@ -48,18 +50,18 @@ function haversineDistance(coords1: { lat: number, lon: number }, coords2: { lat
   return R * c;
 }
 
-import { memo } from "react"
-
 export const RadarVisualization = memo(function RadarVisualization({
   inputFiles,
   predictionFiles,
   isProcessing = false,
   reports,
   userLocation,
+  nearestStorm,
   onReportUpdate
 }: RadarVisualizationProps) {
   const { t } = useLanguage()
-  const [isPlaying, setIsPlaying] = useState(false)
+  const { toast } = useToast()
+  const [isPlaying, setIsPlaying] = useState(true)
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [sliderDragValue, setSliderDragValue] = useState<number | null>(null) // visual position while dragging
   const [boundariesData, setBoundariesData] = useState<any>(null)
@@ -90,6 +92,9 @@ export const RadarVisualization = memo(function RadarVisualization({
   const mapRef = useRef<MapRef>(null)
   const { user, token } = useAuth()
   const [showLocationHint, setShowLocationHint] = useState(true)
+
+  // Nearest Storm Locator State
+  const [showNearestStormMarker, setShowNearestStormMarker] = useState(false)
 
   useEffect(() => {
     if (userLocation) {
@@ -558,6 +563,37 @@ export const RadarVisualization = memo(function RadarVisualization({
           </button>
         </div>
 
+        {/* Nearest Storm Locator Button */}
+        {nearestStorm && (
+          <div className="absolute top-[405px] right-2 z-50">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowNearestStormMarker(true);
+                mapRef.current?.flyTo({
+                  center: [nearestStorm.cell.lon, nearestStorm.cell.lat],
+                  zoom: 9,
+                  duration: 1500
+                });
+                toast({
+                  title: t("Celda más cercana", "Nearest Cell"),
+                  description: t(`Centro convectivo (${nearestStorm.cell.max_dbz.toFixed(0)}dBZ) a ${nearestStorm.distance.toFixed(1)} km`, `Convective core (${nearestStorm.cell.max_dbz.toFixed(0)}dBZ) at ${nearestStorm.distance.toFixed(1)} km`),
+                  duration: 5000,
+                  className: "bg-white/10 backdrop-blur-md border-white/20 text-white"
+                });
+              }}
+              title={t("Localizar tormenta más cercana (>50dBZ)", "Locate nearest storm (>50dBZ)")}
+              className="flex items-center justify-center w-8 h-8 rounded shadow-lg border transition-all bg-red-600 border-red-400 text-white hover:bg-red-500 shadow-red-500/40 relative"
+            >
+              <Zap className="h-4 w-4 fill-white animate-pulse" />
+              {/* Optional distance mini-badge over the button 
+              <span className="absolute -bottom-2 -left-2 text-[8px] font-bold px-1 rounded bg-black/80 text-white border border-white/20">
+                {nearestStorm.distance.toFixed(0)}k
+              </span> */}
+            </button>
+          </div>
+        )}
+
         {
           boundariesData && (
             <Source id="boundaries-source" type="geojson" data={boundariesData}>
@@ -666,6 +702,20 @@ export const RadarVisualization = memo(function RadarVisualization({
             </Source>
           )
         }
+
+        {/* Nearest Storm Marker (White Dot) */}
+        {showNearestStormMarker && nearestStorm && (
+          <Marker
+            longitude={nearestStorm.cell.lon}
+            latitude={nearestStorm.cell.lat}
+            anchor="center"
+          >
+            <div className="relative flex items-center justify-center pointer-events-none">
+              <div className="absolute w-6 h-6 bg-white/30 rounded-full animate-ping z-0" />
+              <div className="w-3 h-3 bg-white rounded-full border-2 border-black shadow-[0_0_10px_rgba(255,255,255,0.8)] z-10" />
+            </div>
+          </Marker>
+        )}
 
         {/* Aircraft Trail Layer — per-callsign color via data-driven MapLibre match */}
         <Source id="aircraft-trail-source" type="geojson" data={trailGeoJSON}>

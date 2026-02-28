@@ -77,8 +77,8 @@ export const RadarVisualization = memo(function RadarVisualization({
   const MAX_TRAIL_POINTS = 70
 
   const [districtsData, setDistrictsData] = useState<any>(null)
-  // Satellite layer state: 'off' | 'visible' | 'ir'
-  const [satelliteMode, setSatelliteMode] = useState<'off' | 'visible' | 'ir'>('off')
+  // Satellite layer state: 'off' | 'hail' | 'visible' | 'ir'
+  const [satelliteMode, setSatelliteMode] = useState<'off' | 'hail' | 'visible' | 'ir'>('off')
   const [satelliteEstimTime, setSatelliteEstimTime] = useState<string>("")
   const [selectedReport, setSelectedReport] = useState<{
     longitude: number,
@@ -98,7 +98,7 @@ export const RadarVisualization = memo(function RadarVisualization({
   }, [userLocation]);
 
   useEffect(() => {
-    if (satelliteMode === 'off') {
+    if (satelliteMode === 'off' || satelliteMode === 'hail') {
       setSatelliteEstimTime("");
       return;
     }
@@ -519,26 +519,28 @@ export const RadarVisualization = memo(function RadarVisualization({
         {/* Satellite / Layers toggle — icon button below zoom controls (top-right) */}
         <div className="absolute top-[285px] right-2 z-50">
           <button
-            onClick={() => setSatelliteMode(m => m === 'off' ? 'visible' : m === 'visible' ? 'ir' : 'off')}
-            title={satelliteMode === 'off' ? t('Capas satelitales (GOES-East)', 'Satellite layers (GOES-East)') : satelliteMode === 'visible' ? t('Satélite visible — clic para IR', 'Visible satellite — click for IR') : t('Satélite IR — clic para apagar', 'IR satellite — click to turn off')}
+            onClick={() => setSatelliteMode(m => m === 'off' ? 'hail' : m === 'hail' ? 'visible' : m === 'visible' ? 'ir' : 'off')}
+            title={satelliteMode === 'off' ? t('Manga de Granizo', 'Hail Swath') : satelliteMode === 'hail' ? t('Satélite visible', 'Visible satellite') : satelliteMode === 'visible' ? t('Satélite IR', 'IR satellite') : t('Limpiar capas', 'Clear layers')}
             className={`relative flex items-center justify-center w-8 h-8 rounded shadow-lg border transition-all
               ${satelliteMode === 'off'
                 ? 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                : satelliteMode === 'visible'
-                  ? 'bg-sky-500 border-sky-300 text-white shadow-sky-500/40'
-                  : 'bg-indigo-600 border-indigo-400 text-white shadow-indigo-500/40'
+                : satelliteMode === 'hail'
+                  ? 'bg-fuchsia-600 border-fuchsia-400 text-white shadow-fuchsia-500/40' // Magenta for hail
+                  : satelliteMode === 'visible'
+                    ? 'bg-sky-500 border-sky-300 text-white shadow-sky-500/40'
+                    : 'bg-indigo-600 border-indigo-400 text-white shadow-indigo-500/40'
               }`}
           >
             <Layers className="h-4 w-4" />
             {satelliteMode !== 'off' && (
-              <span className="absolute -bottom-1 -right-1 text-[9px] font-bold leading-none px-[3px] py-[1px] rounded bg-black/70 text-white">
-                {satelliteMode === 'visible' ? 'VIS' : 'IR'}
+              <span className="absolute -bottom-1 -right-1 text-[8px] font-bold leading-none px-[3px] py-[1px] rounded bg-black/70 text-white">
+                {satelliteMode === 'visible' ? 'VIS' : satelliteMode === 'ir' ? 'IR' : 'GRZ'}
               </span>
             )}
           </button>
 
           {/* Satellite Estimated Timestamp Badge */}
-          {satelliteMode !== 'off' && satelliteEstimTime && (
+          {(satelliteMode === 'visible' || satelliteMode === 'ir') && satelliteEstimTime && (
             <div className="absolute top-[36px] right-0 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded border border-white/20 whitespace-nowrap shadow-md">
               {satelliteEstimTime}
             </div>
@@ -565,7 +567,7 @@ export const RadarVisualization = memo(function RadarVisualization({
         }
 
         {/* GOES-East Satellite Layer — single WMS image cropped to Mendoza province */}
-        {satelliteMode !== 'off' && (() => {
+        {(satelliteMode === 'visible' || satelliteMode === 'ir') && (() => {
           const layerName = satelliteMode === 'visible'
             ? 'GOES-East_ABI_GeoColor'
             : 'GOES-East_ABI_Band13_Clean_Infrared';
@@ -614,7 +616,7 @@ export const RadarVisualization = memo(function RadarVisualization({
         })()}
 
         {/* Daily Hail Swath (> 55dBZ history) */}
-        {hailSwathData && (
+        {satelliteMode === 'hail' && hailSwathData && (
           <Source id="hail-swath-source" type="geojson" data={hailSwathData}>
             <Layer
               id="hail-swath-layer"

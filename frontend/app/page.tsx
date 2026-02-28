@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Download, Zap, Clock, MapPin, RefreshCw, AlertCircle, CheckCircle, Folder, Server, Activity, Database, Menu, X, Navigation, Settings, LocateFixed, AlertTriangle, Layers, Cpu, ImageIcon, Info } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,18 +9,20 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Switch } from "@/components/ui/switch"
-import { RadarVisualization } from "@/components/radar-visualization"
-import { AdminCommentBar } from "@/components/admin-comment-bar"
 import { fetchImages, fetchStatus, ApiStatus, ApiImages, StormCell, fetchReports, WeatherReport, updateLocation } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
-import { ReportDialog } from "@/components/report-dialog"
-import { PushSubscriptionButton } from "@/components/push-subscription-button"
-import { TutorialDialog } from "@/components/tutorial-dialog"
-import { SettingsDialog } from "@/components/settings-dialog"
-
-import { WeatherSidebar } from "@/components/weather-sidebar"
 import Link from "next/link"
 import { useLanguage } from "@/lib/language-context"
+import dynamic from "next/dynamic"
+
+// Lazy load non-critical and heavy components
+const RadarVisualization = dynamic(() => import("@/components/radar-visualization").then(mod => mod.RadarVisualization), { ssr: false })
+const AdminCommentBar = dynamic(() => import("@/components/admin-comment-bar").then(mod => mod.AdminCommentBar), { ssr: false })
+const ReportDialog = dynamic(() => import("@/components/report-dialog").then(mod => mod.ReportDialog), { ssr: false })
+const PushSubscriptionButton = dynamic(() => import("@/components/push-subscription-button").then(mod => mod.PushSubscriptionButton), { ssr: false })
+const TutorialDialog = dynamic(() => import("@/components/tutorial-dialog").then(mod => mod.TutorialDialog), { ssr: false })
+const SettingsDialog = dynamic(() => import("@/components/settings-dialog").then(mod => mod.SettingsDialog), { ssr: false })
+const WeatherSidebar = dynamic(() => import("@/components/weather-sidebar").then(mod => mod.WeatherSidebar), { ssr: false })
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   var R = 6371; // Radius of the earth in km
@@ -177,7 +179,7 @@ export default function RadarPredictionRealtime() {
 
   }, [images, userLocation]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const statusData = await fetchStatus()
       const imagesData = await fetchImages()
@@ -190,13 +192,13 @@ export default function RadarPredictionRealtime() {
       setError(t("Error al conectar con el servidor.", "Failed to connect to the backend API. Is it running?"))
       console.error(e)
     }
-  }
+  }, [t])
 
   useEffect(() => {
     fetchData() // Fetch data on initial load
     const interval = setInterval(fetchData, 5000) // Refresh every 5 seconds
     return () => clearInterval(interval) // Cleanup on component unmount
-  }, [])
+  }, [fetchData])
 
   // Adjusted for flat backend status structure
   const bufferSize = status?.files_in_buffer ?? 0

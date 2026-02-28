@@ -209,14 +209,32 @@ def check_proximity_alerts(storm_cells):
                 
                 try:
                     headers = {"TTL": "60", "Urgency": "high"}
-                    if vapid_obj:
-                         auth_headers = vapid_obj.get_authorization_header(endpoint, VAPID_CLAIM_EMAIL)
-                         # dict or str handling
-                         if isinstance(auth_headers, dict):
-                             headers.update(auth_headers)
-                         elif isinstance(auth_headers, (str, bytes)):
-                             if isinstance(auth_headers, bytes): auth_headers = auth_headers.decode()
-                             headers["Authorization"] = auth_headers
+                    auth_headers = {}
+                    if vapid_obj and hasattr(vapid_obj, "get_authorization_header"):
+                         header_value = vapid_obj.get_authorization_header(endpoint, VAPID_CLAIM_EMAIL)
+                         if isinstance(header_value, (bytes, str)):
+                             if isinstance(header_value, bytes):
+                                 header_value = header_value.decode('utf-8')
+                             auth_headers = {"Authorization": header_value}
+                         elif isinstance(header_value, dict):
+                             auth_headers = header_value
+                    elif vapid_obj:
+                         from urllib.parse import urlparse
+                         parsed = urlparse(endpoint)
+                         aud = f"{parsed.scheme}://{parsed.netloc}"
+                         claim = {"aud": aud, "sub": VAPID_CLAIM_EMAIL}
+                         token = vapid_obj.sign(claim)
+                         if isinstance(token, dict):
+                             auth_headers = token
+                         else:
+                             if isinstance(token, bytes):
+                                 token = token.decode('utf-8')
+                             if "vapid t=" in token:
+                                 auth_headers = {"Authorization": token}
+                             else:
+                                 auth_headers = {"Authorization": f"WebPush {token}"}
+                    
+                    headers.update(auth_headers)
                     
                     webpush(
                         subscription_info=subscription_info,
@@ -294,12 +312,32 @@ def check_and_send_aircraft_alerts(sent_aircraft_alerts):
                 endpoint, p256dh, auth_key = sub
                 try:
                     sub_headers = headers.copy()
-                    if vapid_obj:
-                         auth_headers = vapid_obj.get_authorization_header(endpoint, VAPID_CLAIM_EMAIL)
-                         if isinstance(auth_headers, dict): sub_headers.update(auth_headers)
-                         elif isinstance(auth_headers, (str, bytes)):
-                             if isinstance(auth_headers, bytes): auth_headers = auth_headers.decode()
-                             sub_headers["Authorization"] = auth_headers
+                    auth_headers = {}
+                    if vapid_obj and hasattr(vapid_obj, "get_authorization_header"):
+                         header_value = vapid_obj.get_authorization_header(endpoint, VAPID_CLAIM_EMAIL)
+                         if isinstance(header_value, (bytes, str)):
+                             if isinstance(header_value, bytes):
+                                 header_value = header_value.decode('utf-8')
+                             auth_headers = {"Authorization": header_value}
+                         elif isinstance(header_value, dict):
+                             auth_headers = header_value
+                    elif vapid_obj:
+                         from urllib.parse import urlparse
+                         parsed = urlparse(endpoint)
+                         aud = f"{parsed.scheme}://{parsed.netloc}"
+                         claim = {"aud": aud, "sub": VAPID_CLAIM_EMAIL}
+                         token = vapid_obj.sign(claim)
+                         if isinstance(token, dict):
+                             auth_headers = token
+                         else:
+                             if isinstance(token, bytes):
+                                 token = token.decode('utf-8')
+                             if "vapid t=" in token:
+                                 auth_headers = {"Authorization": token}
+                             else:
+                                 auth_headers = {"Authorization": f"WebPush {token}"}
+                    
+                    sub_headers.update(auth_headers)
                     
                     webpush(
                         subscription_info={"endpoint": endpoint, "keys": {"p256dh": p256dh, "auth": auth_key}},

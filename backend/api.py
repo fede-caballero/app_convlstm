@@ -239,6 +239,74 @@ def me():
     return jsonify(payload)
 
 
+import uuid
+
+@app.route('/auth/forgot-password', methods=['POST'])
+def forgot_password():
+    data = request.get_json()
+    email = data.get('email')
+    if not email:
+         return jsonify({"error": "Email required"}), 400
+         
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
+    user = cursor.fetchone()
+    
+    if user:
+        # Generate token and expiry
+        reset_token = str(uuid.uuid4())
+        expiry = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+        
+        cursor.execute("UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?", (reset_token, expiry, email))
+        conn.commit()
+        
+        # Build recovery link
+        reset_link = f"{FRONTEND_URL}/reset-password?token={reset_token}"
+        email_service.send_password_reset_email(email, reset_link)
+        
+    conn.close()
+    
+    # Always return success to prevent email sweeping (security best practice)
+    return jsonify({"message": "If the email is registered, a recovery link has been sent."}), 200
+
+@app.route('/auth/reset-password', methods=['POST'])
+def reset_password():
+    data = request.get_json()
+    token = data.get('token')
+    new_password = data.get('new_password')
+    
+    if not token or not new_password:
+        return jsonify({"error": "Token and new password required"}), 400
+        
+    # Validation
+    if len(new_password) < 8 or not re.search(r"\d", new_password) or not re.search(r"[a-zA-Z]", new_password):
+        return jsonify({"error": "Password must be at least 8 characters long and contain both letters and numbers."}), 400
+        
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, reset_token_expiry FROM users WHERE reset_token = ?", (token,))
+    user = cursor.fetchone()
+    
+    if not user:
+        conn.close()
+        return jsonify({"error": "Invalid token"}), 400
+        
+    user_id, expiry_str = user
+    expiry_date = datetime.fromisoformat(expiry_str)
+    
+    if datetime.now(timezone.utc) > expiry_date:
+        conn.close()
+        return jsonify({"error": "Token expired"}), 400
+        
+    # Valid token, update password
+    hashed_pw = auth.get_password_hash(new_password)
+    cursor.execute("UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ?", (hashed_pw, user_id))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({"message": "Password updated successfully"}), 200
+
 
 
 # Endpoint para servir las imágenes generadas

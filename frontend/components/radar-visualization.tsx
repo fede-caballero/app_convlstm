@@ -5,11 +5,18 @@ import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle, Pencil, Plane, Cloud, Layers, Share2 } from "lucide-react"
 import { ImageWithBounds, WeatherReport, deleteReport, fetchAircraft, Aircraft } from "@/lib/api"
-import Map, { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, GeolocateControl, MapRef, Popup, Marker } from 'react-map-gl/maplibre'
+import { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, GeolocateControl, MapRef, Popup, Marker } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useAuth } from "@/lib/auth-context"
 import { ReportDialog } from "./report-dialog"
 import { useLanguage } from "@/lib/language-context"
+import dynamic from "next/dynamic"
+
+// Lazy load the Map component. It's huge.
+const Map = dynamic(() => import('react-map-gl/maplibre'), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-slate-900 flex items-center justify-center"><div className="w-8 h-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin"></div></div>
+})
 
 interface RadarVisualizationProps {
   inputFiles: ImageWithBounds[]
@@ -41,7 +48,9 @@ function haversineDistance(coords1: { lat: number, lon: number }, coords2: { lat
   return R * c;
 }
 
-export function RadarVisualization({
+import { memo } from "react"
+
+export const RadarVisualization = memo(function RadarVisualization({
   inputFiles,
   predictionFiles,
   isProcessing = false,
@@ -445,6 +454,11 @@ export function RadarVisualization({
 
   return (
     <div className="relative w-full h-full bg-black">
+      {/* LCP Optimization: Preload current image */}
+      {currentImage && currentImage.url && (
+        <link rel="preload" as="image" href={currentImage.url} />
+      )}
+
       <Map
         ref={mapRef}
         initialViewState={INITIAL_VIEW_STATE}
@@ -914,4 +928,4 @@ export function RadarVisualization({
       />
     </div >
   )
-}
+})

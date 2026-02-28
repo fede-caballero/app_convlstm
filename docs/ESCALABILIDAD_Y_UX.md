@@ -24,6 +24,10 @@ Este documento contiene ideas y características diseñadas para transformar Hai
 - **Concepto:** La paleta radar típica (verde/rojo) es difícil de leer para usuarios con daltonismo. 
 - **Solución:** Añadir un *toggle* en la configuración (engranaje) que aplique un filtro CSS o cambie el Colormap de WebGL a una paleta amigable para daltónicos.
 
+### Alertas Direccionales de Proximidad
+- **Concepto:** En lugar de enviar un PUSH genérico ("Tormenta a 15km"), el sistema recuerda a qué distancia estaba la tormenta la última vez que avisó y determina si se acerca o se aleja ("Tormenta a 15km acercándose ⚠️").
+- **Implementación futura:** Requiere añadir una columna de estado `last_alert_distance` en la base de datos por cada usuario, e implementar la lógica de comparación en el script `pipeline_worker.py`.
+
 ---
 
 ## 👥 2. Funcionalidades para el "Usuario de a Pie"
@@ -54,3 +58,11 @@ Este documento contiene ideas y características diseñadas para transformar Hai
 
 ### Animación Contínua en el Mapa (Efecto WOW)
 - **Concepto:** En lugar del salto visible frame a frame en el slider temporal, utilizar interpolación de opacidad en WebGL para dar ilusión de movimiento fluído en las nubes. 
+
+---
+
+## 🛠️ 4. Escalabilidad del Backend y Base de Datos
+
+### Migración de SQLite a PostgreSQL
+- **Concepto:** A medida que crezca la base de usuarios simultáneos interactuando con la plataforma (guardando reportes, logeándose o actualizando coordenadas GPS), el bloqueo de escritura de SQLite causará embudos y demoras en la respuesta de la API.
+- **Implementación futura:** Instalar y migrar la conexión a un motor PostgreSQL. Esto brindará *Row-level locking*, soportando concurrencia masiva sin fricción, además de habilitar la potente extensión PostGIS para cálculos geoespaciales delegados directamente al motor de base de datos en lugar de penalizar el procesador de Python.

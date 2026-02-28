@@ -511,7 +511,9 @@ def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: s
         storm_cells = detect_storm_cells(composite_data_2d, x, y, projection)
         
         # --- 5.5 Registrar Manga de Granizo (> 55 dBZ) ---
-        update_hail_swath(composite_data_2d, x, y, projection, min_dbz=55.0)
+        # Solo registrar si la imagen es una observación real (input), no una predicción
+        if 'input' in nc_file_path.lower():
+            update_hail_swath(composite_data_2d, x, y, projection, min_dbz=55.0)
         
         # --- 6. Verificar Alertas de Proximidad ---
         check_proximity_alerts(storm_cells)

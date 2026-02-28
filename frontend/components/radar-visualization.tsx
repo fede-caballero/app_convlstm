@@ -96,6 +96,9 @@ export const RadarVisualization = memo(function RadarVisualization({
   // Nearest Storm Locator State
   const [showNearestStormMarker, setShowNearestStormMarker] = useState(false)
 
+  // Zoom scale tracking for dynamic markers
+  const [zoomLevel, setZoomLevel] = useState(INITIAL_VIEW_STATE.zoom)
+
   useEffect(() => {
     if (userLocation) {
       setShowLocationHint(false);
@@ -471,6 +474,18 @@ export const RadarVisualization = memo(function RadarVisualization({
         <link rel="preload" as="image" href={currentImage.url} />
       )}
 
+      {/* Dynamic CSS for MapLibre Geolocate Dot */}
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        .maplibregl-user-location-dot {
+          transform: scale(${Math.max(0.5, Math.min(2.0, (zoomLevel - 5) / 5))}) !important;
+          transition: transform 0.1s ease-out;
+        }
+        .maplibregl-user-location-dot::before {
+          animation: none !important; /* Optional: adjust if you want to keep the pulse */
+        }
+      `}} />
+
       <Map
         ref={mapRef}
         initialViewState={INITIAL_VIEW_STATE}
@@ -491,6 +506,12 @@ export const RadarVisualization = memo(function RadarVisualization({
           } else {
             setSelectedReport(null);
           }
+        }}
+        onZoom={() => {
+          if (mapRef.current) setZoomLevel(mapRef.current.getZoom());
+        }}
+        onLoad={() => {
+          if (mapRef.current) setZoomLevel(mapRef.current.getZoom());
         }}
         interactiveLayerIds={['reports-layer']}
       >
@@ -530,7 +551,7 @@ export const RadarVisualization = memo(function RadarVisualization({
               ${satelliteMode === 'off'
                 ? 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
                 : satelliteMode === 'hail'
-                  ? 'bg-fuchsia-600 border-fuchsia-400 text-white shadow-fuchsia-500/40' // Magenta for hail
+                  ? 'bg-red-800 border-red-600 text-white shadow-red-500/40' // Dark Red for hail
                   : satelliteMode === 'visible'
                     ? 'bg-sky-500 border-sky-300 text-white shadow-sky-500/40'
                     : 'bg-indigo-600 border-indigo-400 text-white shadow-indigo-500/40'
@@ -658,16 +679,15 @@ export const RadarVisualization = memo(function RadarVisualization({
               id="hail-swath-layer"
               type="circle"
               paint={{
-                'circle-color': '#ff00ff', // Magenta
+                'circle-color': '#8B0000', // Solid Dark Red
                 'circle-radius': [
                   'interpolate',
                   ['linear'],
                   ['zoom'],
-                  7, 1,
-                  12, 4
+                  7, 2,
+                  12, 6
                 ],
-                'circle-opacity': 0.6,
-                'circle-blur': 1
+                'circle-opacity': 0.85 // High opacity, no blur for solid look
               }}
             />
           </Source>

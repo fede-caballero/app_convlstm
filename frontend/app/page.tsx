@@ -147,10 +147,11 @@ export default function RadarPredictionRealtime() {
     }
 
     // Get cells from latest prediction frames (to see approaching storms)
-    const latestPreds = images.prediction_images;
-    latestPreds.forEach(img => {
-      if (img.cells) allCells.push(...img.cells);
-    });
+    // The user requested only observed cells to locate the nearest real storm
+    // const latestPreds = images.prediction_images;
+    // latestPreds.forEach(img => {
+    //   if (img.cells) allCells.push(...img.cells);
+    // });
 
     if (allCells.length === 0) {
       setNearestStorm(null);
@@ -168,7 +169,7 @@ export default function RadarPredictionRealtime() {
       }
     }
 
-    if (closestCell && minDist <= 20 && closestCell.max_dbz > 50) {
+    if (closestCell && minDist <= 50 && closestCell.max_dbz > 50) {
       setNearestStorm({
         distance: minDist,
         cell: closestCell
@@ -423,7 +424,7 @@ export default function RadarPredictionRealtime() {
       )}
 
       {/* Storm Alert Section */}
-      {nearestStorm && (
+      {nearestStorm && nearestStorm.distance <= 20 && (
         <div className="absolute bottom-96 left-4 z-50 flex flex-col items-start gap-2">
 
           {/* Detailed Card (Toggled) */}

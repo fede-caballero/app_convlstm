@@ -477,12 +477,11 @@ export const RadarVisualization = memo(function RadarVisualization({
       {/* Dynamic CSS for MapLibre Geolocate Dot */}
       <style dangerouslySetInnerHTML={{
         __html: `
-        .maplibregl-user-location-dot {
+        /* Scale the inner visible circles, not the container, to preserve MapLibre's translate(X,Y) positioning */
+        .maplibregl-user-location-dot::after,
+        .maplibregl-user-location-dot::before {
           transform: scale(${Math.max(0.5, Math.min(2.0, (zoomLevel - 5) / 5))}) !important;
           transition: transform 0.1s ease-out;
-        }
-        .maplibregl-user-location-dot::before {
-          animation: none !important; /* Optional: adjust if you want to keep the pulse */
         }
       `}} />
 

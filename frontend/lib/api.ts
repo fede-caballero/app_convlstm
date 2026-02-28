@@ -225,6 +225,7 @@ export interface Aircraft {
   velocity: number;
   on_ground?: boolean;
   source?: string;  // 'opensky' | 'titan'
+  trail?: [number, number][]; // History of [lon, lat] from backend
 }
 
 export const fetchAircraft = async (): Promise<Aircraft[]> => {

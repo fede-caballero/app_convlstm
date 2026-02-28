@@ -134,30 +134,17 @@ export const RadarVisualization = memo(function RadarVisualization({
     const pollAircraft = () => {
       fetchAircraft().then((data) => {
         setAircraftData(data);
-        // Update trails — always append latest position, no equality check
-        const trailMap = aircraftTrailRef.current;
-        data.forEach((ac: Aircraft) => {
-          if (ac.lon == null || ac.lat == null) return;
-          const key = ac.callsign;
-          // Ensure the entry exists before modifying
-          if (!trailMap.has(key)) trailMap.set(key, []);
-          const history = trailMap.get(key)!;
-          history.push([ac.lon, ac.lat]);
-          if (history.length > MAX_TRAIL_POINTS) history.shift();
-        });
-        // Build GeoJSON — deduplicate consecutive identical coordinates
-        const features = Array.from(trailMap.entries())
-          .map(([cs, pts]) => {
-            const deduped = pts.filter(
-              (p, i) => i === 0 || p[0] !== pts[i - 1][0] || p[1] !== pts[i - 1][1]
-            );
-            return {
-              type: 'Feature' as const,
-              properties: { callsign: cs },
-              geometry: { type: 'LineString' as const, coordinates: deduped }
-            };
-          })
-          .filter(f => f.geometry.coordinates.length >= 2);
+
+        // Build GeoJSON from backend trail directly
+        const features = data.map((ac: Aircraft) => {
+          if (!ac.trail || ac.trail.length < 2) return null;
+          return {
+            type: 'Feature' as const,
+            properties: { callsign: ac.reg || ac.callsign },
+            geometry: { type: 'LineString' as const, coordinates: ac.trail }
+          };
+        }).filter(Boolean);
+
         setTrailGeoJSON({ type: 'FeatureCollection', features });
       });
     };
@@ -333,7 +320,13 @@ export const RadarVisualization = memo(function RadarVisualization({
     id: 'reports-layer',
     type: 'circle',
     paint: {
-      'circle-radius': 8,
+      'circle-radius': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        7, 3,   // Small at low zoom (away)
+        12, 8   // Normal at high zoom (close)
+      ],
       'circle-color': [
         'match',
         ['get', 'type'],
@@ -345,7 +338,13 @@ export const RadarVisualization = memo(function RadarVisualization({
         'cielo_despejado', '#eab308', // Yellow
         '#ffffff' // Default white
       ],
-      'circle-stroke-width': 2,
+      'circle-stroke-width': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        7, 1,
+        12, 2
+      ],
       'circle-stroke-color': '#ffffff',
       'circle-opacity': 0.9
     }
@@ -606,6 +605,26 @@ export const RadarVisualization = memo(function RadarVisualization({
           );
         })()}
 
+        {
+          currentImage && imageCoordinates && (
+            <Source
+              id="radar-source"
+              type="image"
+              url={currentImage.url}
+              coordinates={imageCoordinates}
+            >
+              <Layer
+                id="radar-layer"
+                type="raster"
+                paint={{
+                  "raster-opacity": 0.8,
+                  "raster-fade-duration": 0
+                }}
+              />
+            </Source>
+          )
+        }
+
         {/* Reports Layer (Crowdsourcing) */}
         {
           reportsGeoJSON && (
@@ -785,26 +804,6 @@ export const RadarVisualization = memo(function RadarVisualization({
                 )}
               </div>
             </Popup>
-          )
-        }
-
-        {
-          currentImage && imageCoordinates && (
-            <Source
-              id="radar-source"
-              type="image"
-              url={currentImage.url}
-              coordinates={imageCoordinates}
-            >
-              <Layer
-                id="radar-layer"
-                type="raster"
-                paint={{
-                  "raster-opacity": 0.8,
-                  "raster-fade-duration": 0
-                }}
-              />
-            </Source>
           )
         }
 

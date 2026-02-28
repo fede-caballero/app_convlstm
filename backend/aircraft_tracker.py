@@ -29,6 +29,10 @@ _opensky_cache = {
 _local_cache: dict[str, dict] = {}
 LOCAL_TTL_SECONDS = 30  # If no update for 30s, consider the aircraft gone
 
+# Trail history
+MAX_TRAIL_POINTS = 70
+_trail_cache: dict[str, list] = {}  # reg -> [[lon, lat], ...]
+
 
 def update_local_aircraft(aircraft: dict):
     """Called by the /api/aircraft/ingest endpoint when a new position arrives."""
@@ -116,8 +120,6 @@ def get_aircraft_data():
         except Exception as e:
             logging.error(f"Error fetching aircraft data from OpenSky: {e}")
 
-    # Merge: Local data takes priority (more accurate/real-time).
-    # Use reg as the merge key to avoid duplicates.
     local_data = _get_local_aircraft()
     local_regs = {ac["reg"] for ac in local_data}
 
@@ -127,4 +129,22 @@ def get_aircraft_data():
         if ac.get("reg") not in local_regs
     ]
 
-    return local_data + opensky_unique
+    merged_data = local_data + opensky_unique
+    
+    # Update and attach trails
+    for ac in merged_data:
+        reg = ac.get("reg")
+        if not reg: continue
+        
+        if reg not in _trail_cache:
+            _trail_cache[reg] = []
+            
+        last_pt = _trail_cache[reg][-1] if _trail_cache[reg] else None
+        if not last_pt or last_pt["lat"] != ac["lat"] or last_pt["lon"] != ac["lon"]:
+            _trail_cache[reg].append([ac["lon"], ac["lat"]])
+            if len(_trail_cache[reg]) > MAX_TRAIL_POINTS:
+                _trail_cache[reg] = _trail_cache[reg][-MAX_TRAIL_POINTS:]
+                
+        ac["trail"] = _trail_cache[reg]
+
+    return merged_data

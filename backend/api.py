@@ -588,6 +588,36 @@ def send_push_notification():
     return jsonify({"results": results}), 200
 
 # Endpoints de la API
+@app.route("/api/hail-swath/today", methods=['GET'])
+def get_hail_swath_today():
+    today_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+    swath_file = os.path.join("data", f"hail_swath_{today_str}.json")
+    
+    if not os.path.exists(swath_file):
+        return jsonify({"type": "FeatureCollection", "features": []}), 200
+        
+    try:
+        with open(swath_file, 'r') as f:
+            data = json.load(f)
+            points = data.get("points", [])
+            
+            # Devolver formato GeoJSON
+            geojson = {
+                "type": "FeatureCollection",
+                "features": [{
+                    "type": "Feature",
+                    "properties": {"date": today_str},
+                    "geometry": {
+                        "type": "MultiPoint",
+                        "coordinates": points
+                    }
+                }]
+            }
+            return jsonify(geojson), 200
+    except Exception as e:
+        logging.error(f"Error reading hail swath: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/status")
 def get_status():
     logging.info("Request recibido en /api/status")

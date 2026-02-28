@@ -116,6 +116,66 @@ def detect_storm_cells(dbz_data, x_vals, y_vals, projection):
         
     return cells
 
+import functools
+
+def update_hail_swath(dbz_data: np.ndarray, x: np.ndarray, y: np.ndarray, projection, min_dbz: float = 55.0):
+    """
+    Extrae los píxeles donde DBZ >= min_dbz y los añade al archivo JSON acumulativo del día.
+    """
+    try:
+        # Encontrar índices donde la reflectividad supera el umbral
+        y_indices, x_indices = np.where(dbz_data >= min_dbz)
+        if len(x_indices) == 0:
+            return  # No hay granizo
+
+        geo_proj = ccrs.Geodetic()
+        new_points = []
+        
+        # Reducir resolución para no guardar miles de puntos por cada celda 
+        # (ej. tomamos 1 de cada 4 puntos)
+        step = 4
+        for i in range(0, len(x_indices), step):
+            xi = x[x_indices[i]] * 1000  # Convertir km a metros para la proyección
+            yi = y[y_indices[i]] * 1000
+            lon, lat = geo_proj.transform_point(xi, yi, projection)
+            # Redondear a 3 decimales (~110m precisión) para deduplicar fácil
+            new_points.append([round(float(lon), 3), round(float(lat), 3)])
+
+        if not new_points:
+            return
+
+        today_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+        swath_file = os.path.join("data", f"hail_swath_{today_str}.json")
+        
+        # Leer puntos existentes
+        existing_points = set()
+        if os.path.exists(swath_file):
+            try:
+                with open(swath_file, 'r') as f:
+                    data = json.load(f)
+                    for pt in data.get("points", []):
+                        existing_points.add((pt[0], pt[1]))
+            except json.JSONDecodeError:
+                pass
+                
+        # Agregar nuevos puntos si no existen
+        added_count = 0
+        for pt in new_points:
+            t_pt = (pt[0], pt[1])
+            if t_pt not in existing_points:
+                existing_points.add(t_pt)
+                added_count += 1
+                
+        if added_count > 0:
+            # Guardar
+            os.makedirs("data", exist_ok=True)
+            with open(swath_file, 'w') as f:
+                json.dump({"date": today_str, "points": [list(pt) for pt in existing_points]}, f)
+            logging.info(f"Agregados {added_count} puntos a la manga de granizo de hoy.")
+
+    except Exception as e:
+        logging.error(f"Error actualizando la manga de granizo: {e}")
+
 def check_proximity_alerts(storm_cells):
     """
     Verifica si hay usuarios cerca (< 20km) de alguna celda de tormenta.
@@ -449,6 +509,9 @@ def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: s
 
         # --- 5. Detectar Celdas y Centroides ---
         storm_cells = detect_storm_cells(composite_data_2d, x, y, projection)
+        
+        # --- 5.5 Registrar Manga de Granizo (> 55 dBZ) ---
+        update_hail_swath(composite_data_2d, x, y, projection, min_dbz=55.0)
         
         # --- 6. Verificar Alertas de Proximidad ---
         check_proximity_alerts(storm_cells)

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle, Pencil, Plane, Cloud, Layers, Share2 } from "lucide-react"
-import { ImageWithBounds, WeatherReport, deleteReport, fetchAircraft, Aircraft } from "@/lib/api"
+import { ImageWithBounds, WeatherReport, deleteReport, fetchAircraft, fetchHailSwathToday, Aircraft } from "@/lib/api"
 import { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, GeolocateControl, MapRef, Popup, Marker } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useAuth } from "@/lib/auth-context"
@@ -63,6 +63,9 @@ export const RadarVisualization = memo(function RadarVisualization({
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [sliderDragValue, setSliderDragValue] = useState<number | null>(null) // visual position while dragging
   const [boundariesData, setBoundariesData] = useState<any>(null)
+
+  // Hail Swath Data
+  const [hailSwathData, setHailSwathData] = useState<any>(null)
 
   // Aircraft State
   const [aircraftData, setAircraftData] = useState<Aircraft[]>([])
@@ -129,6 +132,11 @@ export const RadarVisualization = memo(function RadarVisualization({
       .then(res => res.json())
       .then(data => setDistrictsData(data))
       .catch(err => console.error("Failed to load districts", err));
+
+    // Load Hail Swath (Today)
+    fetchHailSwathToday()
+      .then(data => setHailSwathData(data))
+      .catch(err => console.error("Failed to load hail swath", err));
 
     // Poll Aircraft Data
     const pollAircraft = () => {
@@ -604,6 +612,28 @@ export const RadarVisualization = memo(function RadarVisualization({
             </Source>
           );
         })()}
+
+        {/* Daily Hail Swath (> 55dBZ history) */}
+        {hailSwathData && (
+          <Source id="hail-swath-source" type="geojson" data={hailSwathData}>
+            <Layer
+              id="hail-swath-layer"
+              type="circle"
+              paint={{
+                'circle-color': '#ff00ff', // Magenta
+                'circle-radius': [
+                  'interpolate',
+                  ['linear'],
+                  ['zoom'],
+                  7, 1,
+                  12, 4
+                ],
+                'circle-opacity': 0.6,
+                'circle-blur': 1
+              }}
+            />
+          </Source>
+        )}
 
         {
           currentImage && imageCoordinates && (

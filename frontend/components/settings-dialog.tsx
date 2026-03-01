@@ -10,7 +10,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { usePush } from "@/lib/push-context"
 import { useLanguage } from "@/lib/language-context"
-import { Bell, AlertTriangle, Plane, Globe, Settings as SettingsIcon, BellRing } from "lucide-react"
+import { Bell, AlertTriangle, Plane, Globe, Settings as SettingsIcon, BellRing, Cloud, MessageSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 
@@ -19,9 +19,22 @@ interface SettingsDialogProps {
     onOpenChange: (open: boolean) => void
     showStormCells?: boolean
     onShowStormCellsChange?: (show: boolean) => void
+    showReports?: boolean
+    onShowReportsChange?: (show: boolean) => void
+    showWeatherWidget?: boolean
+    onShowWeatherWidgetChange?: (show: boolean) => void
 }
 
-export function SettingsDialog({ open, onOpenChange, showStormCells = true, onShowStormCellsChange }: SettingsDialogProps) {
+export function SettingsDialog({
+    open,
+    onOpenChange,
+    showStormCells = true,
+    onShowStormCellsChange,
+    showReports = true,
+    onShowReportsChange,
+    showWeatherWidget = true,
+    onShowWeatherWidgetChange
+}: SettingsDialogProps) {
     const { isSubscribed, preferences, updatePreferences, isSupported, subscribe, unsubscribe, loading } = usePush()
     const { language, setLanguage, t } = useLanguage()
     const { toast } = useToast()
@@ -120,6 +133,48 @@ export function SettingsDialog({ open, onOpenChange, showStormCells = true, onSh
                                 <Switch
                                     checked={showStormCells}
                                     onCheckedChange={(c) => onShowStormCellsChange && onShowStormCellsChange(c)}
+                                    className="data-[state=checked]:bg-sky-500"
+                                />
+                            </div>
+
+                            <div className="h-[1px] w-full bg-[#3c3c3e]" />
+
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-1 max-w-[80%] pr-4">
+                                    <div className="flex items-center gap-2">
+                                        <MessageSquare className="h-4 w-4 text-blue-400" />
+                                        <span className="font-semibold text-sm">
+                                            {t('Reportes de Usuarios', 'User Reports')}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-400 leading-snug">
+                                        {t('Ver reportes meteorológicos enviados por otros usuarios.', 'See weather reports sent by other users.')}
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={showReports}
+                                    onCheckedChange={(c) => onShowReportsChange && onShowReportsChange(c)}
+                                    className="data-[state=checked]:bg-sky-500"
+                                />
+                            </div>
+
+                            <div className="h-[1px] w-full bg-[#3c3c3e]" />
+
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-1 max-w-[80%] pr-4">
+                                    <div className="flex items-center gap-2">
+                                        <Cloud className="h-4 w-4 text-slate-300" />
+                                        <span className="font-semibold text-sm">
+                                            {t('Widget de Pronóstico', 'Weather Widget')}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-400 leading-snug">
+                                        {t('Mostrar la barra lateral de pronóstico de tu zona.', 'Show the local weather forecast sidebar.')}
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={showWeatherWidget}
+                                    onCheckedChange={(c) => onShowWeatherWidgetChange && onShowWeatherWidgetChange(c)}
                                     className="data-[state=checked]:bg-sky-500"
                                 />
                             </div>

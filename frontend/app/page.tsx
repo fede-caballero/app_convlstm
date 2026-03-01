@@ -55,6 +55,7 @@ export default function RadarPredictionRealtime() {
   const [reports, setReports] = useState<WeatherReport[]>([])
   const [showReports, setShowReports] = useState(true)
   const [showStormCells, setShowStormCells] = useState(true)
+  const [showWeatherWidget, setShowWeatherWidget] = useState(true)
 
   // Geolocation & Storm Logic
   const [userLocation, setUserLocation] = useState<{ lat: number, lon: number } | null>(null)
@@ -75,9 +76,13 @@ export default function RadarPredictionRealtime() {
 
     // Check saved Map Preferences
     const savedStormCells = localStorage.getItem('showStormCells');
-    if (savedStormCells !== null) {
-      setShowStormCells(savedStormCells === 'true');
-    }
+    if (savedStormCells !== null) setShowStormCells(savedStormCells === 'true');
+
+    const savedReports = localStorage.getItem('showReports');
+    if (savedReports !== null) setShowReports(savedReports === 'true');
+
+    const savedWeatherWidget = localStorage.getItem('showWeatherWidget');
+    if (savedWeatherWidget !== null) setShowWeatherWidget(savedWeatherWidget === 'true');
 
     const getLocation = (highAccuracy = true) => {
       if (!("geolocation" in navigator)) {
@@ -232,7 +237,7 @@ export default function RadarPredictionRealtime() {
       </div>
 
       {/* Weather Sidebar - Highest Z-Index (Z-90) */}
-      <WeatherSidebar userLocation={userLocation} />
+      {showWeatherWidget && <WeatherSidebar userLocation={userLocation} />}
 
       {/* Floating Navbar & Alerts - Z-Index Higher than Map */}
       <div className="absolute top-0 left-0 right-0 z-50 pointer-events-none flex flex-col items-center">
@@ -496,6 +501,16 @@ export default function RadarPredictionRealtime() {
           onShowStormCellsChange={(val) => {
             setShowStormCells(val);
             localStorage.setItem('showStormCells', String(val));
+          }}
+          showReports={showReports}
+          onShowReportsChange={(val) => {
+            setShowReports(val);
+            localStorage.setItem('showReports', String(val));
+          }}
+          showWeatherWidget={showWeatherWidget}
+          onShowWeatherWidgetChange={(val) => {
+            setShowWeatherWidget(val);
+            localStorage.setItem('showWeatherWidget', String(val));
           }}
         />
       )}

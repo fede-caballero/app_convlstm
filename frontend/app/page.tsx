@@ -222,10 +222,10 @@ export default function RadarPredictionRealtime() {
           nearestStorm={nearestStorm}
           onReportUpdate={fetchData}
         />
-
-        {/* Weather Sidebar */}
-        <WeatherSidebar userLocation={userLocation} />
       </div>
+
+      {/* Weather Sidebar - Highest Z-Index (Z-90) */}
+      <WeatherSidebar userLocation={userLocation} />
 
       {/* Floating Navbar & Alerts - Z-Index Higher than Map */}
       <div className="absolute top-0 left-0 right-0 z-50 pointer-events-none flex flex-col items-center">

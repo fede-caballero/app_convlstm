@@ -432,7 +432,7 @@ export default function RadarPredictionRealtime() {
       )}
 
       {/* Storm Alert Section */}
-      {nearestStorm && nearestStorm.distance <= 20 && (
+      {nearestStorm && nearestStorm.distance <= 50 && (
         <div className="absolute bottom-96 left-4 z-50 flex flex-col items-start gap-2">
 
           {/* Detailed Card (Toggled) */}

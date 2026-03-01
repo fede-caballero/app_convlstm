@@ -143,7 +143,7 @@ def get_aircraft_data():
             _trail_cache[reg] = []
             
         last_pt = _trail_cache[reg][-1] if _trail_cache[reg] else None
-        if not last_pt or last_pt["lat"] != ac["lat"] or last_pt["lon"] != ac["lon"]:
+        if not last_pt or last_pt[1] != ac["lat"] or last_pt[0] != ac["lon"]:
             _trail_cache[reg].append([ac["lon"], ac["lat"]])
             if len(_trail_cache[reg]) > MAX_TRAIL_POINTS:
                 _trail_cache[reg] = _trail_cache[reg][-MAX_TRAIL_POINTS:]

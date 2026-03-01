@@ -30,7 +30,7 @@ _local_cache: dict[str, dict] = {}
 LOCAL_TTL_SECONDS = 30  # If no update for 30s, consider the aircraft gone
 
 # Trail history
-MAX_TRAIL_POINTS = 70
+MAX_TRAIL_POINTS = 50
 _trail_cache: dict[str, list] = {}  # reg -> [[lon, lat], ...]
 
 

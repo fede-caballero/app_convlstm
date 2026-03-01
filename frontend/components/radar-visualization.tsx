@@ -719,6 +719,7 @@ export const RadarVisualization = memo(function RadarVisualization({
                   "raster-opacity": 0.8,
                   "raster-fade-duration": 0
                 }}
+                beforeId="aircraft-trail-layer"
               />
             </Source>
           )
@@ -854,10 +855,15 @@ export const RadarVisualization = memo(function RadarVisualization({
             paint={{
               'line-color': [
                 'match', ['get', 'callsign'],
-                'VBCR', '#ffa500',  // Lucha 2 — naranja
-                'VBCT', '#00ffff',  // Lucha 3 — cyan
-                'VBCU', '#00ff00',  // Lucha 4 — verde
-                '#ffffff'           // resto (OpenSky, etc.)
+                'VBCR', '#ffa500',
+                'LV-BCR', '#ffa500',
+                'VBCT', '#00ffff',
+                'LV-BCT', '#00ffff',
+                'VBCU', '#00ff00',
+                'LV-BCU', '#00ff00',
+                'LQ-BCP', '#00ff00',
+                'LQ-BCU', '#00ff00',
+                '#ffffff'
               ] as any,
               'line-width': 1.5,
               'line-opacity': 0.75,
@@ -869,8 +875,13 @@ export const RadarVisualization = memo(function RadarVisualization({
         {(() => {
           const AC_COLORS: Record<string, string> = {
             'VBCR': '#ffa500',
+            'LV-BCR': '#ffa500',
             'VBCT': '#00ffff',
+            'LV-BCT': '#00ffff',
             'VBCU': '#00ff00',
+            'LV-BCU': '#00ff00',
+            'LQ-BCP': '#00ff00',
+            'LQ-BCU': '#00ff00',
           };
           const getColor = (cs: string) => AC_COLORS[cs] ?? '#ffffff';
 

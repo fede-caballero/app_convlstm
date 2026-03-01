@@ -12,7 +12,7 @@ export interface PushPreferences {
 const DEFAULT_PREFS: PushPreferences = {
     alert_admin: true,
     alert_proximity: true,
-    alert_aircraft: false
+    alert_aircraft: true
 }
 
 interface PushContextType {

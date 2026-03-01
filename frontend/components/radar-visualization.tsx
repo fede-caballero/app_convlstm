@@ -804,31 +804,42 @@ export const RadarVisualization = memo(function RadarVisualization({
                 <span className="text-xs text-zinc-400 font-bold mb-0.5">dBZ</span>
               </div>
 
-              <div className="mt-1 text-sm font-medium">
-                {selectedCell.max_dbz >= 60 && (
-                  <span className="text-purple-400 drop-shadow-[0_0_5px_rgba(168,85,247,0.5)]">
-                    {t('Tormenta Severa', 'Severe Storm')} ⚠️
-                  </span>
-                )}
-                {selectedCell.max_dbz >= 50 && selectedCell.max_dbz < 60 && (
-                  <span className="text-red-400 drop-shadow-[0_0_5px_rgba(248,113,113,0.5)]">
-                    {t('Probable Granizo', 'Probable Hail')} 🧊
-                  </span>
-                )}
-                {selectedCell.max_dbz >= 40 && selectedCell.max_dbz < 50 && (
-                  <span className="text-orange-400">
-                    {t('Lluvia Fuerte', 'Heavy Rain')} 🌧️
-                  </span>
-                )}
-                {selectedCell.max_dbz >= 30 && selectedCell.max_dbz < 40 && (
-                  <span className="text-yellow-400">
-                    {t('Lluvia Moderada', 'Moderate Rain')} 🌦️
-                  </span>
-                )}
-                {selectedCell.max_dbz < 30 && (
-                  <span className="text-blue-400">
-                    {t('Lluvia Débil', 'Light Rain')} 💧
-                  </span>
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-zinc-700/50">
+                <div className="text-sm font-medium">
+                  {selectedCell.max_dbz >= 60 && (
+                    <span className="text-purple-400 drop-shadow-[0_0_5px_rgba(168,85,247,0.5)]">
+                      {t('Tormenta Severa', 'Severe Storm')} ⚠️
+                    </span>
+                  )}
+                  {selectedCell.max_dbz >= 50 && selectedCell.max_dbz < 60 && (
+                    <span className="text-red-400 drop-shadow-[0_0_5px_rgba(248,113,113,0.5)]">
+                      {t('Probable Granizo', 'Probable Hail')} 🧊
+                    </span>
+                  )}
+                  {selectedCell.max_dbz >= 40 && selectedCell.max_dbz < 50 && (
+                    <span className="text-orange-400">
+                      {t('Lluvia Fuerte', 'Heavy Rain')} 🌧️
+                    </span>
+                  )}
+                  {selectedCell.max_dbz >= 30 && selectedCell.max_dbz < 40 && (
+                    <span className="text-yellow-400">
+                      {t('Lluvia Moderada', 'Moderate Rain')} 🌦️
+                    </span>
+                  )}
+                  {selectedCell.max_dbz < 30 && (
+                    <span className="text-blue-400">
+                      {t('Lluvia Débil', 'Light Rain')} 💧
+                    </span>
+                  )}
+                </div>
+
+                {userLocation && (
+                  <div className="flex flex-col items-end">
+                    <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">{t('Distancia', 'Distance')}</span>
+                    <span className="text-sm font-black text-sky-400 shadow-sm">
+                      {haversineDistance(userLocation, { lat: selectedCell.lat, lon: selectedCell.lon }).toFixed(1)} km
+                    </span>
+                  </div>
                 )}
               </div>
             </div>

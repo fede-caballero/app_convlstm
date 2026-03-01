@@ -480,11 +480,24 @@ export const RadarVisualization = memo(function RadarVisualization({
       {/* Dynamic CSS for MapLibre Geolocate Dot and Storm Cell Markers */}
       <style dangerouslySetInnerHTML={{
         __html: `
-        /* Scale the inner visible circles, not the container, to preserve MapLibre's translate(X,Y) positioning */
-        .maplibregl-user-location-dot::after,
+        :root {
+          --dot-scale: ${Math.max(0.5, Math.min(2.0, (zoomLevel - 5) / 5))};
+        }
+
+        /* Scale dimensions instead of using transform to preserve MapLibre's translate() positioning */
+        .maplibregl-user-location-dot {
+          width: calc(15px * var(--dot-scale)) !important;
+          height: calc(15px * var(--dot-scale)) !important;
+          margin-top: calc(-7.5px * var(--dot-scale)) !important;
+          margin-left: calc(-7.5px * var(--dot-scale)) !important;
+          border-width: calc(2px * var(--dot-scale)) !important;
+          transition: width 0.1s ease-out, height 0.1s ease-out, margin 0.1s ease-out, border-width 0.1s ease-out;
+        }
+
         .maplibregl-user-location-dot::before {
-          transform: scale(${Math.max(0.5, Math.min(2.0, (zoomLevel - 5) / 5))}) !important;
-          transition: transform 0.1s ease-out;
+          width: calc(15px * var(--dot-scale)) !important;
+          height: calc(15px * var(--dot-scale)) !important;
+          transition: width 0.1s ease-out, height 0.1s ease-out;
         }
 
         /* Scale storm cell markers based on zoom to avoid cluttering */

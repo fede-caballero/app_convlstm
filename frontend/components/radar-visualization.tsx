@@ -484,10 +484,10 @@ export const RadarVisualization = memo(function RadarVisualization({
           --dot-scale: ${Math.max(0.5, Math.min(2.0, (zoomLevel - 5) / 5))};
         }
 
-        /* Use the modern CSS scale property which is independent of transform: translate() */
+        /* Use the CSS zoom property which scales visually without affecting margin-based centering */
         .maplibregl-user-location-dot {
-          scale: var(--dot-scale) !important;
-          transition: scale 0.1s ease-out;
+          zoom: var(--dot-scale) !important;
+          transition: zoom 0.1s ease-out;
         }
 
         /* Scale storm cell markers based on zoom to avoid cluttering */

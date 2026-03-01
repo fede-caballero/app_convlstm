@@ -477,7 +477,7 @@ export const RadarVisualization = memo(function RadarVisualization({
         <link rel="preload" as="image" href={currentImage.url} />
       )}
 
-      {/* Dynamic CSS for MapLibre Geolocate Dot */}
+      {/* Dynamic CSS for MapLibre Geolocate Dot and Storm Cell Markers */}
       <style dangerouslySetInnerHTML={{
         __html: `
         /* Scale the inner visible circles, not the container, to preserve MapLibre's translate(X,Y) positioning */
@@ -485,6 +485,16 @@ export const RadarVisualization = memo(function RadarVisualization({
         .maplibregl-user-location-dot::before {
           transform: scale(${Math.max(0.5, Math.min(2.0, (zoomLevel - 5) / 5))}) !important;
           transition: transform 0.1s ease-out;
+        }
+
+        /* Scale storm cell markers based on zoom to avoid cluttering */
+        .storm-cell-marker {
+          transform: scale(${Math.max(0.4, Math.min(1.5, (zoomLevel - 5) / 4))});
+          transition: transform 0.15s ease-out;
+        }
+        .storm-cell-marker:hover {
+          transform: scale(${Math.max(0.4, Math.min(1.5, (zoomLevel - 5) / 4)) * 1.5}) !important;
+          z-index: 50;
         }
       `}} />
 
@@ -763,7 +773,7 @@ export const RadarVisualization = memo(function RadarVisualization({
               }}
             >
               <div
-                className="cursor-pointer w-4 h-4 rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform hover:scale-125 hover:z-50"
+                className="storm-cell-marker cursor-pointer w-4 h-4 rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg"
                 style={{ backgroundColor: color }}
               >
                 {/* Inner dot */}

@@ -85,20 +85,17 @@ def detect_storm_cells(dbz_data, x_vals, y_vals, projection):
             
         # Encontrar las coordenadas del píxel más intenso (Core de la tormenta)
         # en lugar del centroide geométrico para mayor precisión en el marcador
-        max_indices = np.where(cell_mask & (dbz_data == max_dbz))
+        # Encontrar los índices (y, x) donde ocurre el max_dbz dentro de esta celda
+        y_indices, x_indices = np.where(cell_mask & (dbz_data >= max_dbz - 0.1))
         
-        # Puede haber varios píxeles con el mismo max_dbz, tomamos el primero
-        cy = max_indices[0][0]
-        cx = max_indices[1][0]
-        
-        # Convertir indices a coordenadas proyectadas (metros/km)
-        # Asumimos que x_vals y y_vals coinciden con los índices
-        px_x = int(round(cx))
-        px_y = int(round(cy))
+        # Si hay un cluster de píxeles con la máxima intensidad, promediamos sus posiciones
+        # para que el marcador quede en el verdadero "centro de gravedad" de la intensidad máxima.
+        mean_y_idx = int(np.mean(y_indices))
+        mean_x_idx = int(np.mean(x_indices))
         
         # Bounds check
-        px_x = max(0, min(px_x, len(x_vals) - 1))
-        px_y = max(0, min(px_y, len(y_vals) - 1))
+        px_x = max(0, min(mean_x_idx, len(x_vals) - 1))
+        px_y = max(0, min(mean_y_idx, len(y_vals) - 1))
         
         real_x = x_vals[px_x] * 1000 # a metros
         real_y = y_vals[px_y] * 1000 # a metros

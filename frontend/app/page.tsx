@@ -75,14 +75,22 @@ export default function RadarPredictionRealtime() {
     }
 
     // Check saved Map Preferences
-    const savedStormCells = localStorage.getItem('showStormCells');
-    if (savedStormCells !== null) setShowStormCells(savedStormCells === 'true');
+    // Si NO hay usuario logueado, forzamos a mostrar todo para que vean la app completa por defecto.
+    // Si sí hay usuario, leemos sus preferencias locales guardadas.
+    if (user) {
+      const savedStormCells = localStorage.getItem('showStormCells');
+      if (savedStormCells !== null) setShowStormCells(savedStormCells === 'true');
 
-    const savedReports = localStorage.getItem('showReports');
-    if (savedReports !== null) setShowReports(savedReports === 'true');
+      const savedReports = localStorage.getItem('showReports');
+      if (savedReports !== null) setShowReports(savedReports === 'true');
 
-    const savedWeatherWidget = localStorage.getItem('showWeatherWidget');
-    if (savedWeatherWidget !== null) setShowWeatherWidget(savedWeatherWidget === 'true');
+      const savedWeatherWidget = localStorage.getItem('showWeatherWidget');
+      if (savedWeatherWidget !== null) setShowWeatherWidget(savedWeatherWidget === 'true');
+    } else {
+      setShowStormCells(true);
+      setShowReports(true);
+      setShowWeatherWidget(true);
+    }
 
     const getLocation = (highAccuracy = true) => {
       if (!("geolocation" in navigator)) {
@@ -248,17 +256,6 @@ export default function RadarPredictionRealtime() {
           {/* LEFT: Alerts Center */}
           <div className="flex items-center">
             <AdminCommentBar />
-
-            {/* Reports Toggle */}
-            <div className="flex items-center gap-2 ml-4 bg-black/40 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-full shadow-sm">
-              <Switch
-                checked={showReports}
-                onCheckedChange={setShowReports}
-                className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500 h-5 w-9"
-              />
-              <span className="text-xs text-gray-300 font-medium ml-1">{t("Reportes", "Reports")}</span>
-              <MapPin className={`h-3 w-3 ${showReports ? 'text-primary' : 'text-gray-500'}`} />
-            </div>
           </div>
 
           {/* RIGHT: Status | Auth | Menu */}

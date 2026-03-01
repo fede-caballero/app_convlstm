@@ -121,7 +121,7 @@ def get_aircraft_data():
             logging.error(f"Error fetching aircraft data from OpenSky: {e}")
 
     local_data = _get_local_aircraft()
-    local_regs = {ac["reg"] for ac in local_data}
+    local_regs = {ac.get("reg", ac.get("callsign")) for ac in local_data}
 
     # Add OpenSky planes that are NOT already tracked locally
     opensky_unique = [
@@ -133,8 +133,11 @@ def get_aircraft_data():
     
     # Update and attach trails
     for ac in merged_data:
-        reg = ac.get("reg")
+        reg = ac.get("reg", ac.get("callsign"))
         if not reg: continue
+        
+        if "reg" not in ac:
+            ac["reg"] = reg
         
         if reg not in _trail_cache:
             _trail_cache[reg] = []

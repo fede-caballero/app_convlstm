@@ -83,16 +83,16 @@ def detect_storm_cells(dbz_data, x_vals, y_vals, projection):
         elif max_dbz > 55:
             hazard_type = "Probable Granizo"
             
-        # Centroide (Weighted by intensity could be better, but geometric is simpler/faster)
-        # Coordinates in array indices (y, x)
-        cy, cx = center_of_mass(cell_mask)
+        # Encontrar las coordenadas del píxel más intenso (Core de la tormenta)
+        # en lugar del centroide geométrico para mayor precisión en el marcador
+        max_indices = np.where(cell_mask & (dbz_data == max_dbz))
+        
+        # Puede haber varios píxeles con el mismo max_dbz, tomamos el primero
+        cy = max_indices[0][0]
+        cx = max_indices[1][0]
         
         # Convertir indices a coordenadas proyectadas (metros/km)
         # Asumimos que x_vals y y_vals coinciden con los índices
-        # Interpolación simple:
-        # x_val = x_vals[int(cx)] (aprox) o interpolado
-        
-        # Usamos int para simplificar, ya que la resolución es ~1km
         px_x = int(round(cx))
         px_y = int(round(cy))
         

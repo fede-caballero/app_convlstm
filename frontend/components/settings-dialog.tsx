@@ -17,9 +17,11 @@ import { useToast } from "@/components/ui/use-toast"
 interface SettingsDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
+    showStormCells?: boolean
+    onShowStormCellsChange?: (show: boolean) => void
 }
 
-export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
+export function SettingsDialog({ open, onOpenChange, showStormCells = true, onShowStormCellsChange }: SettingsDialogProps) {
     const { isSubscribed, preferences, updatePreferences, isSupported, subscribe, unsubscribe, loading } = usePush()
     const { language, setLanguage, t } = useLanguage()
     const { toast } = useToast()
@@ -92,6 +94,35 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                             >
                                 English (US)
                             </Button>
+                        </div>
+                    </div>
+
+                    {/* Map Visualization Settings */}
+                    <div className="space-y-4">
+                        <h4 className="text-xs font-bold tracking-wider text-gray-500 uppercase flex items-center gap-2">
+                            <Globe className="h-4 w-4" />
+                            {t('Visualización del Mapa', 'Map Visualization')}
+                        </h4>
+
+                        <div className="space-y-5 bg-[#2c2c2e] p-4 rounded-xl border border-white/5 shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-1 max-w-[80%] pr-4">
+                                    <div className="flex items-center gap-2">
+                                        <AlertTriangle className="h-4 w-4 text-orange-400" />
+                                        <span className="font-semibold text-sm">
+                                            {t('Celdas de Tormenta', 'Storm Cells')}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-400 leading-snug">
+                                        {t('Mostrar marcadores en los núcleos de tormentas intensas.', 'Show markers on intense storm cores.')}
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={showStormCells}
+                                    onCheckedChange={(c) => onShowStormCellsChange && onShowStormCellsChange(c)}
+                                    className="data-[state=checked]:bg-sky-500"
+                                />
+                            </div>
                         </div>
                     </div>
 

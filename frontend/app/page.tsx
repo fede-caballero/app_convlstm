@@ -54,6 +54,7 @@ export default function RadarPredictionRealtime() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [reports, setReports] = useState<WeatherReport[]>([])
   const [showReports, setShowReports] = useState(true)
+  const [showStormCells, setShowStormCells] = useState(true)
 
   // Geolocation & Storm Logic
   const [userLocation, setUserLocation] = useState<{ lat: number, lon: number } | null>(null)
@@ -71,6 +72,12 @@ export default function RadarPredictionRealtime() {
     if (!hasSeenTutorial) {
       setIsTutorialOpen(true);
       localStorage.setItem('hasSeenTutorial', 'true');
+    }
+
+    // Check saved Map Preferences
+    const savedStormCells = localStorage.getItem('showStormCells');
+    if (savedStormCells !== null) {
+      setShowStormCells(savedStormCells === 'true');
     }
 
     const getLocation = (highAccuracy = true) => {
@@ -218,6 +225,7 @@ export default function RadarPredictionRealtime() {
           predictionFiles={images.prediction_images}
           isProcessing={!!(status?.status?.includes("PROCESSING") || status?.status?.includes("PREDICTING"))}
           reports={showReports ? reports : undefined}
+          showStormCells={showStormCells}
           userLocation={userLocation}
           nearestStorm={nearestStorm}
           onReportUpdate={fetchData}
@@ -514,6 +522,11 @@ export default function RadarPredictionRealtime() {
         <SettingsDialog
           open={isSettingsOpen}
           onOpenChange={setIsSettingsOpen}
+          showStormCells={showStormCells}
+          onShowStormCellsChange={(val) => {
+            setShowStormCells(val);
+            localStorage.setItem('showStormCells', String(val));
+          }}
         />
       )}
     </div>

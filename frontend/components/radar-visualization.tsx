@@ -24,6 +24,7 @@ interface RadarVisualizationProps {
   predictionFiles: ImageWithBounds[]
   isProcessing: boolean
   reports?: WeatherReport[]
+  showStormCells?: boolean
   userLocation?: { lat: number, lon: number } | null
   nearestStorm?: { distance: number, cell: any } | null
   onReportUpdate?: () => void
@@ -55,6 +56,7 @@ export const RadarVisualization = memo(function RadarVisualization({
   predictionFiles,
   isProcessing = false,
   reports,
+  showStormCells = true,
   userLocation,
   nearestStorm,
   onReportUpdate
@@ -747,7 +749,7 @@ export const RadarVisualization = memo(function RadarVisualization({
         )}
 
         {/* Storm Cells Identification Markers */}
-        {currentImage?.cells?.map((cell, idx) => {
+        {showStormCells && currentImage?.cells?.map((cell, idx) => {
           const dbz = cell.max_dbz;
           let color = '#3b82f6'; // Blue (Weak)
           if (dbz >= 60) color = '#9333ea'; // Purple (Severe)

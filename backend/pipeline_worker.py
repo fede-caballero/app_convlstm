@@ -437,15 +437,25 @@ def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: s
         y = ds[lat_name].values
         dbz_data = ds['DBZ'].squeeze().values
 
-        # --- 1. Crear el composite ---
+        # --- 1. Crear el composite visual ---
         if dbz_data.ndim == 3:
             if dbz_data.shape[0] > skip_levels:
                 composite_data_2d = np.nanmax(dbz_data[skip_levels:, :, :], axis=0)
             else:
                  composite_data_2d = np.nanmax(dbz_data, axis=0)
+                 
+            # --- 1.5 Crear el composite para DETECCIÓN (ignorar clutter bajo 3km) ---
+            # Si el radar tiene resolución vertical de 1km, saltar 3 niveles ignora 0, 1 y 2km.
+            detection_skip = max(skip_levels, 3) 
+            if dbz_data.shape[0] > detection_skip:
+                detection_composite_2d = np.nanmax(dbz_data[detection_skip:, :, :], axis=0)
+            else:
+                detection_composite_2d = composite_data_2d
+                
         elif dbz_data.ndim == 2:
             # Ya es 2D (caso predicciones)
             composite_data_2d = dbz_data
+            detection_composite_2d = dbz_data
         else:
             logging.error(f"Dimensiones inesperadas en {nc_file_path}: {dbz_data.ndim}")
             return None
@@ -516,12 +526,12 @@ def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: s
         bounds = [[float(sw_corner[1]), float(sw_corner[0])], [float(ne_corner[1]), float(ne_corner[0])]] # Formato: [[lat_min, lon_min], [lat_max, lon_max]]
 
         # --- 5. Detectar Celdas y Centroides ---
-        storm_cells = detect_storm_cells(composite_data_2d, x, y, projection)
+        storm_cells = detect_storm_cells(detection_composite_2d, x, y, projection)
         
         # --- 5.5 Registrar Manga de Granizo (> 55 dBZ) ---
         # Solo registrar si la imagen es una observación real (input), no una predicción
         if 'input' in nc_file_path.lower():
-            update_hail_swath(composite_data_2d, x, y, projection, min_dbz=55.0)
+            update_hail_swath(detection_composite_2d, x, y, projection, min_dbz=55.0)
         
         # --- 6. Verificar Alertas de Proximidad ---
         check_proximity_alerts(storm_cells)

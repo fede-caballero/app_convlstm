@@ -74,7 +74,7 @@ export function SettingsDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md bg-[#1c1c1e] text-white border-none shadow-2xl overflow-hidden rounded-xl">
+            <DialogContent className="sm:max-w-md bg-[#1c1c1e] text-white border-none shadow-2xl rounded-xl">
                 <DialogHeader className="pt-2">
                     <DialogTitle className="text-xl font-bold flex items-center gap-2">
                         <SettingsIcon className="h-5 w-5 text-gray-400" />
@@ -202,7 +202,7 @@ export function SettingsDialog({
                                         </span>
                                     </div>
                                     <p className="text-xs text-gray-400 leading-snug">
-                                        {t('Activar o desactivar to das las alertas en este dispositivo.', 'Enable or disable all alerts on this device.')}
+                                        {t('Activar o desactivar todas las alertas en este dispositivo.', 'Enable or disable all alerts on this device.')}
                                     </p>
                                 </div>
                                 <Switch

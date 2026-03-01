@@ -590,7 +590,15 @@ def send_push_notification():
 # Endpoints de la API
 @app.route("/api/hail-swath/today", methods=['GET'])
 def get_hail_swath_today():
-    today_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+    # El día pluviométrico/granicero empieza a las 8 AM local (11 AM UTC)
+    now_utc = datetime.now(timezone.utc)
+    if now_utc.hour < 11:
+        from datetime import timedelta # just in case
+        business_day = now_utc - timedelta(days=1)
+    else:
+        business_day = now_utc
+        
+    today_str = business_day.strftime("%Y%m%d")
     swath_file = os.path.join("data", f"hail_swath_{today_str}.json")
     
     if not os.path.exists(swath_file):

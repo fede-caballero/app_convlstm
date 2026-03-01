@@ -4,8 +4,8 @@ import { useState, useEffect, useMemo, useRef, memo } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { useToast } from "@/components/ui/use-toast"
-import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle, Pencil, Plane, Cloud, Layers, Share2, Zap } from "lucide-react"
-import { ImageWithBounds, WeatherReport, deleteReport, fetchAircraft, fetchHailSwathToday, Aircraft } from "@/lib/api"
+import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle, Pencil, Plane, Cloud, Layers, Share2, Zap, CloudRain } from "lucide-react"
+import { ImageWithBounds, deleteReport, fetchAircraft, fetchHailSwathToday, WeatherReport, Aircraft, StormCell } from "@/lib/api"
 import { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, GeolocateControl, MapRef, Popup, Marker } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useAuth } from "@/lib/auth-context"
@@ -98,6 +98,9 @@ export const RadarVisualization = memo(function RadarVisualization({
 
   // Zoom scale tracking for dynamic markers
   const [zoomLevel, setZoomLevel] = useState(INITIAL_VIEW_STATE.zoom)
+
+  // Storm Cell Identification State
+  const [selectedCell, setSelectedCell] = useState<StormCell | null>(null)
 
   useEffect(() => {
     if (userLocation) {
@@ -502,8 +505,10 @@ export const RadarVisualization = memo(function RadarVisualization({
               latitude: event.lngLat.lat,
               properties: feature.properties
             });
+            setSelectedCell(null);
           } else {
             setSelectedReport(null);
+            setSelectedCell(null);
           }
         }}
         onZoom={() => {
@@ -734,6 +739,93 @@ export const RadarVisualization = memo(function RadarVisualization({
               <div className="w-3 h-3 bg-white rounded-full border-2 border-black shadow-[0_0_10px_rgba(255,255,255,0.8)] z-10" />
             </div>
           </Marker>
+        )}
+
+        {/* Storm Cells Identification Markers */}
+        {currentImage?.cells?.map((cell, idx) => {
+          const dbz = cell.max_dbz;
+          let color = '#3b82f6'; // Blue (Weak)
+          if (dbz >= 60) color = '#9333ea'; // Purple (Severe)
+          else if (dbz >= 50) color = '#ef4444'; // Red (Hail)
+          else if (dbz >= 40) color = '#f97316'; // Orange (Strong)
+          else if (dbz >= 30) color = '#eab308'; // Yellow (Moderate)
+
+          return (
+            <Marker
+              key={`cell-${currentImage.target_time}-${idx}`}
+              longitude={cell.lon}
+              latitude={cell.lat}
+              anchor="center"
+              onClick={(e) => {
+                e.originalEvent.stopPropagation();
+                setSelectedCell(cell);
+                setSelectedReport(null);
+              }}
+            >
+              <div
+                className="cursor-pointer w-4 h-4 rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform hover:scale-125 hover:z-50"
+                style={{ backgroundColor: color }}
+              >
+                {/* Inner dot */}
+                <div className="w-1.5 h-1.5 bg-white/50 rounded-full" />
+              </div>
+            </Marker>
+          );
+        })}
+
+        {/* Storm Cell Popup */}
+        {selectedCell && (
+          <Popup
+            longitude={selectedCell.lon}
+            latitude={selectedCell.lat}
+            anchor="bottom"
+            onClose={() => setSelectedCell(null)}
+            closeOnClick={false}
+            className="z-50 dark-popup"
+            offset={10}
+          >
+            <div className="p-3 text-zinc-100 min-w-[150px] flex flex-col gap-1 rounded-md">
+              <div className="flex items-center gap-2 border-b border-zinc-700/50 pb-2 mb-1">
+                <CloudRain className="w-4 h-4 text-blue-400" />
+                <span className="font-bold text-sm uppercase tracking-wide">
+                  {t('Núcleo Detectado', 'Detected Core')}
+                </span>
+              </div>
+
+              <div className="flex items-end gap-1 mt-1">
+                <span className="text-2xl font-black text-white leading-none">+{selectedCell.max_dbz.toFixed(0)}</span>
+                <span className="text-xs text-zinc-400 font-bold mb-0.5">dBZ</span>
+              </div>
+
+              <div className="mt-1 text-sm font-medium">
+                {selectedCell.max_dbz >= 60 && (
+                  <span className="text-purple-400 drop-shadow-[0_0_5px_rgba(168,85,247,0.5)]">
+                    {t('Tormenta Severa', 'Severe Storm')} ⚠️
+                  </span>
+                )}
+                {selectedCell.max_dbz >= 50 && selectedCell.max_dbz < 60 && (
+                  <span className="text-red-400 drop-shadow-[0_0_5px_rgba(248,113,113,0.5)]">
+                    {t('Probable Granizo', 'Probable Hail')} 🧊
+                  </span>
+                )}
+                {selectedCell.max_dbz >= 40 && selectedCell.max_dbz < 50 && (
+                  <span className="text-orange-400">
+                    {t('Lluvia Fuerte', 'Heavy Rain')} 🌧️
+                  </span>
+                )}
+                {selectedCell.max_dbz >= 30 && selectedCell.max_dbz < 40 && (
+                  <span className="text-yellow-400">
+                    {t('Lluvia Moderada', 'Moderate Rain')} 🌦️
+                  </span>
+                )}
+                {selectedCell.max_dbz < 30 && (
+                  <span className="text-blue-400">
+                    {t('Lluvia Débil', 'Light Rain')} 💧
+                  </span>
+                )}
+              </div>
+            </div>
+          </Popup>
         )}
 
         {/* Aircraft Trail Layer — per-callsign color via data-driven MapLibre match */}

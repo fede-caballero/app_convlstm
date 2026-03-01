@@ -144,7 +144,15 @@ def update_hail_swath(dbz_data: np.ndarray, x: np.ndarray, y: np.ndarray, projec
         if not new_points:
             return
 
-        today_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+        # El día pluviométrico/granicero empieza a las 8 AM local (11 AM UTC)
+        now_utc = datetime.now(timezone.utc)
+        if now_utc.hour < 11:
+            # Antes de las 11 AM UTC (8 AM local), pertenece al día anterior
+            business_day = now_utc - timedelta(days=1)
+        else:
+            business_day = now_utc
+            
+        today_str = business_day.strftime("%Y%m%d")
         swath_file = os.path.join("data", f"hail_swath_{today_str}.json")
         
         # Leer puntos existentes

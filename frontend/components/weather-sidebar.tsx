@@ -73,20 +73,20 @@ export function WeatherSidebar({ userLocation }: { userLocation: { lat: number, 
     const nextHours = hourly.time.slice(startIndex, startIndex + 24) // Show next 24 hours
 
     return (
-        <div className={`absolute top-[85px] left-4 z-30 transition-all duration-300 ${isOpen ? 'w-80' : 'w-auto'}`}>
+        <div className={`absolute top-[85px] left-4 z-[60] transition-all duration-300 ${isOpen ? 'w-80' : 'w-auto'}`}>
             <Card className="bg-black/40 backdrop-blur-md border-white/10 text-white shadow-2xl overflow-hidden">
                 <div
-                    className="p-3 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors"
+                    className={`flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors ${isOpen ? 'p-3' : 'p-2'}`}
                     onClick={() => setIsOpen(!isOpen)}
                 >
-                    <div className="flex items-center gap-3">
-                        <div className="bg-white/10 p-2 rounded-full">
-                            <Cloud className="w-6 h-6 text-blue-300" />
+                    <div className="flex items-center gap-2">
+                        <div className="bg-white/10 p-1.5 rounded-full">
+                            <Cloud className={`${isOpen ? 'w-6 h-6' : 'w-5 h-5'} text-blue-300`} />
                             {/* Logic to change icon based on weather_code would be better */}
                         </div>
                         <div>
-                            <div className="text-2xl font-bold">{Math.round(current.temperature_2m)}°C</div>
-                            <div className="text-xs text-zinc-300">{location.name}</div>
+                            <div className={`${isOpen ? 'text-2xl' : 'text-xl'} font-bold leading-none`}>{Math.round(current.temperature_2m)}°C</div>
+                            {isOpen && <div className="text-xs text-zinc-300 mt-1">{location.name}</div>}
                         </div>
                     </div>
 

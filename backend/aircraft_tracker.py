@@ -63,7 +63,7 @@ def update_local_aircraft(aircraft: dict):
 def _get_local_aircraft() -> list[dict]:
     """Returns fresh local aircraft from SQLite, removing stale entries."""
     now = time.time()
-    cutoff_time = now - 30  # 30 seconds TTL
+    cutoff_time = now - 180  # 3 minutes TTL
     
     conn = get_db_connection()
     cursor = conn.cursor()

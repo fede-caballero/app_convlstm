@@ -355,19 +355,26 @@ def check_and_send_aircraft_alerts(sent_aircraft_alerts):
                 pass
 
         for ac in data:
-            reg = ac.get("reg") or ac.get("callsign", "Desconocido")
+            # Opensky gives us "reg", local UDP gives us "callsign" mostly.
+            reg_or_callsign = ac.get("reg")
+            if not reg_or_callsign:
+                reg_or_callsign = ac.get("callsign")
+            if not reg_or_callsign:
+                continue
+                
+            reg_or_callsign = reg_or_callsign.strip()
             
             # Check if we already alerted for this aircraft recently (4 hours cooldown)
-            last_alert_time = sent_aircraft_alerts.get(reg)
+            last_alert_time = sent_aircraft_alerts.get(reg_or_callsign)
             if last_alert_time and (now - last_alert_time).total_seconds() < 14400:
                 continue
                 
-            logging.info(f"New aircraft flight detected: {reg}. Sending alerts...")
-            sent_aircraft_alerts[reg] = now
+            logging.info(f"New aircraft flight detected: {reg_or_callsign}. Sending alerts...")
+            sent_aircraft_alerts[reg_or_callsign] = now
             
             notification_data = json.dumps({
                 "title": "¡Avión Antigranizo!",
-                "body": f"✈️ Avión en vuelo ({reg}) detectado en el radar.",
+                "body": f"✈️ Avión en vuelo ({reg_or_callsign}) detectado en el radar.",
                 "url": "/",
                 "icon": "/icon-192x192.png"
             })

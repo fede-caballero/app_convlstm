@@ -1,29 +1,33 @@
 # Idea para Futuras Implementaciones: Alerta Diaria de Engagement
 
 ## Objetivo
-Atraer más usuarios a la aplicación y aumentar el engagement enviando una notificación global cuando se detectan tormentas significativas (por ejemplo, mayores a 50 dBZ) en cualquier punto del mapa, incluso si no están cerca de zonas cultivadas o pobladas.
+Atraer más usuarios a la aplicación y aumentar el engagement enviando una notificación global cuando se detectan tormentas significativas en el oasis cultivado, minimizando los falsos positivos (ecos fijos de cerros/cordillera o glitches al encender el radar).
 
-## Flujo de Trabajo Propuesto
+## Reglas de Disparo y Prevención de Falsos Positivos
 
-1. **Monitoreo de Celdas:**
-   Durante el análisis habitual de los archivos del radar (en `pipeline_worker.py`), la función `detect_storm_cells()` identificará los valores máximos de dBZ para cada celda.
+1. **Intensidad y Ubicación:**
+   - Solo se tomarán en cuenta celdas que cumplan con la condición: `max_dbz >= 55`.
+   - Se debe calcular la distancia desde la celda hasta el centroide del área cultivada (ej. Radar San Martín o Centro de Mendoza). Solo son válidas si la distancia es `< 70 km`. Esto filtra los ecos fijos de las montañas al sur y al oeste.
 
-2. **Condición de Disparo:**
-   Si existe al menos una celda que cumpla con `max_dbz >= 50`, se evalúa enviar una alerta general.
+2. **Ventana Horaria:**
+   - Las notificaciones solo pueden dispararse si la hora local de Mendoza (UTC-3) está entre las **10:00 y las 23:00**. 
 
-3. **Prevención de Spam (1 vez al día máximo):**
-   - El sistema leerá la fecha almacenada en un archivo de caché (ej. `data/last_daily_engagement.txt`).
-   - Si la fecha guardada es distinta al día calendario actual (formato YYYYMMDD), significa que hoy todavía no se envió la alerta de engagement.
-   - Si la fecha es igual, se ignora el evento (el aviso ya fue enviado más temprano ese mismo día).
+3. **Confirmación de 30 minutos (Protección del Radar):**
+   - Cuando se detecta una celda válida por primera vez, el sistema **no** envía la alerta inmediatamente. Se registra este momento como un estado "Pendiente".
+   - El sistema debe esperar 30 minutos. Si el radar sigue encendido transcurrido este plazo (es decir, siguen ingresando imágenes) y continúan habiendo celdas válidas que cumplan las condiciones, recién ahí se envía el Push.
+   - Si el radar se apaga antes de los 30 min (no llegan nuevas imágenes), o desaparecen las celdas, la alerta "Pendiente" se aborta, previniendo spam.
 
-4. **Envío de Notificaciones:**
-   - Si se supera el control de fecha, el script consultará la tabla `push_subscriptions` y obtendrá todos los usuarios activos.
-   - Se emitirá una notificación global, por ejemplo:
-     - **Título**: "¡Tormentas detectadas! ⛈️"
-     - **Mensaje**: "Hoy hay actividad de tormentas. ¿Ya viste el radar en vivo?"
-   - Inmediatamente después del envío, el sistema escribirá el día actual (`YYYYMMDD`) sobreescribiendo `last_daily_engagement.txt`.
+4. **Prevención de Spam (1 vez al día máximo):**
+   - El sistema leerá la fecha almacenada en `data/last_daily_engagement.txt`.
+   - Si ya se envió un aviso exitoso en el día calendario actual (`YYYYMMDD` en hora local), se desactiva por el resto del día.
 
-## Archivos a Modificar
+## Flujo de Trabajo a Programar
 - **`backend/pipeline_worker.py`**:
   - Crear la función `check_daily_engagement_alerts(storm_cells)`.
-  - Instanciar la llamada a esta función dentro de la tubería de análisis principal, cerca donde hoy se ejecutan las Alertas de Proximidad.
+  - Usar un archivo JSON temporal (o variable global en el hilo) `data/pending_engagement.json` para guardar:
+    - `first_detection_time`: Timestamp de la primera celda válida detectada hoy.
+  - El evaluador:
+    - ¿Están dadas las condiciones de DBZ y Distancia?
+    - ¿La hora actual está entre las 10:00 y las 23:00?
+    - ¿Se superó el cooldown de 30 minutos desde `first_detection_time`?
+    - Si todo es SÍ -> **Enviar Push Global**, registrar en `last_daily_engagement.txt` y borrar `pending_engagement.json`.

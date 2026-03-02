@@ -418,6 +418,146 @@ def check_and_send_aircraft_alerts(sent_aircraft_alerts):
     except Exception as e:
         logging.error(f"Error checking aircraft alerts: {e}")
 
+ENGAGEMENT_DAILY_FILE = "data/last_daily_engagement.txt"
+engagement_state = {
+    "first_detection_time": None
+}
+
+def check_daily_engagement_alerts(storm_cells, radar_lat, radar_lon):
+    """
+    Verifica si hay celdas >= 55 dBZ a menos de 70km del radar.
+    Si la condición se mantiene por 30 minutos entre las 10:00 y las 23:00,
+    envía un push notification global. Solo envía 1 por día.
+    """
+    if not storm_cells:
+        engagement_state["first_detection_time"] = None
+        return
+
+    now = datetime.now(timezone.utc)
+    # Convertir a hora local (Mendoza UTC-3)
+    local_hour = (now.hour - 3) % 24
+    if not (10 <= local_hour <= 23):
+        engagement_state["first_detection_time"] = None
+        return
+
+    # Verificar si ya se envió hoy
+    today_str = (now - timedelta(hours=3)).strftime("%Y%m%d")
+    already_sent = False
+    if os.path.exists(ENGAGEMENT_DAILY_FILE):
+        try:
+            with open(ENGAGEMENT_DAILY_FILE, "r") as f:
+                last_sent = f.read().strip()
+                if last_sent == today_str:
+                    already_sent = True
+        except:
+            pass
+    
+    if already_sent:
+        # Prevent keeping active triggers if already sent today
+        engagement_state["first_detection_time"] = None
+        return
+
+    # Verificar celdas válidas (>= 55 dBZ, dist < 70km)
+    has_valid_cell = False
+    for cell in storm_cells:
+        if cell.get("max_dbz", 0) >= 55.0:
+            dist = haversine(radar_lat, radar_lon, cell['lat'], cell['lon'])
+            if dist < 70.0:
+                has_valid_cell = True
+                break
+                
+    if not has_valid_cell:
+        # Abort if condition breaks before 30m
+        engagement_state["first_detection_time"] = None
+        return
+
+    # Si hay celda válida y es la primera vez (estado vacío):
+    if engagement_state["first_detection_time"] is None:
+        engagement_state["first_detection_time"] = now
+        logging.info("Engagement Alert: Primera celda detectada >= 55dBZ. Iniciando reloj de 30 mins.")
+        return
+        
+    # Verificar si pasaron 30 min (1800 seg)
+    time_diff = (now - engagement_state["first_detection_time"]).total_seconds()
+    if time_diff >= 1800:
+        logging.info("Engagement Alert: Condición de severidad mantenida >30 mins. Enviando Push Global.")
+        # ENVIAR ALERTA GLOBAL
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT DISTINCT endpoint, p256dh, auth FROM push_subscriptions")
+        subs = cursor.fetchall()
+        
+        vapid_obj = None
+        if Vapid and VAPID_PRIVATE_KEY:
+             try:
+                 vapid_obj = Vapid.from_pem(VAPID_PRIVATE_KEY.encode('utf-8'))
+             except Exception:
+                 pass
+
+        notification_data = json.dumps({
+            "title": "¡Tormentas detectadas! ⛈️",
+            "body": "Se registró actividad importante en el radar. ¿Ya revisaste el mapa en vivo?",
+            "url": "/",
+            "icon": "/icon-192x192.png"
+        })
+        
+        headers = {"TTL": "86400", "Urgency": "high"}
+        success_count = 0
+        for sub in subs:
+             endpoint, p256dh, auth_key = sub
+             try:
+                 # WebPush dispatch...
+                 sub_headers = headers.copy()
+                 auth_headers = {}
+                 if vapid_obj and hasattr(vapid_obj, "get_authorization_header"):
+                      header_value = vapid_obj.get_authorization_header(endpoint, VAPID_CLAIM_EMAIL)
+                      if isinstance(header_value, (bytes, str)):
+                          if isinstance(header_value, bytes):
+                              header_value = header_value.decode('utf-8')
+                          auth_headers = {"Authorization": header_value}
+                      elif isinstance(header_value, dict):
+                          auth_headers = header_value
+                 elif vapid_obj:
+                      from urllib.parse import urlparse
+                      parsed = urlparse(endpoint)
+                      aud = f"{parsed.scheme}://{parsed.netloc}"
+                      claim = {"aud": aud, "sub": VAPID_CLAIM_EMAIL}
+                      token = vapid_obj.sign(claim)
+                      if isinstance(token, dict):
+                          auth_headers = token
+                      else:
+                          if isinstance(token, bytes):
+                              token = token.decode('utf-8')
+                          if "vapid t=" in token:
+                              auth_headers = {"Authorization": token}
+                          else:
+                              auth_headers = {"Authorization": f"WebPush {token}"}
+                 
+                 sub_headers.update(auth_headers)
+                 
+                 webpush(
+                     subscription_info={"endpoint": endpoint, "keys": {"p256dh": p256dh, "auth": auth_key}},
+                     data=notification_data,
+                     vapid_private_key=None,
+                     vapid_claims=None,
+                     headers=sub_headers
+                 )
+                 success_count += 1
+             except Exception as e:
+                 pass
+                 
+        conn.close()
+        logging.info(f"Engagement Alert: Enviada exitosamente a {success_count} usuarios.")
+        
+        # Registrar como eviado hoy
+        try:
+            with open(ENGAGEMENT_DAILY_FILE, "w") as f:
+                f.write(today_str)
+        except Exception as e:
+            logging.error(f"Failed to write engagement file: {e}")
+            
+        engagement_state["first_detection_time"] = None
+
 def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: str, skip_levels: int = 2):
     """
     Genera una imagen transparente de reflectividad compuesta y devuelve sus coordenadas geográficas.
@@ -532,6 +672,9 @@ def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: s
         
         # --- 6. Verificar Alertas de Proximidad ---
         check_proximity_alerts(storm_cells)
+
+        # --- 7. Verificar Alerta Global Engagement ---
+        check_daily_engagement_alerts(storm_cells, lat_0, lon_0)
 
         logging.info(f"  -> Imagen transparente guardada en: {output_image_path}")
         logging.info(f"  -> Coordenadas calculadas: {bounds}")

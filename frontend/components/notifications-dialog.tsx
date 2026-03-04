@@ -5,6 +5,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
 } from "@/components/ui/dialog"
 import { useLanguage } from "@/lib/language-context"
 import { Bell, Calendar } from "lucide-react"
@@ -33,6 +34,9 @@ export function NotificationsDialog({
                         <Bell className="h-5 w-5 text-sky-400 shrink-0" />
                         <span className="truncate">{t('Bandeja de Notificaciones', 'Notification Inbox')}</span>
                     </DialogTitle>
+                    <DialogDescription className="sr-only">
+                        {t('Historial de notificaciones enviadas', 'History of sent notifications')}
+                    </DialogDescription>
                 </DialogHeader>
 
                 <div className="flex-1 -mx-4 px-4 overflow-y-auto mt-4">

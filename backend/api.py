@@ -7,7 +7,7 @@ from flask import Flask, jsonify, send_from_directory, request
 from werkzeug.utils import secure_filename
 import requests
 import concurrent.futures
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from config import STATUS_FILE_PATH, IMAGE_OUTPUT_DIR, DB_PATH, FRONTEND_URL
 from datetime import datetime, timedelta, timezone
 import auth
@@ -673,6 +673,7 @@ def force_forecast_push():
 stations_cache = {"data": None, "updated_at": 0}
 
 @app.route("/api/stations", methods=['GET'])
+@cross_origin(origins="*")
 def get_all_stations():
     now = time.time()
     # Cache for 5 minutes (300 seconds)

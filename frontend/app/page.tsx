@@ -63,6 +63,7 @@ export default function RadarPredictionRealtime() {
   const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const [selectedNotificationId, setSelectedNotificationId] = useState<number | null>(null)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   // Geolocation & Storm Logic
   const [userLocation, setUserLocation] = useState<{ lat: number, lon: number } | null>(null)
@@ -162,7 +163,14 @@ export default function RadarPredictionRealtime() {
   useEffect(() => {
     fetchNotifications().then(data => {
       setNotifications(data)
+
       if (typeof window !== 'undefined') {
+        const lastRead = localStorage.getItem('lastReadNotificationId');
+        const lastReadId = lastRead ? parseInt(lastRead, 10) : 0;
+
+        const unread = data.filter(n => n.id > lastReadId).length;
+        setUnreadCount(unread);
+
         const urlParams = new URLSearchParams(window.location.search)
         const notifId = urlParams.get('notification_id')
         if (notifId) {
@@ -307,12 +315,18 @@ export default function RadarPredictionRealtime() {
               onClick={() => {
                 setIsNotificationsOpen(true);
                 setSelectedNotificationId(null);
+                setUnreadCount(0);
+                if (notifications.length > 0) {
+                  localStorage.setItem('lastReadNotificationId', notifications[0].id.toString());
+                }
               }}
               className="relative bg-black/40 backdrop-blur-md border border-white/10 text-white hover:bg-white/20 h-8 w-8 sm:h-9 sm:w-9 rounded-full shrink-0"
             >
               <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
-              {notifications.length > 0 && (
-                <span className="absolute top-0 right-0 h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full bg-red-500 animate-pulse border-2 border-black/40"></span>
+              {unreadCount > 0 && (
+                <div className="absolute -top-1 -right-1 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-red-500 border-2 border-black/40 flex items-center justify-center">
+                  <span className="text-[8px] sm:text-[9px] font-bold text-white leading-none">{unreadCount}</span>
+                </div>
               )}
             </Button>
 

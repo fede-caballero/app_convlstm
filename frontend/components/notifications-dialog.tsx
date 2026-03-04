@@ -28,10 +28,10 @@ export function NotificationsDialog({
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md bg-[#1c1c1e] text-white border-none shadow-2xl rounded-xl max-h-[85vh] flex flex-col p-4">
-                <DialogHeader className="pb-4 border-b border-white/10 shrink-0">
-                    <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                        <Bell className="h-5 w-5 text-sky-400" />
-                        {t('Bandeja de Notificaciones', 'Notification Inbox')}
+                <DialogHeader className="pb-3 border-b border-white/10 shrink-0 pr-6">
+                    <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                        <Bell className="h-5 w-5 text-sky-400 shrink-0" />
+                        <span className="truncate">{t('Bandeja de Notificaciones', 'Notification Inbox')}</span>
                     </DialogTitle>
                 </DialogHeader>
 

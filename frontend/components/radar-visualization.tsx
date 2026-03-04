@@ -158,10 +158,13 @@ export const RadarVisualization = memo(function RadarVisualization({
       .catch(err => console.error("Failed to load hail swath", err));
 
     // Load Weather Stations
-    fetchWeatherStations()
-      .then(data => setStationsData(data))
-      .catch(err => console.error("Failed to load weather stations", err));
-
+    if (showStations && !stationsData) {
+      fetchWeatherStations()
+        .then(data => {
+          if (data && data.features) setStationsData(data);
+        })
+        .catch(err => console.error("Failed to load stations", err));
+    }
     // Poll Aircraft Data
     const pollAircraft = () => {
       fetchAircraft().then((data) => {
@@ -1017,10 +1020,10 @@ export const RadarVisualization = memo(function RadarVisualization({
         })}
 
         {/* Station Popup */}
-        {selectedStation && (
+        {selectedStation && selectedStation.lat && selectedStation.lng && (
           <Popup
-            longitude={selectedStation.lng}
-            latitude={selectedStation.lat}
+            longitude={Number(selectedStation.lng)}
+            latitude={Number(selectedStation.lat)}
             anchor="bottom"
             onClose={() => setSelectedStation(null)}
             closeOnClick={false}

@@ -633,6 +633,42 @@ def send_push_notification():
     results = _send_push_to_all(title, message, url)
     return jsonify({"results": results}), 200
 
+# TEMPORARY: FORCED FORECAST PUSH ENDPOINT
+@app.route('/api/test/forecast', methods=['GET'])
+def force_forecast_push():
+    from pipeline_worker import check_daily_forecast_alert
+    import sqlite3
+    try:
+        # Force the worker function bypassing the 12:00 check and already_sent check?
+        # That's in the worker logic. Better we do a custom fetch here or delete the txt file.
+        txt_path = "data/last_forecast_push.txt"
+        import os
+        if os.path.exists(txt_path):
+            os.remove(txt_path)
+            
+        # call that function but wait, we can just run it in a thread or call it directly.
+        # However, we'd need to mock it. Let's just create a custom push here.
+        import requests, json
+        from datetime import datetime
+        
+        url = "https://contingencias.mendoza.gov.ar/api/getPronostico.php"
+        resp = requests.get(url, timeout=10)
+        data = resp.json()
+        pronostico = data[0] if data and len(data) > 0 else {}
+        
+        txt_p = pronostico.get("Pronostico", "Datos de prueba.")
+        txt_max = pronostico.get("maxima", "30")
+        txt_min = pronostico.get("minima", "15")
+        
+        results = _send_push_to_all(
+            f"🌤️ Pronóstico de Prueba", 
+            f"{txt_p}\nMáx: {txt_max}°C | Mín: {txt_min}°C",
+            "/"
+        )
+        return jsonify({"status": "success", "pushed_to": len(results)}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # Endpoints de la API
 stations_cache = {"data": None, "updated_at": 0}
 
@@ -660,15 +696,20 @@ def get_all_stations():
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
         results = executor.map(fetch_station, range(1, 65))
         for res in results:
-            if res and res.get('lat') and res.get('lng'):
-                features.append({
-                    "type": "Feature",
-                    "properties": res,
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [float(res['lng']), float(res['lat'])]
-                    }
-                })
+            if res and 'lat' in res and 'lng' in res:
+                try:
+                    lat = float(res['lat'])
+                    lng = float(res['lng'])
+                    features.append({
+                        "type": "Feature",
+                        "properties": res,
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [lng, lat]
+                        }
+                    })
+                except (ValueError, TypeError):
+                    pass
                 
     cache_data = {
         "type": "FeatureCollection",

@@ -140,7 +140,23 @@ export interface WeatherReport {
   username?: string; // enriched by backend
   image?: File | null; // For upload
   image_url?: string; // From backend
+  likes_count?: number;
+  user_liked?: boolean;
 }
+
+export const toggleReportLike = async (reportId: number, token: string): Promise<any> => {
+  const res = await fetch(`${API_BASE_URL}/api/reports/${reportId}/like`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to toggle like");
+  }
+  return await res.json();
+};
 
 export const submitReport = async (report: WeatherReport, token: string): Promise<void> => {
   let body: any;

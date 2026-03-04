@@ -4,8 +4,8 @@ import { useState, useEffect, useMemo, useRef, memo } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { useToast } from "@/components/ui/use-toast"
-import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle, Pencil, Plane, Cloud, Layers, Share2, Zap, CloudRain } from "lucide-react"
-import { ImageWithBounds, deleteReport, fetchAircraft, fetchHailSwathToday, WeatherReport, Aircraft, StormCell } from "@/lib/api"
+import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle, Pencil, Plane, Cloud, Layers, Share2, Zap, CloudRain, Heart } from "lucide-react"
+import { ImageWithBounds, deleteReport, fetchAircraft, fetchHailSwathToday, WeatherReport, Aircraft, StormCell, toggleReportLike } from "@/lib/api"
 import { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, GeolocateControl, MapRef, Popup, Marker } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useAuth } from "@/lib/auth-context"
@@ -331,6 +331,8 @@ export const RadarVisualization = memo(function RadarVisualization({
           description: r.description,
           username: r.username,
           image_url: r.image_url,
+          likes_count: r.likes_count || 0,
+          user_liked: r.user_liked || false,
           time: new Date(r.timestamp!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       }))
@@ -976,7 +978,47 @@ export const RadarVisualization = memo(function RadarVisualization({
                 )}
                 <div className="flex justify-between items-start pr-6">
                   <h3 className="font-bold text-sm uppercase mb-1 text-zinc-100">{selectedReport.properties.type.replace('_', ' ')}</h3>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 items-center">
+
+                    {/* LIKE BUTTON */}
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!token) {
+                          alert(t("Debes iniciar sesión para dar me gusta.", "You must be logged in to like."));
+                          return;
+                        }
+                        // Optimistic update
+                        const isLiked = selectedReport.properties.user_liked;
+                        const newCount = isLiked
+                          ? Math.max(0, (selectedReport.properties.likes_count || 0) - 1)
+                          : (selectedReport.properties.likes_count || 0) + 1;
+
+                        const prev = JSON.stringify(selectedReport);
+                        setSelectedReport((current: any) => current ? {
+                          ...current,
+                          properties: {
+                            ...current.properties,
+                            user_liked: !isLiked,
+                            likes_count: newCount
+                          }
+                        } : null);
+
+                        try {
+                          await toggleReportLike(selectedReport.properties.id, token);
+                          if (onReportUpdate) onReportUpdate();
+                        } catch (e) {
+                          setSelectedReport(JSON.parse(prev));
+                          alert(t("Error al dar me gusta", "Error toggling like"));
+                        }
+                      }}
+                      className={`flex items-center gap-1 p-1 text-xs rounded transition-colors ${selectedReport.properties.user_liked ? 'text-red-500 hover:text-red-400' : 'text-zinc-400 hover:text-red-400'}`}
+                      title={selectedReport.properties.user_liked ? t("Quitar me gusta", "Unlike") : t("Me gusta", "Like")}
+                    >
+                      <Heart className="w-4 h-4" fill={selectedReport.properties.user_liked ? "currentColor" : "none"} />
+                      <span>{selectedReport.properties.likes_count || 0}</span>
+                    </button>
+
                     {user?.username === selectedReport.properties.username && (
                       <button
                         onClick={() => {
@@ -993,7 +1035,7 @@ export const RadarVisualization = memo(function RadarVisualization({
                           setIsReportOpen(true);
                           setSelectedReport(null); // Close popup
                         }}
-                        className="text-zinc-400 hover:text-white p-1"
+                        className="text-zinc-400 hover:text-white p-1 ml-1"
                         title={t("Editar Reporte", "Edit Report")}
                       >
                         <Pencil className="w-4 h-4" />

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Download, Zap, Clock, MapPin, RefreshCw, AlertCircle, CheckCircle, Folder, Server, Activity, Database, Menu, X, Navigation, Settings, LocateFixed, AlertTriangle, Layers, Cpu, ImageIcon, Info } from 'lucide-react'
+import { Download, Zap, Clock, MapPin, RefreshCw, AlertCircle, CheckCircle, Folder, Server, Activity, Database, Menu, X, Navigation, Settings, LocateFixed, AlertTriangle, Layers, Cpu, ImageIcon, Info, Bell } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Switch } from "@/components/ui/switch"
-import { fetchImages, fetchStatus, ApiStatus, ApiImages, StormCell, fetchReports, WeatherReport, updateLocation } from "@/lib/api"
+import { fetchImages, fetchStatus, ApiStatus, ApiImages, StormCell, fetchReports, WeatherReport, updateLocation, AppNotification, fetchNotifications } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import Link from "next/link"
 import { useLanguage } from "@/lib/language-context"
@@ -23,6 +23,7 @@ const PushSubscriptionButton = dynamic(() => import("@/components/push-subscript
 const TutorialDialog = dynamic(() => import("@/components/tutorial-dialog").then(mod => mod.TutorialDialog), { ssr: false })
 const SettingsDialog = dynamic(() => import("@/components/settings-dialog").then(mod => mod.SettingsDialog), { ssr: false })
 const WeatherSidebar = dynamic(() => import("@/components/weather-sidebar").then(mod => mod.WeatherSidebar), { ssr: false })
+const NotificationsDialog = dynamic(() => import("@/components/notifications-dialog").then(mod => mod.NotificationsDialog), { ssr: false })
 
 export function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   var R = 6371; // Radius of the earth in km
@@ -56,6 +57,12 @@ export default function RadarPredictionRealtime() {
   const [showReports, setShowReports] = useState(true)
   const [showStormCells, setShowStormCells] = useState(true)
   const [showWeatherWidget, setShowWeatherWidget] = useState(true)
+  const [showStations, setShowStations] = useState(true)
+
+  // Notifications State
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
+  const [selectedNotificationId, setSelectedNotificationId] = useState<number | null>(null)
 
   // Geolocation & Storm Logic
   const [userLocation, setUserLocation] = useState<{ lat: number, lon: number } | null>(null)
@@ -86,10 +93,14 @@ export default function RadarPredictionRealtime() {
 
       const savedWeatherWidget = localStorage.getItem('showWeatherWidget');
       if (savedWeatherWidget !== null) setShowWeatherWidget(savedWeatherWidget === 'true');
+
+      const savedStations = localStorage.getItem('showStations');
+      if (savedStations !== null) setShowStations(savedStations === 'true');
     } else {
       setShowStormCells(true);
       setShowReports(true);
       setShowWeatherWidget(true);
+      setShowStations(true);
     }
 
     const getLocation = (highAccuracy = true) => {
@@ -146,6 +157,33 @@ export default function RadarPredictionRealtime() {
     const intervalId = setInterval(() => getLocation(true), 1000 * 60 * 5);
     return () => clearInterval(intervalId);
   }, [user]); // Re-run if user logs in
+
+  // Fetch and handle notifications on mount
+  useEffect(() => {
+    fetchNotifications().then(data => {
+      setNotifications(data)
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search)
+        const notifId = urlParams.get('notification_id')
+        if (notifId) {
+          const idNum = parseInt(notifId, 10);
+          const found = data.find(n => n.id === idNum)
+
+          if (found) {
+            setSelectedNotificationId(idNum)
+            setIsNotificationsOpen(true)
+          } else {
+            // Optional: Still open inbox even if it dropped out of the top 5
+            setIsNotificationsOpen(true)
+          }
+
+          // Clean up URL without reloading
+          const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+          window.history.pushState({ path: newUrl }, '', newUrl);
+        }
+      }
+    })
+  }, [])
 
 
 
@@ -238,6 +276,7 @@ export default function RadarPredictionRealtime() {
           isProcessing={!!(status?.status?.includes("PROCESSING") || status?.status?.includes("PREDICTING"))}
           reports={showReports ? reports : undefined}
           showStormCells={showStormCells}
+          showStations={showStations}
           userLocation={userLocation}
           nearestStorm={nearestStorm}
           onReportUpdate={fetchData}
@@ -472,6 +511,24 @@ export default function RadarPredictionRealtime() {
         </Button>
       </div>
 
+      {/* Notifications Inbox Button (Below Help Button) */}
+      <div className="absolute bottom-32 left-4 z-50 flex justify-center w-14">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            setIsNotificationsOpen(true);
+            setSelectedNotificationId(null);
+          }}
+          className="relative rounded-full h-12 w-12 bg-black/60 backdrop-blur-md border border-white/10 shadow-lg hover:bg-black/80 text-zinc-400 hover:text-white transition-all"
+        >
+          <Bell className="w-5 h-5" />
+          {notifications.length > 0 && (
+            <span className="absolute top-[8px] right-[10px] h-3 w-3 rounded-full bg-red-500 animate-pulse border-2 border-black"></span>
+          )}
+        </Button>
+      </div>
+
       {/* Report Dialog */}
       {isMounted && (
         <ReportDialog
@@ -486,6 +543,16 @@ export default function RadarPredictionRealtime() {
         <TutorialDialog
           open={isTutorialOpen}
           onOpenChange={setIsTutorialOpen}
+        />
+      )}
+
+      {/* Notifications Inbox Dialog */}
+      {isMounted && (
+        <NotificationsDialog
+          open={isNotificationsOpen}
+          onOpenChange={setIsNotificationsOpen}
+          notifications={notifications}
+          selectedId={selectedNotificationId}
         />
       )}
 
@@ -508,6 +575,11 @@ export default function RadarPredictionRealtime() {
           onShowWeatherWidgetChange={(val) => {
             setShowWeatherWidget(val);
             localStorage.setItem('showWeatherWidget', String(val));
+          }}
+          showStations={showStations}
+          onShowStationsChange={(val) => {
+            setShowStations(val);
+            localStorage.setItem('showStations', String(val));
           }}
         />
       )}

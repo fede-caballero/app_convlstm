@@ -10,7 +10,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { usePush } from "@/lib/push-context"
 import { useLanguage } from "@/lib/language-context"
-import { Bell, AlertTriangle, Plane, Globe, Settings as SettingsIcon, BellRing, Cloud, MessageSquare } from "lucide-react"
+import { Bell, AlertTriangle, Plane, Globe, Settings as SettingsIcon, BellRing, Cloud, MessageSquare, Thermometer } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 
@@ -23,6 +23,8 @@ interface SettingsDialogProps {
     onShowReportsChange?: (show: boolean) => void
     showWeatherWidget?: boolean
     onShowWeatherWidgetChange?: (show: boolean) => void
+    showStations?: boolean
+    onShowStationsChange?: (show: boolean) => void
 }
 
 export function SettingsDialog({
@@ -33,7 +35,9 @@ export function SettingsDialog({
     showReports = true,
     onShowReportsChange,
     showWeatherWidget = true,
-    onShowWeatherWidgetChange
+    onShowWeatherWidgetChange,
+    showStations = true,
+    onShowStationsChange
 }: SettingsDialogProps) {
     const { isSubscribed, preferences, updatePreferences, isSupported, subscribe, unsubscribe, loading } = usePush()
     const { language, setLanguage, t } = useLanguage()
@@ -178,6 +182,27 @@ export function SettingsDialog({
                                     className="data-[state=checked]:bg-sky-500"
                                 />
                             </div>
+
+                            <div className="h-[1px] w-full bg-[#3c3c3e]" />
+
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-1 max-w-[80%] pr-4">
+                                    <div className="flex items-center gap-2">
+                                        <Thermometer className="h-4 w-4 text-orange-300" />
+                                        <span className="font-semibold text-sm">
+                                            {t('Estaciones Meteorológicas', 'Weather Stations')}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-400 leading-snug">
+                                        {t('Mostrar marcadores con datos en tiempo real (temperatura, humedad).', 'Show markers with real-time data (temperature, humidity).')}
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={showStations}
+                                    onCheckedChange={(c) => onShowStationsChange && onShowStationsChange(c)}
+                                    className="data-[state=checked]:bg-sky-500"
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -275,6 +300,28 @@ export function SettingsDialog({
                                 <Switch
                                     checked={preferences.alert_aircraft}
                                     onCheckedChange={(c) => updatePreferences({ alert_aircraft: c })}
+                                    className="data-[state=checked]:bg-sky-500"
+                                />
+                            </div>
+
+                            <div className="h-[1px] w-full bg-[#3c3c3e]" />
+
+                            {/* Pronóstico Diario */}
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-1 max-w-[80%] pr-4">
+                                    <div className="flex items-center gap-2">
+                                        <Cloud className="h-4 w-4 text-sky-300" />
+                                        <span className="font-semibold text-sm">
+                                            {t('Pronóstico Diario', 'Daily Forecast')}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-400 leading-snug">
+                                        {t('Recibí el pronóstico oficial de contingencias todos los días a las 12:00.', 'Receive the official daily weather forecast everyday at 12:00.')}
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={preferences.alert_forecast !== undefined ? preferences.alert_forecast : true}
+                                    onCheckedChange={(c) => updatePreferences({ alert_forecast: c })}
                                     className="data-[state=checked]:bg-sky-500"
                                 />
                             </div>

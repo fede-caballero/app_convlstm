@@ -372,12 +372,20 @@ def check_and_send_aircraft_alerts(sent_aircraft_alerts):
             logging.info(f"New aircraft flight detected: {reg_or_callsign}. Sending alerts...")
             sent_aircraft_alerts[reg_or_callsign] = now
             
-            notification_data = json.dumps({
+            notification_data = {
                 "title": "¡Avión Antigranizo!",
                 "body": f"✈️ Avión en vuelo ({reg_or_callsign}) detectado en el radar.",
                 "url": "/",
                 "icon": "/icon-192x192.png"
-            })
+            }
+            
+            cursor.execute('''INSERT INTO notifications (title, body, type, url) VALUES (?, ?, ?, ?)''', 
+                           (notification_data["title"], notification_data["body"], "aircraft", "/"))
+            notification_id = cursor.lastrowid
+            conn.commit()
+            
+            notification_data["url"] = f"/?notification_id={notification_id}"
+            notification_data = json.dumps(notification_data)
 
             headers = {"TTL": "60", "Urgency": "high"}
             for sub in subscriptions:
@@ -426,9 +434,149 @@ def check_and_send_aircraft_alerts(sent_aircraft_alerts):
         logging.error(f"Error checking aircraft alerts: {e}")
 
 ENGAGEMENT_DAILY_FILE = "data/last_daily_engagement.txt"
+FORECAST_DAILY_FILE = "data/last_forecast_push.txt"
 engagement_state = {
     "first_detection_time": None
 }
+
+import requests
+
+def check_daily_forecast_alert():
+    """
+    Se ejecuta periódicamente. Comprueba si son más de las 12:00 PM hora local de Mendoza
+    y si se envió el pronóstico del día hoy midiendo el archivo de bandera text.
+    Si no se ha enviado, consulta la API pública de pronóstico y envía un push con la data.
+    """
+    now = datetime.now(timezone.utc)
+    # Convertir a hora local (Mendoza UTC-3)
+    local_dt = now - timedelta(hours=3)
+    local_hour = local_dt.hour
+    
+    # 1. Comprobar horario de triggeo (a partir de las 12 PM)
+    if local_hour < 12:
+        return
+        
+    today_str = local_dt.strftime("%Y%m%d")
+    already_sent = False
+    
+    # 2. Comprobar si ya se mandó hoy
+    if os.path.exists(FORECAST_DAILY_FILE):
+        try:
+            with open(FORECAST_DAILY_FILE, "r") as f:
+                last_sent = f.read().strip()
+                if last_sent == today_str:
+                    already_sent = True
+        except:
+            pass
+            
+    if already_sent:
+        return
+        
+    logging.info("Forecast Alert: Es mediodía y no se envió hoy. Descargando pronóstico...")
+    
+    # 3. Descargar pronóstico oficial
+    try:
+        url = f"https://contingencias.mendoza.gov.ar/api/getPronostico.php?dia={today_str}"
+        resp = requests.get(url, timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            if not data or len(data) == 0:
+                logging.warning(f"Forecast Alert: API devolvió lista vacía para hoy {today_str}.")
+                return
+            
+            pronostico = data[0]
+            txt_pronostico = pronostico.get("Pronostico", "Sin datos.")
+            txt_max = pronostico.get("maxima", "?")
+            txt_min = pronostico.get("minima", "?")
+            
+            # Formatear el Web Push Payload
+            notification_data = {
+                "title": f"🌤️ Pronóstico {local_dt.strftime('%d/%m')}",
+                "body": f"{txt_pronostico}\nMáx: {txt_max}°C | Mín: {txt_min}°C",
+                "url": "/",
+                "icon": "/icon-192x192.png"
+            }
+            
+            # 4. Enviar a base de datos de pushes
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            
+            cursor.execute('''INSERT INTO notifications (title, body, type, url) VALUES (?, ?, ?, ?)''', 
+                           (notification_data["title"], notification_data["body"], "forecast", "/"))
+            notification_id = cursor.lastrowid
+            conn.commit()
+            
+            notification_data["url"] = f"/?notification_id={notification_id}"
+            notification_data = json.dumps(notification_data)
+            
+            cursor.execute("SELECT DISTINCT endpoint, p256dh, auth FROM push_subscriptions WHERE alert_forecast = 1")
+            subs = cursor.fetchall()
+            
+            vapid_obj = None
+            if Vapid and VAPID_PRIVATE_KEY:
+                 try:
+                     vapid_obj = Vapid.from_pem(VAPID_PRIVATE_KEY.encode('utf-8'))
+                 except Exception:
+                     pass
+            
+            headers = {"TTL": "86400", "Urgency": "high"}
+            success_count = 0
+            for sub in subs:
+                 endpoint, p256dh, auth_key = sub
+                 try:
+                     sub_headers = headers.copy()
+                     auth_headers = {}
+                     if vapid_obj and hasattr(vapid_obj, "get_authorization_header"):
+                          header_value = vapid_obj.get_authorization_header(endpoint, VAPID_CLAIM_EMAIL)
+                          if isinstance(header_value, (bytes, str)):
+                              if isinstance(header_value, bytes):
+                                  header_value = header_value.decode('utf-8')
+                              auth_headers = {"Authorization": header_value}
+                          elif isinstance(header_value, dict):
+                              auth_headers = header_value
+                     elif vapid_obj:
+                          from urllib.parse import urlparse
+                          parsed = urlparse(endpoint)
+                          aud = f"{parsed.scheme}://{parsed.netloc}"
+                          claim = {"aud": aud, "sub": VAPID_CLAIM_EMAIL}
+                          token = vapid_obj.sign(claim)
+                          if isinstance(token, dict):
+                              auth_headers = token
+                          else:
+                              if isinstance(token, bytes):
+                                  token = token.decode('utf-8')
+                              if "vapid t=" in token:
+                                  auth_headers = {"Authorization": token}
+                              else:
+                                  auth_headers = {"Authorization": f"WebPush {token}"}
+                     
+                     sub_headers.update(auth_headers)
+                     webpush(
+                         subscription_info={"endpoint": endpoint, "keys": {"p256dh": p256dh, "auth": auth_key}},
+                         data=notification_data,
+                         vapid_private_key=None,
+                         vapid_claims=None,
+                         headers=sub_headers
+                     )
+                     success_count += 1
+                 except Exception as e:
+                     pass
+                     
+            conn.close()
+            logging.info(f"Forecast Alert: Enviado exitosamente a {success_count} usuarios.")
+            
+            # 5. Marcar como enviado
+            try:
+                with open(FORECAST_DAILY_FILE, "w") as f:
+                    f.write(today_str)
+            except Exception as e:
+                logging.error(f"Failed to write forecast state file: {e}")
+                
+        else:
+            logging.error(f"Forecast Alert: HTTP Error {resp.status_code}")
+    except Exception as e:
+        logging.error(f"Forecast Alert Runtime Error: {e}")
+
 
 def check_daily_engagement_alerts(storm_cells, radar_lat, radar_lon):
     """
@@ -501,12 +649,20 @@ def check_daily_engagement_alerts(storm_cells, radar_lat, radar_lon):
              except Exception:
                  pass
 
-        notification_data = json.dumps({
+        notification_data = {
             "title": "¡Tormentas detectadas! ⛈️",
             "body": "Se registró actividad importante en el radar. ¿Ya revisaste el mapa en vivo?",
             "url": "/",
             "icon": "/icon-192x192.png"
-        })
+        }
+        
+        cursor.execute('''INSERT INTO notifications (title, body, type, url) VALUES (?, ?, ?, ?)''', 
+                       (notification_data["title"], notification_data["body"], "engagement", "/"))
+        notification_id = cursor.lastrowid
+        conn.commit()
+        
+        notification_data["url"] = f"/?notification_id={notification_id}"
+        notification_data = json.dumps(notification_data)
         
         headers = {"TTL": "86400", "Urgency": "high"}
         success_count = 0
@@ -1031,6 +1187,7 @@ def main():
             now_ts = time.time()
             if now_ts - last_aircraft_check >= 60: # Check every minute
                 check_and_send_aircraft_alerts(sent_aircraft_alerts)
+                check_daily_forecast_alert()
                 last_aircraft_check = now_ts
                 
             mdv_files = sorted([f for f in os.listdir(MDV_INBOX_DIR) if f.endswith('.mdv')])

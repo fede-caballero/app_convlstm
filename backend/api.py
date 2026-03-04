@@ -5,6 +5,8 @@ import logging
 import sqlite3
 from flask import Flask, jsonify, send_from_directory, request
 from werkzeug.utils import secure_filename
+import requests
+import concurrent.futures
 from flask_cors import CORS
 from config import STATUS_FILE_PATH, IMAGE_OUTPUT_DIR, DB_PATH, FRONTEND_URL
 from datetime import datetime, timedelta, timezone
@@ -389,6 +391,7 @@ def subscribe_push():
     alert_admin = 1 if data.get('alert_admin', True) else 0
     alert_proximity = 1 if data.get('alert_proximity', True) else 0
     alert_aircraft = 1 if data.get('alert_aircraft', False) else 0
+    alert_forecast = 1 if data.get('alert_forecast', True) else 0
     
     if not subscription:
         return jsonify({"error": "No subscription data"}), 400
@@ -421,9 +424,9 @@ def subscribe_push():
         # Using INSERT OR REPLACE to update keys if endpoint exists
         cursor.execute("""
             INSERT OR REPLACE INTO push_subscriptions 
-            (user_id, endpoint, p256dh, auth, latitude, longitude, alert_admin, alert_proximity, alert_aircraft)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (user_id, endpoint, p256dh, auth_key, lat, lon, alert_admin, alert_proximity, alert_aircraft))
+            (user_id, endpoint, p256dh, auth, latitude, longitude, alert_admin, alert_proximity, alert_aircraft, alert_forecast)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (user_id, endpoint, p256dh, auth_key, lat, lon, alert_admin, alert_proximity, alert_aircraft, alert_forecast))
         
         conn.commit()
         return jsonify({"message": "Subscribed successfully"}), 201
@@ -464,6 +467,26 @@ def _send_push_to_all(title, message, url):
     """
     logging.info(f"Initiating Push to All: {title} - {message}")
     
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute('''INSERT INTO notifications (title, body, type, url) VALUES (?, ?, ?, ?)''', 
+                       (title, message, "admin", url))
+        notification_id = cursor.lastrowid
+        
+        if url == "/" or not url:
+            url = f"/?notification_id={notification_id}"
+        elif "?" not in url:
+            url = f"{url}?notification_id={notification_id}"
+        else:
+            url = f"{url}&notification_id={notification_id}"
+            
+        conn.commit()
+    except Exception as e:
+        logging.error(f"Error saving to notifications table: {e}")
+        pass
+
     notification_data = json.dumps({
         "title": title,
         "body": message,
@@ -472,8 +495,9 @@ def _send_push_to_all(title, message, url):
     })
 
     try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
+        if 'conn' not in locals():
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
         cursor.execute("SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE alert_admin = 1")
         subscriptions = cursor.fetchall()
         conn.close()
@@ -567,6 +591,28 @@ def _send_push_to_all(title, message, url):
     logging.info(f"Push Summary: Sent {len([r for r in results if r['status']=='sent'])}/{len(subscriptions)}")
     return results
 
+@app.route('/api/notifications', methods=['GET'])
+def get_notifications():
+    try:
+        limit_str = request.args.get('limit', '5')
+        try:
+            limit = int(limit_str)
+        except ValueError:
+            limit = 5
+            
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM notifications ORDER BY created_at DESC LIMIT ?", (limit,))
+        rows = cursor.fetchall()
+        conn.close()
+        
+        notifications = [dict(r) for r in rows]
+        return jsonify({"notifications": notifications}), 200
+    except Exception as e:
+        logging.error(f"Error fetching notifications: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/notifications/send', methods=['POST'])
 def send_push_notification():
     # Admin only check
@@ -588,6 +634,51 @@ def send_push_notification():
     return jsonify({"results": results}), 200
 
 # Endpoints de la API
+stations_cache = {"data": None, "updated_at": 0}
+
+@app.route("/api/stations", methods=['GET'])
+def get_all_stations():
+    now = time.time()
+    # Cache for 5 minutes (300 seconds)
+    if stations_cache["data"] and now - stations_cache["updated_at"] < 300:
+        return jsonify(stations_cache["data"]), 200
+        
+    def fetch_station(sid):
+        try:
+            url = f"https://agrometeo.mendoza.gov.ar/api/getInstantaneas.php?estacion={sid}"
+            r = requests.get(url, timeout=5)
+            if r.status_code == 200:
+                data = r.json()
+                if data and isinstance(data, list) and len(data) > 0 and 'error' not in data[0]:
+                    return data[0]
+        except Exception as e:
+            logging.debug(f"Error fetching station {sid}: {e}")
+        return None
+
+    features = []
+    # Fetch from IDs 1 to 65 concurrently
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        results = executor.map(fetch_station, range(1, 65))
+        for res in results:
+            if res and res.get('lat') and res.get('lng'):
+                features.append({
+                    "type": "Feature",
+                    "properties": res,
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [float(res['lng']), float(res['lat'])]
+                    }
+                })
+                
+    cache_data = {
+        "type": "FeatureCollection",
+        "features": features
+    }
+    
+    stations_cache["data"] = cache_data
+    stations_cache["updated_at"] = now
+    
+    return jsonify(cache_data), 200
 @app.route("/api/hail-swath/today", methods=['GET'])
 def get_hail_swath_today():
     # El día pluviométrico/granicero empieza a las 8 AM local (11 AM UTC)

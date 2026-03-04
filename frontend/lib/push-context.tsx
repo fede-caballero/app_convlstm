@@ -7,12 +7,14 @@ export interface PushPreferences {
     alert_admin: boolean
     alert_proximity: boolean
     alert_aircraft: boolean
+    alert_forecast: boolean
 }
 
 const DEFAULT_PREFS: PushPreferences = {
     alert_admin: true,
     alert_proximity: true,
-    alert_aircraft: true
+    alert_aircraft: true,
+    alert_forecast: true
 }
 
 interface PushContextType {
@@ -66,7 +68,8 @@ export function PushProvider({ children }: { children: ReactNode }) {
             const apiPrefs = {
                 alert_admin: preferences.alert_admin ? 1 : 0,
                 alert_proximity: preferences.alert_proximity ? 1 : 0,
-                alert_aircraft: preferences.alert_aircraft ? 1 : 0
+                alert_aircraft: preferences.alert_aircraft ? 1 : 0,
+                alert_forecast: preferences.alert_forecast ? 1 : 0
             };
             const result = await subscribeAPI(apiPrefs)
             if (result) {
@@ -112,7 +115,8 @@ export function PushProvider({ children }: { children: ReactNode }) {
                 const apiPrefs = {
                     alert_admin: merged.alert_admin ? 1 : 0,
                     alert_proximity: merged.alert_proximity ? 1 : 0,
-                    alert_aircraft: merged.alert_aircraft ? 1 : 0
+                    alert_aircraft: merged.alert_aircraft ? 1 : 0,
+                    alert_forecast: merged.alert_forecast ? 1 : 0
                 };
                 await subscribeAPI(apiPrefs)
                 return true

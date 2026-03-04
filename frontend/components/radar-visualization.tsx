@@ -4,8 +4,8 @@ import { useState, useEffect, useMemo, useRef, memo } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { useToast } from "@/components/ui/use-toast"
-import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle, Pencil, Plane, Cloud, Layers, Share2, Zap, CloudRain, Heart } from "lucide-react"
-import { ImageWithBounds, deleteReport, fetchAircraft, fetchHailSwathToday, WeatherReport, Aircraft, StormCell, toggleReportLike } from "@/lib/api"
+import { Play, Pause, RotateCcw, Calendar, Clock, Trash2, MapPin, X, AlertTriangle, Pencil, Plane, Cloud, Layers, Share2, Zap, CloudRain, Heart, Thermometer } from "lucide-react"
+import { ImageWithBounds, deleteReport, fetchAircraft, fetchHailSwathToday, fetchWeatherStations, WeatherReport, Aircraft, StormCell, toggleReportLike } from "@/lib/api"
 import { Source, Layer, NavigationControl, ScaleControl, FullscreenControl, GeolocateControl, MapRef, Popup, Marker } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useAuth } from "@/lib/auth-context"
@@ -25,6 +25,7 @@ interface RadarVisualizationProps {
   isProcessing: boolean
   reports?: WeatherReport[]
   showStormCells?: boolean
+  showStations?: boolean
   userLocation?: { lat: number, lon: number } | null
   nearestStorm?: { distance: number, cell: any } | null
   onReportUpdate?: () => void
@@ -57,6 +58,7 @@ export const RadarVisualization = memo(function RadarVisualization({
   isProcessing = false,
   reports,
   showStormCells = true,
+  showStations = true,
   userLocation,
   nearestStorm,
   onReportUpdate
@@ -70,6 +72,10 @@ export const RadarVisualization = memo(function RadarVisualization({
 
   // Hail Swath Data
   const [hailSwathData, setHailSwathData] = useState<any>(null)
+
+  // Weather Stations Data
+  const [stationsData, setStationsData] = useState<any>(null)
+  const [selectedStation, setSelectedStation] = useState<any>(null)
 
   // Aircraft State
   const [aircraftData, setAircraftData] = useState<Aircraft[]>([])
@@ -150,6 +156,11 @@ export const RadarVisualization = memo(function RadarVisualization({
     fetchHailSwathToday()
       .then(data => setHailSwathData(data))
       .catch(err => console.error("Failed to load hail swath", err));
+
+    // Load Weather Stations
+    fetchWeatherStations()
+      .then(data => setStationsData(data))
+      .catch(err => console.error("Failed to load weather stations", err));
 
     // Poll Aircraft Data
     const pollAircraft = () => {
@@ -975,6 +986,76 @@ export const RadarVisualization = memo(function RadarVisualization({
             );
           });
         })()}
+
+        {/* Weather Stations Layer */}
+        {showStations && stationsData && stationsData.features && stationsData.features.map((station: any) => {
+          const isSelected = selectedStation?.estacion === station.properties.estacion;
+          const { lat, lng } = station.properties;
+
+          if (!lat || !lng) return null;
+
+          return (
+            <Marker
+              key={`station-${station.properties.estacion}`}
+              longitude={lng}
+              latitude={lat}
+              anchor="center"
+              onClick={(e) => {
+                e.originalEvent.stopPropagation();
+                setSelectedStation(isSelected ? null : station.properties);
+              }}
+            >
+              <div
+                className={`flex items-center justify-center rounded-full border border-sky-400/50 bg-sky-900/60 shadow-lg backdrop-blur-md cursor-pointer transition-all hover:bg-sky-500/80 hover:scale-110 ${isSelected ? 'ring-2 ring-sky-300 scale-110' : ''}`}
+                style={{ width: '24px', height: '24px' }}
+                title={station.properties.Nombre}
+              >
+                <Thermometer className="h-3.5 w-3.5 text-white" />
+              </div>
+            </Marker>
+          );
+        })}
+
+        {/* Station Popup */}
+        {selectedStation && (
+          <Popup
+            longitude={selectedStation.lng}
+            latitude={selectedStation.lat}
+            anchor="bottom"
+            onClose={() => setSelectedStation(null)}
+            closeOnClick={false}
+            className="z-50 dark-popup"
+          >
+            <div className="p-2 min-w-[200px] text-zinc-100">
+              <h3 className="font-bold text-sm uppercase mb-2 text-sky-400 flex items-center gap-1 border-b border-zinc-800 pb-1">
+                <Thermometer className="w-4 h-4" />
+                {selectedStation.Nombre}
+              </h3>
+
+              <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-xs mt-2">
+                <div className="flex flex-col">
+                  <span className="text-zinc-500 font-bold uppercase tracking-wider text-[10px]">{t('Temp. Aire', 'Air Temp.')}</span>
+                  <span className="text-white text-lg font-black">{selectedStation.tempAire}°C</span>
+                </div>
+
+                <div className="flex flex-col">
+                  <span className="text-zinc-500 font-bold uppercase tracking-wider text-[10px]">{t('Humedad', 'Humidity')}</span>
+                  <span className="text-white text-lg font-black">{selectedStation.humedad}%</span>
+                </div>
+
+                <div className="flex flex-col">
+                  <span className="text-zinc-500 font-bold uppercase tracking-wider text-[10px]">{t('Viento', 'Wind')}</span>
+                  <span className="text-white">{selectedStation.velocidadViento} km/h - {selectedStation.direccionVientoTexto}</span>
+                </div>
+
+                <div className="flex flex-col pt-2 col-span-2 border-t border-zinc-800/50">
+                  <span className="text-zinc-500 font-bold uppercase tracking-wider text-[10px]">{t('Última actualización', 'Last update')}</span>
+                  <span className="text-zinc-300">{selectedStation.fecha}</span>
+                </div>
+              </div>
+            </div>
+          </Popup>
+        )}
 
         {/* Report Popup */}
         {

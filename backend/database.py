@@ -131,8 +131,20 @@ def init_db():
                 alert_admin INTEGER DEFAULT 1,
                 alert_proximity INTEGER DEFAULT 1,
                 alert_aircraft INTEGER DEFAULT 0,
+                alert_forecast INTEGER DEFAULT 1,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(user_id) REFERENCES users(id)
+            )
+        ''')
+        # Tabla de notificaciones globales recibidas
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                body TEXT NOT NULL,
+                type TEXT,
+                url TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         
@@ -142,6 +154,7 @@ def init_db():
         add_column_if_not_exists("push_subscriptions", "alert_admin", "INTEGER DEFAULT 1")
         add_column_if_not_exists("push_subscriptions", "alert_proximity", "INTEGER DEFAULT 1")
         add_column_if_not_exists("push_subscriptions", "alert_aircraft", "INTEGER DEFAULT 0")
+        add_column_if_not_exists("push_subscriptions", "alert_forecast", "INTEGER DEFAULT 1")
         
         conn.commit()
         conn.close()

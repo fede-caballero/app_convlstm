@@ -128,6 +128,44 @@ export const fetchImages = async (): Promise<ApiImages> => {
   };
 };
 
+// Fetch real-time weather stations Data
+export const fetchWeatherStations = async (): Promise<any> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/stations`, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`API request for stations failed with status ${response.status}`);
+    }
+    return await response.json();
+  } catch (e) {
+    console.error("Failed to load weather stations", e);
+    return { type: "FeatureCollection", features: [] };
+  }
+}
+
+// Fetch Latest Notifications
+export interface AppNotification {
+  id: number;
+  title: string;
+  body: string;
+  type: string;
+  url: string;
+  created_at: string;
+}
+
+export const fetchNotifications = async (): Promise<AppNotification[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/notifications?limit=5`, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
+    }
+    const data = await response.json();
+    return data.notifications || [];
+  } catch (e) {
+    console.error("Failed to load notifications", e);
+    return [];
+  }
+}
+
 // --- Reporting API ---
 
 export interface WeatherReport {

@@ -912,19 +912,18 @@ def manage_comment(comment_id):
 
 @app.route('/api/reports', methods=['GET'])
 def get_reports():
-    # Retrieve reports for the current operational day (8AM to 8AM)
-    
-    # Calculate "start of current operational day"
-    # If now is before 8AM, start is yesterday 8AM.
-    # If now is after 8AM, start is today 8AM.
-    
+    # Helper to check for optional token
+    current_user_id = None
+    token = request.headers.get('Authorization')
+    if token and token.startswith("Bearer "):
+        try:
+            payload = auth.decode_access_token(token.split(" ")[1])
+            if payload:
+                current_user_id = payload.get('id')
+        except:
+            pass
+
     now_utc = datetime.now(timezone.utc)
-    # Adjust to Local Time (UTC-3) for logic, then convert back to UTC for query if needed?
-    # Actually, the user likely means 8AM Local Time.
-    # Let's assume server ensures UTC in DB.
-    # 8AM Argentina (UTC-3) = 11AM UTC.
-    
-    # Let's stick to UTC-3 logic for "Operational Day"
     now_local = now_utc - timedelta(hours=3)
     
     if now_local.hour < 8:
@@ -939,20 +938,80 @@ def get_reports():
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     try:
-        # Join with users to get username of reporter? Maybe useful.
-        cursor.execute('''
-            SELECT r.id, r.user_id, r.report_type, r.latitude, r.longitude, r.timestamp, r.description, r.image_url, u.username
+        query = '''
+            SELECT r.id, r.user_id, r.report_type, r.latitude, r.longitude, r.timestamp, r.description, r.image_url, u.username,
+                   (SELECT COUNT(*) FROM report_likes l WHERE l.report_id = r.id) as likes_count
+        '''
+        if current_user_id:
+            query += f', CASE WHEN EXISTS (SELECT 1 FROM report_likes l WHERE l.report_id = r.id AND l.user_id = {current_user_id}) THEN 1 ELSE 0 END as user_liked'
+        else:
+            query += ', 0 as user_liked'
+
+        query += '''
             FROM weather_reports r
             LEFT JOIN users u ON r.user_id = u.id
             WHERE r.timestamp >= ?
             ORDER BY r.timestamp DESC
-        ''', (cutoff_time,))
+        '''
+        
+        cursor.execute(query, (cutoff_time,))
         
         rows = cursor.fetchall()
         reports = [dict(row) for row in rows]
+        # Convert user_liked to boolean explicitly
+        for r in reports:
+            r['user_liked'] = bool(r.get('user_liked', 0))
+            
         return jsonify(reports), 200
     except Exception as e:
         logging.error(f"Error fetching reports: {e}")
+        return jsonify({"error": "Internal error"}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/reports/<int:report_id>/like', methods=['POST'])
+def toggle_report_like(report_id):
+    token = request.headers.get('Authorization')
+    if not token or not token.startswith("Bearer "):
+        return jsonify({"error": "Missing token"}), 401
+    
+    token = token.split(" ")[1]
+    payload = auth.decode_access_token(token)
+    if not payload:
+        return jsonify({"error": "Invalid token"}), 401
+
+    user_id = payload.get('id')
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        # Check if report exists
+        cursor.execute("SELECT id FROM weather_reports WHERE id = ?", (report_id,))
+        if not cursor.fetchone():
+            return jsonify({"error": "Report not found"}), 404
+            
+        # Toggle like
+        cursor.execute("SELECT id FROM report_likes WHERE report_id = ? AND user_id = ?", (report_id, user_id))
+        existing_like = cursor.fetchone()
+        
+        if existing_like:
+            # Unlike
+            cursor.execute("DELETE FROM report_likes WHERE id = ?", (existing_like[0],))
+            action = "unliked"
+        else:
+            # Like
+            cursor.execute("INSERT INTO report_likes (report_id, user_id) VALUES (?, ?)", (report_id, user_id))
+            action = "liked"
+            
+        # Get new count
+        cursor.execute("SELECT COUNT(*) FROM report_likes WHERE report_id = ?", (report_id,))
+        new_count = cursor.fetchone()[0]
+            
+        conn.commit()
+        return jsonify({"message": f"Successfully {action}", "likes_count": new_count, "user_liked": action == "liked"}), 200
+        
+    except Exception as e:
+        logging.error(f"Error toggling report like: {e}")
         return jsonify({"error": "Internal error"}), 500
     finally:
         conn.close()

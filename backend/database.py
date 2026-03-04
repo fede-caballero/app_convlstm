@@ -105,6 +105,19 @@ def init_db():
             )
         ''')
 
+        # Tabla de Me Gusta en reportes (Likes)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS report_likes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                report_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(report_id) REFERENCES weather_reports(id) ON DELETE CASCADE,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+                UNIQUE(report_id, user_id)
+            )
+        ''')
+
         # Tabla de suscripciones Push
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS push_subscriptions (

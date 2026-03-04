@@ -259,7 +259,22 @@ export const RadarVisualization = memo(function RadarVisualization({
     );
   }, [userLocation, stormCenter]);
 
-
+  // Sync selected report with updated reports array (so likes stay correct after re-fetch)
+  useEffect(() => {
+    if (selectedReport && reports) {
+      const updatedReport = reports.find(r => r.id === selectedReport.properties.id);
+      if (updatedReport) {
+        setSelectedReport(prev => prev ? {
+          ...prev,
+          properties: {
+            ...prev.properties,
+            likes_count: updatedReport.likes_count || 0,
+            user_liked: updatedReport.user_liked || false,
+          }
+        } : null);
+      }
+    }
+  }, [reports]);
 
   const boundaryLayerStyle = {
     id: 'boundaries-layer',
@@ -508,11 +523,21 @@ export const RadarVisualization = memo(function RadarVisualization({
         onClick={(event) => {
           const feature = event.features?.[0];
           if (feature && feature.layer.id === 'reports-layer') {
+            // Merge with latest fresh data from reports array to prevent stale state from MapLibre cluster/cache
+            const latestData = reports?.find(r => r.id === feature.properties?.id);
+            const mergedProps = {
+              ...feature.properties,
+              ...(latestData ? {
+                likes_count: latestData.likes_count,
+                user_liked: latestData.user_liked
+              } : {})
+            };
+
             // Prevent map click from closing immediately if we just clicked a feature
             setSelectedReport({
               longitude: event.lngLat.lng,
               latitude: event.lngLat.lat,
-              properties: feature.properties
+              properties: mergedProps
             });
             setSelectedCell(null);
           } else {

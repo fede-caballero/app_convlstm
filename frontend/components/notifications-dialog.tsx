@@ -24,7 +24,7 @@ export function NotificationsDialog({
     notifications,
     selectedId
 }: NotificationsDialogProps) {
-    const { t } = useLanguage()
+    const { t, language } = useLanguage()
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -65,7 +65,7 @@ export function NotificationsDialog({
                                             <h3 className="font-bold text-sm leading-tight text-white drop-shadow-sm">{notif.title}</h3>
                                             <span className="flex-shrink-0 text-[10px] flex items-center gap-1 text-zinc-400 font-mono tracking-tighter bg-black/30 px-1.5 py-0.5 rounded">
                                                 <Calendar className="w-3 h-3" />
-                                                {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                {date.toLocaleDateString(language === 'es' ? 'es-AR' : 'en-US')} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </span>
                                         </div>
                                         <p className="text-sm text-zinc-300 whitespace-pre-line leading-relaxed font-medium">

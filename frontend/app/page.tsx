@@ -299,6 +299,23 @@ export default function RadarPredictionRealtime() {
 
           {/* RIGHT: Status | Auth | Menu */}
           <div className="flex items-center gap-1 sm:gap-2">
+
+            {/* Notifications Inbox Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setIsNotificationsOpen(true);
+                setSelectedNotificationId(null);
+              }}
+              className="relative bg-black/40 backdrop-blur-md border border-white/10 text-white hover:bg-white/20 h-8 w-8 sm:h-9 sm:w-9 rounded-full shrink-0"
+            >
+              <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
+              {notifications.length > 0 && (
+                <span className="absolute top-0 right-0 h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full bg-red-500 animate-pulse border-2 border-black/40"></span>
+              )}
+            </Button>
+
             {/* System Status (Admin Only) */}
             {user?.role === 'admin' && (
               <div className="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 h-9">
@@ -508,24 +525,6 @@ export default function RadarPredictionRealtime() {
           <div className="flex flex-col items-center justify-center -space-y-0.5">
             <span className="text-xl font-bold">?</span>
           </div>
-        </Button>
-      </div>
-
-      {/* Notifications Inbox Button (Below Help Button) */}
-      <div className="absolute bottom-32 left-4 z-50 flex justify-center w-14">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => {
-            setIsNotificationsOpen(true);
-            setSelectedNotificationId(null);
-          }}
-          className="relative rounded-full h-12 w-12 bg-black/60 backdrop-blur-md border border-white/10 shadow-lg hover:bg-black/80 text-zinc-400 hover:text-white transition-all"
-        >
-          <Bell className="w-5 h-5" />
-          {notifications.length > 0 && (
-            <span className="absolute top-[8px] right-[10px] h-3 w-3 rounded-full bg-red-500 animate-pulse border-2 border-black"></span>
-          )}
         </Button>
       </div>
 

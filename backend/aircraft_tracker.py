@@ -1,5 +1,6 @@
 import time
 import logging
+import sqlite3
 
 # Target Aircraft
 # Dict mapping identifier (ICAO or Callsign) to details
@@ -9,8 +10,6 @@ TRACKED_AIRCRAFT = {
     "lv-bcu": {"reg": "LV-BCU", "type": "T-MaybeSeed"}, # Filter by Callsign
     "lq-bcu": {"reg": "LQ-BCU", "type": "T-MaybeSeed"}, # No ADS-B Out likely, but keeping fallback
 }
-import time
-import logging
 
 from database import get_db_connection
 

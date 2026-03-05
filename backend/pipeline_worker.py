@@ -364,6 +364,11 @@ def check_and_send_aircraft_alerts(sent_aircraft_alerts):
                 
             reg_or_callsign = reg_or_callsign.strip()
             
+            # Solo notificar para la flota antigranizo conocida (filtrar errores tipograficos ADS-B)
+            VALID_CALLSIGNS = ["VBCR", "VBCT", "VBCU"]
+            if reg_or_callsign.upper() not in VALID_CALLSIGNS:
+                continue
+            
             # Check if we already alerted for this aircraft recently (4 hours cooldown)
             last_alert_time = sent_aircraft_alerts.get(reg_or_callsign)
             if last_alert_time and (now - last_alert_time).total_seconds() < 14400:

@@ -797,17 +797,11 @@ def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: s
         cmap.set_under('none') # Transparente por debajo de 5 dbz
         norm = BoundaryNorm(titan_bounds, cmap.N)
 
-        # Dibujar la imagen de reflectividad CON CONTORNOS SUAVIZADOS (Vector-like)
-        # En lugar de píxeles (imshow), usamos contourf para bordes definidos pero curvos.
+        # Dibujar la imagen de reflectividad SIN CONTORNOS SUAVIZADOS
+        # Usamos pcolormesh para representar los píxeles (celdas) exactamente como son, 
+        # sin que la interpolación de contourf reduzca su tamaño visual o cambie su forma.
         
-        # Niveles explícitos para que coincidan con la escala TITAN
-        # levels = [20, 30, 40, 50, 60, 70, 80] <-- REMOVED HARDCODED
-        levels = titan_bounds 
-        
-        # Usamos contourf. 
-        # extend='max' para que valores >80 sigan siendo grises.
-        # antialiased=True para bordes suaves.
-        ax.contourf(x, y, composite_data_2d, levels=levels, cmap=cmap, norm=norm, extend='max', antialiased=True)
+        ax.pcolormesh(x, y, composite_data_2d, cmap=cmap, norm=norm, shading='auto')
         
         plt.tight_layout(pad=0)
         # Aumentamos DPI a 300 para que los contornos se vean nítidos en móviles retina/high-res

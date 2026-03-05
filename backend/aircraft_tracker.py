@@ -30,6 +30,18 @@ def _init_aircraft_db():
             received_at REAL
         )
     ''')
+    
+    # Simple migration: try adding columns if they don't exist
+    try:
+        cursor.execute("ALTER TABLE active_aircraft ADD COLUMN altitude REAL")
+    except sqlite3.OperationalError:
+        pass # Column already exists
+    
+    try:
+        cursor.execute("ALTER TABLE active_aircraft ADD COLUMN velocity REAL")
+    except sqlite3.OperationalError:
+        pass
+
     conn.commit()
     conn.close()
 
@@ -41,20 +53,24 @@ def update_local_aircraft(aircraft: dict):
     key = aircraft.get("callsign", aircraft.get("reg", "unknown"))
     lat = aircraft.get("lat")
     lon = aircraft.get("lon")
+    altitude = aircraft.get("altitude", 0.0)
+    velocity = aircraft.get("velocity", 0.0)
     heading = aircraft.get("heading", 0.0)
     now = time.time()
     
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO active_aircraft (callsign, lat, lon, heading, received_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO active_aircraft (callsign, lat, lon, altitude, velocity, heading, received_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(callsign) DO UPDATE SET 
             lat=excluded.lat, 
             lon=excluded.lon, 
+            altitude=excluded.altitude,
+            velocity=excluded.velocity,
             heading=excluded.heading, 
             received_at=excluded.received_at
-    """, (key, lat, lon, heading, now))
+    """, (key, lat, lon, altitude, velocity, heading, now))
     conn.commit()
     conn.close()
     
@@ -75,7 +91,7 @@ def _get_local_aircraft() -> list[dict]:
     conn.commit()
     
     # Fetch active
-    cursor.execute("SELECT callsign, lat, lon, heading FROM active_aircraft")
+    cursor.execute("SELECT callsign, lat, lon, altitude, velocity, heading FROM active_aircraft")
     rows = cursor.fetchall()
     conn.close()
     
@@ -86,7 +102,9 @@ def _get_local_aircraft() -> list[dict]:
             "reg": row[0], # fallback
             "lat": row[1],
             "lon": row[2],
-            "heading": row[3],
+            "altitude": row[3],
+            "velocity": row[4],
+            "heading": row[5],
             "source": "titan"
         })
     return fresh

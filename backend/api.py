@@ -783,7 +783,8 @@ def get_images():
         if not os.path.exists(IMAGE_OUTPUT_DIR):
             return jsonify({"input_images": [], "prediction_images": [], "message": "Image output directory not found."}), 404
 
-        all_files = [f for f in os.listdir(IMAGE_OUTPUT_DIR) if f.endswith('.png')]
+        # Only list base images. Smoothed images are requested dynamically by the frontend.
+        all_files = [f for f in os.listdir(IMAGE_OUTPUT_DIR) if f.endswith('.png') and not f.endswith('_smoothed.png')]
         
         # --- INPUT IMAGES (Last 3) ---
         input_images_names = sorted([f for f in all_files if f.startswith('INPUT_')], reverse=True)[:3]

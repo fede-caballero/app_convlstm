@@ -18,19 +18,15 @@ os.makedirs(REPORTS_UPLOAD_DIR, exist_ok=True)
 
 # Security: Restrict CORS to frontend domain
 # If FRONTEND_URL is "*", allow all. Otherwise, allow specified origins.
-origins_list = [FRONTEND_URL]
-if FRONTEND_URL == "*":
-    origins_list = "*"
-else:
-    # Add localhost for dev and Vercel app for prod
-    origins_list = [
-        "http://localhost:3000",
-        "https://app-convlstm.vercel.app",
-        "https://hail-cast.vercel.app",
-        FRONTEND_URL
-    ]
+origins_list = [
+    "http://localhost:3000",
+    "https://app-convlstm.vercel.app",
+    "https://hail-cast.vercel.app",
+    FRONTEND_URL
+]
 
-CORS(app, origins=origins_list, supports_credentials=True)
+# Provide fallback list but support * safely
+CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=False)
 
 # Initialize DB on module load (ensures migrations run in production/gunicorn)
 from database import init_db

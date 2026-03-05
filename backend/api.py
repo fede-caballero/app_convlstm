@@ -3,6 +3,7 @@ import os
 import json
 import logging
 import sqlite3
+import time
 from flask import Flask, jsonify, send_from_directory, request
 from werkzeug.utils import secure_filename
 import requests
@@ -35,20 +36,6 @@ from database import init_db
 init_db()
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-@app.after_request
-def after_request(response):
-    origin = request.headers.get('Origin')
-    if origin in origins_list:
-        response.headers.add('Access-Control-Allow-Origin', origin)
-    else:
-        # Fallback to wildcard for non-browser clients or permissive testing
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
-    return response
 
 # --- Auth Endpoints ---
 import auth

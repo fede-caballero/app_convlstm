@@ -809,15 +809,10 @@ def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: s
         plt.close(fig)
 
         # --- 4. Calcular Bounding Box Geográfico ---
-        x_min, x_max = x.min() * 1000, x.max() * 1000
-        y_min, y_max = y.min() * 1000, y.max() * 1000
-        
-        # Convertir las esquinas de metros a lat/lon
-        geo_proj = ccrs.Geodetic()
-        sw_corner = geo_proj.transform_point(x_min, y_min, projection)
-        ne_corner = geo_proj.transform_point(x_max, y_max, projection)
-        
-        bounds = [[float(sw_corner[1]), float(sw_corner[0])], [float(ne_corner[1]), float(ne_corner[0])]] # Formato: [[lat_min, lon_min], [lat_max, lon_max]]
+        # Basado exactamente en el output de TITAN (PrintMdv):
+        # minLat, minLon: -36.8913, -70.8209
+        # maxLat, maxLon: -32.3798, -65.2191
+        bounds = [[-36.8913, -70.8209], [-32.3798, -65.2191]] # Formato: [[lat_min, lon_min], [lat_max, lon_max]]
 
         # --- 5. Detectar Celdas y Centroides ---
         storm_cells = detect_storm_cells(detection_composite_2d, x, y, projection)

@@ -673,7 +673,6 @@ def force_forecast_push():
 stations_cache = {"data": None, "updated_at": 0}
 
 @app.route("/api/stations", methods=['GET'])
-@cross_origin(origins="*")
 def get_all_stations():
     now = time.time()
     # Cache for 5 minutes (300 seconds)

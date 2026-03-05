@@ -677,6 +677,62 @@ export const RadarVisualization = memo(function RadarVisualization({
           )
         }
 
+        {/* Aircraft Trail Layer — per-callsign color via data-driven MapLibre match */}
+        <Source id="aircraft-trail-source" type="geojson" data={trailGeoJSON}>
+          <Layer
+            id="aircraft-trail-layer"
+            type="line"
+            paint={{
+              'line-color': [
+                'match', ['get', 'callsign'],
+                'VBCR', '#ffa500',
+                'LV-BCR', '#ffa500',
+                'VBCT', '#00ffff',
+                'LV-BCT', '#00ffff',
+                'VBCU', '#00ff00',
+                'LV-BCU', '#00ff00',
+                'LQ-BCP', '#00ff00',
+                'LQ-BCU', '#00ff00',
+                '#ffffff'
+              ] as any,
+              'line-width': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                6, 1.5,
+                11, 4
+              ],
+              'line-opacity': 0.7
+            }}
+          />
+          <Layer
+            id="aircraft-trail-nodes"
+            type="circle"
+            paint={{
+              'circle-color': [
+                'match', ['get', 'callsign'],
+                'VBCR', '#ffa500',
+                'LV-BCR', '#ffa500',
+                'VBCT', '#00ffff',
+                'LV-BCT', '#00ffff',
+                'VBCU', '#00ff00',
+                'LV-BCU', '#00ff00',
+                'LQ-BCP', '#00ff00',
+                'LQ-BCU', '#00ff00',
+                '#ffffff'
+              ] as any,
+              'circle-radius': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                6, 0.5,
+                11, 2
+              ],
+              'circle-opacity': 0.8
+            }}
+          />
+        </Source>
+
         {/* GOES-East Satellite Layer — single WMS image cropped to Mendoza province */}
         {(satelliteMode === 'visible' || satelliteMode === 'ir') && (() => {
           const layerName = satelliteMode === 'visible'
@@ -889,30 +945,6 @@ export const RadarVisualization = memo(function RadarVisualization({
             </div>
           </Popup>
         )}
-
-        {/* Aircraft Trail Layer — per-callsign color via data-driven MapLibre match */}
-        <Source id="aircraft-trail-source" type="geojson" data={trailGeoJSON}>
-          <Layer
-            id="aircraft-trail-layer"
-            type="line"
-            paint={{
-              'line-color': [
-                'match', ['get', 'callsign'],
-                'VBCR', '#ffa500',
-                'LV-BCR', '#ffa500',
-                'VBCT', '#00ffff',
-                'LV-BCT', '#00ffff',
-                'VBCU', '#00ff00',
-                'LV-BCU', '#00ff00',
-                'LQ-BCP', '#00ff00',
-                'LQ-BCU', '#00ff00',
-                '#ffffff'
-              ] as any,
-              'line-width': 1.5,
-              'line-opacity': 0.75,
-            }}
-          />
-        </Source>
 
         {/* Aircraft Layer (TITAN Telemetry + OpenSky) */}
         {(() => {

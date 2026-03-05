@@ -58,6 +58,7 @@ export default function RadarPredictionRealtime() {
   const [showStormCells, setShowStormCells] = useState(true)
   const [showWeatherWidget, setShowWeatherWidget] = useState(true)
   const [showStations, setShowStations] = useState(true)
+  const [showSmoothRadar, setShowSmoothRadar] = useState(false)
 
   // Notifications State
   const [notifications, setNotifications] = useState<AppNotification[]>([])
@@ -97,11 +98,15 @@ export default function RadarPredictionRealtime() {
 
       const savedStations = localStorage.getItem('showStations');
       if (savedStations !== null) setShowStations(savedStations === 'true');
+
+      const savedSmoothRadar = localStorage.getItem('showSmoothRadar');
+      if (savedSmoothRadar !== null) setShowSmoothRadar(savedSmoothRadar === 'true');
     } else {
       setShowStormCells(true);
       setShowReports(true);
       setShowWeatherWidget(true);
       setShowStations(true);
+      setShowSmoothRadar(false);
     }
 
     const getLocation = (highAccuracy = true) => {
@@ -285,6 +290,7 @@ export default function RadarPredictionRealtime() {
           reports={showReports ? reports : undefined}
           showStormCells={showStormCells}
           showStations={showStations}
+          showSmoothRadar={showSmoothRadar}
           userLocation={userLocation}
           nearestStorm={nearestStorm}
           onReportUpdate={fetchData}
@@ -593,6 +599,11 @@ export default function RadarPredictionRealtime() {
           onShowStationsChange={(val) => {
             setShowStations(val);
             localStorage.setItem('showStations', String(val));
+          }}
+          showSmoothRadar={showSmoothRadar}
+          onShowSmoothRadarChange={(val) => {
+            setShowSmoothRadar(val);
+            localStorage.setItem('showSmoothRadar', String(val));
           }}
         />
       )}

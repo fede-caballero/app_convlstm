@@ -29,6 +29,7 @@ interface RadarVisualizationProps {
   userLocation?: { lat: number, lon: number } | null
   nearestStorm?: { distance: number, cell: any } | null
   onReportUpdate?: () => void
+  showSmoothRadar?: boolean
 }
 
 const INITIAL_VIEW_STATE = {
@@ -59,6 +60,7 @@ export const RadarVisualization = memo(function RadarVisualization({
   reports,
   showStormCells = true,
   showStations = true,
+  showSmoothRadar = false,
   userLocation,
   nearestStorm,
   onReportUpdate
@@ -750,7 +752,7 @@ export const RadarVisualization = memo(function RadarVisualization({
             <Source
               id="radar-source"
               type="image"
-              url={currentImage.url}
+              url={showSmoothRadar ? currentImage.url.replace('.png', '_smoothed.png') : currentImage.url}
               coordinates={imageCoordinates}
             >
               <Layer

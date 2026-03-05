@@ -806,6 +806,19 @@ def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: s
         plt.tight_layout(pad=0)
         # Aumentamos DPI a 300 para que los contornos se vean nítidos en móviles retina/high-res
         plt.savefig(output_image_path, dpi=300, transparent=True, bbox_inches='tight', pad_inches=0)
+        
+        # --- 3.5 Creación de la versión SUAVIZADA ---
+        ax.clear()
+        ax.set_axis_off()
+        ax.patch.set_alpha(0)
+        
+        # contourf suaviza los valores de la matriz entre puntos
+        ax.contourf(x, y, composite_data_2d, levels=titan_bounds, colors=titan_colors, extend='max')
+        plt.tight_layout(pad=0)
+        
+        smoothed_output_path = output_image_path.replace(".png", "_smoothed.png")
+        plt.savefig(smoothed_output_path, dpi=300, transparent=True, bbox_inches='tight', pad_inches=0)
+        
         plt.close(fig)
 
         # --- 4. Calcular Bounding Box Geográfico ---

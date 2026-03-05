@@ -10,7 +10,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { usePush } from "@/lib/push-context"
 import { useLanguage } from "@/lib/language-context"
-import { Bell, AlertTriangle, Plane, Globe, Settings as SettingsIcon, BellRing, Cloud, MessageSquare, Thermometer } from "lucide-react"
+import { Bell, AlertTriangle, Plane, Globe, Settings as SettingsIcon, BellRing, Cloud, MessageSquare, Thermometer, Layers } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 
@@ -25,6 +25,8 @@ interface SettingsDialogProps {
     onShowWeatherWidgetChange?: (show: boolean) => void
     showStations?: boolean
     onShowStationsChange?: (show: boolean) => void
+    showSmoothRadar?: boolean
+    onShowSmoothRadarChange?: (show: boolean) => void
 }
 
 export function SettingsDialog({
@@ -37,7 +39,9 @@ export function SettingsDialog({
     showWeatherWidget = true,
     onShowWeatherWidgetChange,
     showStations = true,
-    onShowStationsChange
+    onShowStationsChange,
+    showSmoothRadar = false,
+    onShowSmoothRadarChange
 }: SettingsDialogProps) {
     const { isSubscribed, preferences, updatePreferences, isSupported, subscribe, unsubscribe, loading } = usePush()
     const { language, setLanguage, t } = useLanguage()
@@ -200,6 +204,27 @@ export function SettingsDialog({
                                 <Switch
                                     checked={showStations}
                                     onCheckedChange={(c) => onShowStationsChange && onShowStationsChange(c)}
+                                    className="data-[state=checked]:bg-sky-500"
+                                />
+                            </div>
+
+                            <div className="h-[1px] w-full bg-[#3c3c3e]" />
+
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-1 max-w-[80%] pr-4">
+                                    <div className="flex items-center gap-2">
+                                        <Layers className="h-4 w-4 text-purple-400" />
+                                        <span className="font-semibold text-sm">
+                                            {t('Suavizado de Radar', 'Radar Smoothing')}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-400 leading-snug">
+                                        {t('Mostrar las celdas de tormenta con contornos difuminados para una vista más estética.', 'Show storm cells with blurred contours for a more aesthetic look.')}
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={showSmoothRadar}
+                                    onCheckedChange={(c) => onShowSmoothRadarChange && onShowSmoothRadarChange(c)}
                                     className="data-[state=checked]:bg-sky-500"
                                 />
                             </div>

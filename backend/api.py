@@ -20,19 +20,35 @@ os.makedirs(REPORTS_UPLOAD_DIR, exist_ok=True)
 # If FRONTEND_URL is "*", allow all. Otherwise, allow specified origins.
 origins_list = [
     "http://localhost:3000",
+    "http://localhost:8080",
     "https://app-convlstm.vercel.app",
     "https://hail-cast.vercel.app",
+    "https://vps-api.hail-cast-mendoza.com",
     FRONTEND_URL
 ]
 
-# Provide fallback list but support * safely
-CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=False)
+# When supports_credentials=True, origins CANNOT be "*"
+CORS(app, origins=origins_list, supports_credentials=True)
 
 # Initialize DB on module load (ensures migrations run in production/gunicorn)
 from database import init_db
 init_db()
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+@app.after_request
+def after_request(response):
+    origin = request.headers.get('Origin')
+    if origin in origins_list:
+        response.headers.add('Access-Control-Allow-Origin', origin)
+    else:
+        # Fallback to wildcard for non-browser clients or permissive testing
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
 
 # --- Auth Endpoints ---
 import auth

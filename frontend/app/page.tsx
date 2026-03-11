@@ -529,7 +529,7 @@ export default function RadarPredictionRealtime() {
 
       {/* Push Notifications Switch (Below Report Button) */}
       <div className="absolute bottom-64 left-4 z-50 flex justify-center w-14">
-        <div className="bg-black/60 backdrop-blur-md rounded-full p-2 border border-white/10 shadow-lg hover:bg-black/80 transition-all">
+        <div className="bg-zinc-200/95 backdrop-blur-md rounded-full p-1 border border-zinc-100/50 shadow-[0_8px_30px_rgb(0,0,0,0.5)] hover:bg-white transition-all">
           {isMounted && <PushSubscriptionButton onClick={() => setIsSettingsOpen(true)} />}
         </div>
       </div>
@@ -540,10 +540,10 @@ export default function RadarPredictionRealtime() {
           variant="ghost"
           size="icon"
           onClick={() => setIsTutorialOpen(true)}
-          className="rounded-full h-12 w-12 bg-black/60 backdrop-blur-md border border-white/10 shadow-lg hover:bg-black/80 text-zinc-400 hover:text-white transition-all"
+          className="rounded-full h-14 w-14 bg-zinc-200/95 backdrop-blur-md border border-zinc-100/50 shadow-[0_8px_30px_rgb(0,0,0,0.5)] hover:bg-white text-rose-600 hover:text-rose-500 transition-all p-0"
         >
-          <div className="flex flex-col items-center justify-center -space-y-0.5">
-            <span className="text-xl font-bold">?</span>
+          <div className="flex flex-col items-center justify-center -space-y-0.5 mt-0.5">
+            <span className="text-3xl font-black">?</span>
           </div>
         </Button>
       </div>

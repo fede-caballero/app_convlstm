@@ -17,9 +17,9 @@ export function PushSubscriptionButton({ onClick }: { onClick?: () => void }) {
             size="icon"
             onClick={onClick}
             title={"Configuraciones"}
-            className={"text-zinc-400 hover:text-white hover:bg-white/10"}
+            className={"text-zinc-900 hover:text-black hover:bg-zinc-200/50 h-11 w-11 rounded-full"}
         >
-            <Settings className="h-5 w-5" />
+            <Settings className="h-6 w-6 stroke-[2.5px]" />
         </Button>
     )
 }

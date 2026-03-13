@@ -389,6 +389,7 @@ export default function RadarPredictionRealtime() {
                         <div className="flex items-center gap-2">
                           <Activity className="w-4 h-4 text-zinc-400" />
                           <SheetTitle className="text-sm font-semibold text-zinc-200 m-0">{t("Estado del Sistema", "System Status")}</SheetTitle>
+                          <SheetDescription className="sr-only">Admin Sidebar</SheetDescription>
                         </div>
                         <Badge variant="outline" className={`border-0 bg-white/5 ${userLocation ? "text-green-400" : "text-amber-400"}`}>
                           {userLocation ? (

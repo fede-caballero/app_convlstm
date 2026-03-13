@@ -84,7 +84,7 @@ export default function LoginPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
                         <div className="space-y-2">
                             <label className="text-sm font-bold text-gray-200 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="username">Usuario o Email</label>
                             <Input
@@ -94,6 +94,7 @@ export default function LoginPage() {
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
                                 required
+                                autoComplete="off"
                                 className="bg-zinc-800/80 border-zinc-600 text-white focus:ring-primary focus:border-primary placeholder:text-gray-500 font-medium"
                             />
                         </div>
@@ -116,6 +117,7 @@ export default function LoginPage() {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
+                                    autoComplete="new-password"
                                     className="bg-zinc-800 border-zinc-700 text-zinc-100 focus:ring-primary focus:border-primary pr-10"
                                 />
                                 <button

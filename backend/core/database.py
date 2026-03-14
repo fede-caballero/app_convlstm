@@ -1,7 +1,7 @@
 import os
 import sqlite3
 import logging
-from config import DB_PATH
+from core.config import DB_PATH
 
 def init_db():
     """Inicializa la base de datos SQLite si no existe."""

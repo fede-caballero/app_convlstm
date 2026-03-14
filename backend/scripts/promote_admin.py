@@ -1,7 +1,7 @@
 import sqlite3
 import sys
 import os
-from database import DB_PATH
+from core.database import DB_PATH
 
 def promote_user(username):
     if not os.path.exists(DB_PATH):

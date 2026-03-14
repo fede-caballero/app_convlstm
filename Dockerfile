@@ -99,8 +99,9 @@ RUN echo '#!/bin/bash\n\
     fi\n\
     \n\
     echo "Starting backend services..."\n\
-    python3 /app/pipeline_worker.py > /app/logs/worker.log 2>&1 &\n\
-    python3 /app/api.py > /app/logs/api.log 2>&1 &\n\
+    export PYTHONPATH="/app/backend"\n\
+    python3 -m worker.main > /app/logs/worker.log 2>&1 &\n\
+    python3 -m api.main > /app/logs/api.log 2>&1 &\n\
     echo "Starting frontend..."\n\
     cd /app/frontend\n\
     npm start > /app/logs/frontend.log 2>&1 &\n\

@@ -45,13 +45,14 @@ trap cleanup SIGINT SIGTERM
 # --- Iniciar los Procesos ---
 echo "Iniciando Pipeline Worker en segundo plano..."
 # Redirigimos stdout y stderr al archivo de log
-python3 /app/pipeline_worker.py >> "$LOG_FILE" 2>&1 &
+export PYTHONPATH="/app/backend"
+python3 -m worker.main >> "$LOG_FILE" 2>&1 &
 # Guardamos el ID del Proceso (PID) del worker
 WORKER_PID=$!
 
 echo "Iniciando API Server en el puerto 8080..."
 # Redirigimos stdout y stderr al archivo de log
-python3 /app/api.py >> "$LOG_FILE" 2>&1 &
+python3 -m api.main >> "$LOG_FILE" 2>&1 &
 # Guardamos el PID de la API
 API_PID=$!
 

@@ -9,9 +9,9 @@ from werkzeug.utils import secure_filename
 import requests
 import concurrent.futures
 from flask_cors import CORS, cross_origin
-from config import STATUS_FILE_PATH, IMAGE_OUTPUT_DIR, DB_PATH, FRONTEND_URL
+from core.config import STATUS_FILE_PATH, IMAGE_OUTPUT_DIR, DB_PATH, FRONTEND_URL
 from datetime import datetime, timedelta, timezone
-import auth
+from core import auth
 
 app = Flask(__name__)
 REPORTS_UPLOAD_DIR = os.path.join(os.path.dirname(DB_PATH), 'uploads')
@@ -32,14 +32,14 @@ origins_list = [
 CORS(app, origins=origins_list, supports_credentials=True)
 
 # Initialize DB on module load (ensures migrations run in production/gunicorn)
-from database import init_db
+from core.database import init_db
 init_db()
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Auth Endpoints ---
-import auth
-import email_service
+from core import auth
+from services import email_service
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 
@@ -320,7 +320,7 @@ def serve_upload(filename):
     return send_from_directory(REPORTS_UPLOAD_DIR, filename)
 
 # --- Push Notifications Endpoints ---
-from config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL
+from core.config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL
 from pywebpush import webpush, WebPushException
 # We need Vapid to derive the public key. Try importing from py_vapid or pywebpush.
 try:
@@ -769,6 +769,12 @@ def get_status():
         with open(STATUS_FILE_PATH, 'r') as f:
             status_data = json.load(f)
         return jsonify(status_data)
+    except json.JSONDecodeError as e:
+        logging.warning(f"Status file is temporarily empty or corrupted: {e}")
+        return jsonify({
+            "status": "UPDATING",
+            "message": "Status file is currently being updated or is empty."
+        }), 200
     except Exception as e:
         logging.error(f"Error al leer el archivo de estado: {e}")
         return jsonify({
@@ -921,7 +927,7 @@ def upload_mdv():
     if file and file.filename.endswith('.mdv'):
         try:
             # Asegurar que el directorio existe
-            from config import MDV_INBOX_DIR
+            from core.config import MDV_INBOX_DIR
             os.makedirs(MDV_INBOX_DIR, exist_ok=True)
             
             filename = os.path.basename(file.filename)
@@ -1149,7 +1155,7 @@ def toggle_report_like(report_id):
         conn.close()
 
 # --- Aircraft Telemetry Endpoint ---
-import aircraft_tracker
+from services import aircraft_tracker
 
 @app.route('/api/aircraft', methods=['GET'])
 def get_aircraft():

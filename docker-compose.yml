@@ -26,17 +26,3 @@ services:
               count: 1
               capabilities: [ gpu ]
     restart: unless-stopped
-
-  frontend:
-    image: frcaballero/lrose-interactive-frontend:v1.0.0
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: convlstm_frontend
-    ports:
-      - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 # Client-side access (browser to backend)
-    depends_on:
-      - backend
-    restart: unless-stopped

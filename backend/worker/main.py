@@ -19,12 +19,12 @@ from scipy.ndimage import label, center_of_mass
 
 
 # Importamos desde nuestros módulos
-from config import (MDV_INBOX_DIR, MDV_ARCHIVE_DIR, INPUT_DIR, OUTPUT_DIR, ARCHIVE_DIR, 
+from core.config import (MDV_INBOX_DIR, MDV_ARCHIVE_DIR, INPUT_DIR, OUTPUT_DIR, ARCHIVE_DIR, 
                     SECUENCE_LENGHT, POLL_INTERVAL_SECONDS, MODEL_PATH, 
                     DATA_CONFIG, STATUS_FILE_PATH, MDV_OUTPUT_DIR, IMAGE_OUTPUT_DIR, DB_PATH,
                     VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL, FRONTEND_URL)
 from model.predict import ModelPredictor
-import aircraft_tracker
+from services import aircraft_tracker
 
 from pywebpush import webpush, WebPushException
 try:
@@ -856,7 +856,7 @@ def generar_imagen_transparente_y_bounds(nc_file_path: str, output_image_path: s
         logging.error(f"No se pudo generar la imagen para {nc_file_path}: {e}", exc_info=True)
         return None
 
-from database import init_db, DB_PATH
+from core.database import init_db, DB_PATH
 
 def log_prediction(timestamp, input_seq_id, output_path, status="SUCCESS"):
     """Registra una predicción en la base de datos."""
@@ -883,8 +883,14 @@ def update_status(status_message: str, file_count: int, total_needed: int):
         "last_update": datetime.now(timezone.utc).isoformat()
     }
     try:
-        with open(STATUS_FILE_PATH, 'w') as f:
+        import tempfile
+        import os
+        dir_name = os.path.dirname(STATUS_FILE_PATH) or "."
+        os.makedirs(dir_name, exist_ok=True)
+        fd, temp_path = tempfile.mkstemp(dir=dir_name, suffix='.json')
+        with os.fdopen(fd, 'w') as f:
             json.dump(status, f, indent=4)
+        os.replace(temp_path, STATUS_FILE_PATH)
         logging.info(f"Estado actualizado: {status_message}")
     except Exception as e:
         logging.error(f"No se pudo escribir en el archivo de estado: {e}")

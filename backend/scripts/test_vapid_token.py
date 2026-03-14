@@ -7,7 +7,7 @@ import traceback
 logging.basicConfig(level=logging.INFO)
 sys.path.append(os.path.abspath('backend'))
 
-from config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL
+from core.config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL
 from pywebpush import webpush
 
 print(f"Key loaded: {bool(VAPID_PRIVATE_KEY)}")

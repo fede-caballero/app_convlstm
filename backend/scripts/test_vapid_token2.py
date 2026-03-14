@@ -8,7 +8,7 @@ logging.basicConfig(level=logging.INFO)
 sys.path.append(os.path.abspath('backend'))
 
 try:
-    from config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL
+    from core.config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL
     from py_vapid import Vapid
     
     print(f"Key loaded? {bool(VAPID_PRIVATE_KEY)}")

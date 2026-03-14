@@ -11,7 +11,7 @@ TRACKED_AIRCRAFT = {
     "lq-bcu": {"reg": "LQ-BCU", "type": "T-MaybeSeed"}, # No ADS-B Out likely, but keeping fallback
 }
 
-from database import get_db_connection
+from core.database import get_db_connection
 
 # Trail history (still OK in memory since only the API reader displays it)
 MAX_TRAIL_POINTS = 50

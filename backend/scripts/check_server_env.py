@@ -23,8 +23,8 @@ except ImportError as e:
 
 # 3. Check config.py logic
 try:
-    import config
-    print("3. config.py: [IMPORTED]")
+    from core import config
+    print("3. core.config: [IMPORTED]")
     processed_key = config.VAPID_PRIVATE_KEY
     print(f"   Processed Key in config: {'[PRESENT]' if processed_key else '[MISSING]'}")
     if processed_key:

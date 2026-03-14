@@ -1,7 +1,7 @@
 import torch
 import logging
 
-from config import DEVICE, MODEL_CONFIG, Z_BATCH_SIZE
+from core.config import DEVICE, MODEL_CONFIG, Z_BATCH_SIZE
 
 from model.architecture import ConvLSTM3D_Enhanced
 

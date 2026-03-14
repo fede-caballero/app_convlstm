@@ -1,5 +1,5 @@
 from py_vapid import Vapid
-from config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL
+from core.config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL
 import logging
 
 logging.basicConfig(level=logging.DEBUG)

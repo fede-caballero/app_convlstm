@@ -1,6 +1,6 @@
 import sqlite3
 import datetime
-from database import DB_PATH
+from core.database import DB_PATH
 
 def analyze_users():
     conn = sqlite3.connect(DB_PATH)

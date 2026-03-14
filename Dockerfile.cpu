@@ -128,8 +128,9 @@ RUN echo '#!/bin/bash\n\
     # export OMP_NUM_THREADS=2\n\
     # export MKL_NUM_THREADS=2\n\
     \n\
-    python3 /app/backend/pipeline_worker.py > /app/logs/worker.log 2>&1 &\n\
-    python3 /app/backend/api.py > /app/logs/api.log 2>&1 &\n\
+    export PYTHONPATH="/app/backend"\n\
+    python3 -m worker.main > /app/logs/worker.log 2>&1 &\n\
+    python3 -m api.main > /app/logs/api.log 2>&1 &\n\
     \n\
     if [ -n "$RCLONE_REMOTE_BASE" ]; then\n\
     echo "Starting Drive Watcher pointing to $RCLONE_REMOTE_BASE..."\n\

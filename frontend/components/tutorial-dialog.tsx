@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Bot, LocateFixed, AlertCircle, Zap, Bell, BellRing, Play, Layers, Cloud, Info } from "lucide-react"
+import { Bot, LocateFixed, AlertCircle, Zap, Bell, BellRing, Play, Layers, Cloud, Info, Mail, Github, Linkedin } from "lucide-react"
 import { useLanguage } from "@/lib/language-context"
 
 interface TutorialDialogProps {
@@ -82,14 +82,18 @@ export function TutorialDialog({ open, onOpenChange }: TutorialDialogProps) {
                     </DialogDescription>
                 </DialogHeader>
                 <Tabs defaultValue="features" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 bg-blue-200 mb-2">
+                    <TabsList className="grid w-full grid-cols-3 bg-blue-200 mb-2">
                         <TabsTrigger value="features" className="data-[state=active]:bg-gray-600 data-[state=active]:text-primary-foreground">
                             <Info className="w-4 h-4 mr-2" />
                             {t("Funciones", "Features")}
                         </TabsTrigger>
                         <TabsTrigger value="scale" className="data-[state=active]:bg-gray-600 data-[state=active]:text-primary-foreground">
                             <Cloud className="w-4 h-4 mr-2" />
-                            {t("Radar", "Radar Scale")}
+                            {t("Radar", "Radar")}
+                        </TabsTrigger>
+                        <TabsTrigger value="contact" className="data-[state=active]:bg-gray-600 data-[state=active]:text-primary-foreground">
+                            <Mail className="w-4 h-4 mr-2" />
+                            {t("Contacto", "Contact")}
                         </TabsTrigger>
                     </TabsList>
 
@@ -173,6 +177,45 @@ export function TutorialDialog({ open, onOpenChange }: TutorialDialogProps) {
                                             <p className="text-xs text-zinc-400">{t("Lluvia torrencial y granizo seguro", "Torrential rain and definite hail")}</p>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                        </ScrollArea>
+                    </TabsContent>
+                    
+                    <TabsContent value="contact" className="m-0 mt-2">
+                        <ScrollArea className="h-[55vh] pr-4">
+                            <div className="flex flex-col gap-6 py-4 px-2">
+                                <div className="text-center space-y-2 mb-4">
+                                    <h3 className="text-lg font-semibold text-white">{t("Desarrollado por", "Developed by")} Federico Caballero</h3>
+                                    <p className="text-zinc-400 text-sm">
+                                        {t("Proyecto Final de Grado - Universidad de Mendoza", "Final Degree Project - Universidad de Mendoza")}
+                                    </p>
+                                </div>
+                                
+                                <div className="flex flex-col gap-4">
+                                    <a href="mailto:federicorcaballero@gmail.com" className="flex items-center gap-4 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors border border-white/10">
+                                        <Mail className="h-6 w-6 text-sky-400" />
+                                        <div>
+                                            <p className="font-semibold text-sm text-zinc-100">Email</p>
+                                            <p className="text-sm text-zinc-400 relative z-10">federicorcaballero@gmail.com</p>
+                                        </div>
+                                    </a>
+                                    
+                                    <a href="https://linkedin.com/in/federico-caballero1" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors border border-white/10">
+                                        <Linkedin className="h-6 w-6 text-blue-500" />
+                                        <div>
+                                            <p className="font-semibold text-sm text-zinc-100">LinkedIn</p>
+                                            <p className="text-sm text-zinc-400 relative z-10">federico-caballero1</p>
+                                        </div>
+                                    </a>
+                                    
+                                    <a href="https://github.com/fede-caballero" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors border border-white/10">
+                                        <Github className="h-6 w-6 text-zinc-300" />
+                                        <div>
+                                            <p className="font-semibold text-sm text-zinc-100">GitHub</p>
+                                            <p className="text-sm text-zinc-400 relative z-10">fede-caballero</p>
+                                        </div>
+                                    </a>
                                 </div>
                             </div>
                         </ScrollArea>
